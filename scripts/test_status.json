@@ -1,0 +1,17 @@
+{
+  "TEST 1: Admin Panel — Cấu hình hệ thống": "Passed",
+  "TEST 2: Màn Hình Chào — Đăng nhập GiacNgo SSO": "Passed",
+  "TEST 3: Chat & TTS — Thưa hỏi Lão": "Passed",
+  "TEST 4: Kiểm tra Greeting AI thông minh": "Passed",
+  "TEST 5: Kho Tàng Pháp Bảo (Modal)": "Passed",
+  "TEST 6: RAG → Tải lại từ GiacNgo": "Passed",
+  "TEST 7: Pháp Bảo Khai Thị (Sidebar Lịch sử)": "Passed",
+  "TEST 8: Bộ Điều Chỉnh Nhân Vật Lão": "Passed",
+  "TEST 9: Đạo Diễn AI — Tạo Kịch Bản Tự Động": "Passed",
+  "TEST 10: Nhập Kịch Bản Thủ Công (Text-to-Video)": "Passed",
+  "TEST 11: Chế Độ Live Stream / OBS": "Passed",
+  "TEST 12: Freemium & Thanh Toán": "Passed",
+  "TEST 13: Bộ đếm Tĩnh Tâm (Idle Timer)": "Passed",
+  "TEST 14: Tutorial Tour (Lần đầu dùng)": "Passed",
+  "TEST 15: Proxy bảo mật (không lộ API Key)": "Passed"
+}

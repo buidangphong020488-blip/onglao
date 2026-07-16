@@ -1,0 +1,107 @@
+[
+  {
+    "id": 1,
+    "label": "Trẻ em - Hồn nhiên, thắc mắc",
+    "text": "giọng trẻ em, tông giọng cao, hồn nhiên, ngơ ngác, thắc mắc, miền Nam, đúng chính tả"
+  },
+  {
+    "id": 2,
+    "label": "Trẻ em - Sợ hãi, mếu máo",
+    "text": "giọng trẻ em, tông giọng run rẩy, sợ hãi, mếu máo, thiết tha, miền Nam, đúng chính tả"
+  },
+  {
+    "id": 3,
+    "label": "Trẻ em - Vui vẻ, lanh lợi",
+    "text": "giọng trẻ em, lanh lợi, vui tươi, tốc độ nói hơi nhanh, miền Nam, đúng chính tả"
+  },
+  {
+    "id": 4,
+    "label": "Trẻ em - Lễ phép, ngoan ngoãn",
+    "text": "giọng trẻ em, tông giọng trầm ấm hơn, từ tốn, lễ phép, ngoan ngoãn, miền Nam, đúng chính tả"
+  },
+  {
+    "id": 5,
+    "label": "Trẻ em - Bướng bỉnh, cãi lý",
+    "text": "giọng trẻ em, cao giọng, bướng bỉnh, hơi nhõng nhẽo, cãi lý, miền Nam, đúng chính tả"
+  },
+  {
+    "id": 6,
+    "label": "Thanh niên - Rối rắm, bế tắc",
+    "text": "giọng thanh niên, tốc độ nói vừa phải, tỏ vẻ rối rắm, bế tắc, mệt mỏi, miền Nam, đúng chính tả"
+  },
+  {
+    "id": 7,
+    "label": "Thanh niên - Thiết tha, khẩn cầu",
+    "text": "giọng thanh niên, tha thiết, khẩn cầu, khao khát tìm chân lý, miền Nam, đúng chính tả"
+  },
+  {
+    "id": 8,
+    "label": "Thanh niên - Tức giận, bất mãn",
+    "text": "giọng thanh niên, tông giọng hơi gắt, tức giận, bất mãn, trách móc cuộc đời, miền Nam, đúng chính tả"
+  },
+  {
+    "id": 9,
+    "label": "Thanh niên - Tự tin, kiêu ngạo",
+    "text": "giọng thanh niên, dõng dạc, tự tin, kiêu ngạo, lý trí, rành mạch, miền Nam, đúng chính tả"
+  },
+  {
+    "id": 10,
+    "label": "Thanh niên - Hạnh phúc, vỡ òa",
+    "text": "giọng thanh niên, vỡ òa cảm xúc, nghẹn ngào vì hạnh phúc, ngộ đạo, miền Nam, đúng chính tả"
+  },
+  {
+    "id": 11,
+    "label": "Thanh niên - Lạnh lùng, dò xét",
+    "text": "giọng thanh niên, tông giọng lạnh lùng, dò xét, nghi ngờ, chậm rãi, miền Nam, đúng chính tả"
+  },
+  {
+    "id": 12,
+    "label": "Trung niên - Trải đời, chua xót",
+    "text": "giọng trung niên, trầm buồn, trải đời, chua xót, ngậm ngùi, miền Nam, đúng chính tả"
+  },
+  {
+    "id": 13,
+    "label": "Trung niên - Điềm đạm, suy tư",
+    "text": "giọng trung niên, điềm đạm, chậm rãi, suy tư, thắc mắc sâu sắc, miền Nam, đúng chính tả"
+  },
+  {
+    "id": 14,
+    "label": "Trung niên - Nặng gánh gia đình",
+    "text": "giọng trung niên, mệt mỏi, thở dài, nặng gánh gia đình, bế tắc, miền Nam, đúng chính tả"
+  },
+  {
+    "id": 15,
+    "label": "Trung niên - Hối hận, ăn năn",
+    "text": "giọng trung niên, run rẩy nhẹ, hối hận, ăn năn, tha thiết xin lời khuyên, miền Nam, đúng chính tả"
+  },
+  {
+    "id": 16,
+    "label": "Trung niên - Bình thản, buông xả",
+    "text": "giọng trung niên, bình thản, nhẹ nhàng, có ý buông xả, thanh thản, miền Nam, đúng chính tả"
+  },
+  {
+    "id": 17,
+    "label": "Người già - Lão thành, thông thái",
+    "text": "giọng người già, khàn nhẹ, chậm rãi, lão thành, thông thái, miền Nam, đúng chính tả"
+  },
+  {
+    "id": 18,
+    "label": "Người già - Yếu ớt, lo âu",
+    "text": "giọng người già, thều thào, yếu ớt, lo âu về cái chết, sợ hãi, miền Nam, đúng chính tả"
+  },
+  {
+    "id": 19,
+    "label": "Người già - Từ bi, ấm áp",
+    "text": "giọng người già, trầm ấm, từ bi, hiền hậu, thong thả, miền Nam, đúng chính tả"
+  },
+  {
+    "id": 20,
+    "label": "Người già - Cay đắng, nuối tiếc",
+    "text": "giọng người già, ngậm ngùi, cay đắng, nuối tiếc quá khứ, chậm rãi, miền Nam, đúng chính tả"
+  },
+  {
+    "id": 21,
+    "label": "Người già - Nhẹ nhàng, tỉnh mộng",
+    "text": "giọng người già, thanh tịnh, nhẹ nhàng, thấu hiểu mộng ảo, mỉm cười, miền Nam, đúng chính tả"
+  }
+]

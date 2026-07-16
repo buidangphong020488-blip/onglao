@@ -1,0 +1,178 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id               String         @id @default(uuid())
+  email            String         @unique
+  name             String?
+  image            String?
+  role             Role           @default(USER)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  appLanguage      String?
+  customLaoName    String?
+  customUserName   String?
+  laoCallUser      String?
+  laoSelfCall      String?
+  laoVoice         String?
+  laoVoiceStyle    String?
+  profileCompleted Boolean        @default(false)
+  userAge          Int?
+  userCallLao      String?
+  userGender       String?
+  userSelfCall     String?
+  userVoice        String?
+  userVoiceStyle   String?
+  laoPresetId      String?
+  chatSessions     ChatSession[]
+  favorites        UserFavorite[]
+}
+
+model KnowledgeBase {
+  id        String   @id @default(uuid())
+  category  String?
+  question  String   @unique
+  answer    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Poem {
+  id        String   @id @default(uuid())
+  title     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  stanzas   Stanza[]
+}
+
+model Stanza {
+  id        String   @id @default(uuid())
+  poemId    String
+  content   String
+  meaning   String
+  audioUrl  String?
+  tags      String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  poem      Poem     @relation(fields: [poemId], references: [id], onDelete: Cascade)
+}
+
+model VoiceStyle {
+  id         Int      @id @default(autoincrement())
+  label      String   @unique
+  promptText String
+  createdAt  DateTime @default(now())
+}
+
+model BackgroundMusic {
+  id        String   @id @default(uuid())
+  name      String
+  url       String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model ChatSession {
+  id             String        @id @default(uuid())
+  userId         String?
+  title          String        @default("Hội thoại mới")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  laoVoice       String?
+  laoVoiceStyle  String?
+  userVoice      String?
+  userVoiceStyle String?
+  type           String        @default("chat")
+  messages       ChatMessage[]
+  user           User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, updatedAt])
+}
+
+model ChatMessage {
+  id           String      @id @default(uuid())
+  sessionId    String
+  role         MessageRole
+  content      String
+  audioUrl     String?
+  voiceStyleId Int?
+  createdAt    DateTime    @default(now())
+  session      ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+}
+
+model UserFavorite {
+  id        String       @id @default(uuid())
+  userId    String
+  itemType  FavoriteType
+  itemId    String
+  createdAt DateTime     @default(now())
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, itemType, itemId])
+}
+
+model PromptTemplate {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model VoicePersona {
+  id          String   @id @default(uuid())
+  name        String
+  listenVideo String?
+  speakVideo  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CanhQuay {
+  id          String   @id @default(uuid())
+  name        String
+  assetsNgang Json?
+  assetsDoc   Json?
+  linkedIds   Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model OpeningPhrase {
+  id        String   @id @default(uuid())
+  text      String
+  audioUrl  String?
+  category  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum FavoriteType {
+  POEM_STANZA
+  KNOWLEDGE
+}
