@@ -47,8 +47,14 @@ const VideoCreatorModal = () => {
   React.useEffect(() => {
     if (!p.showVideoExportModal) return;
     if (!p.messages?.length) return;
+    if (p.messages[0]?.sessionId && p.messages[0]?.sessionId !== p.currentSessionId) return; // Đợi load đúng tin nhắn của session hiện tại
+
     const hasMessageScenes = p.ffScenes?.some((s: any) => s.msgId);
-    if (hasMessageScenes) return; // Đã chia cảnh theo thoại rồi, không cần làm lại
+    if (hasMessageScenes) {
+        // Kiểm tra xem các scene cũ có bị "lạc lõng" so với messages hiện tại không (do đổi kịch bản)
+        const isStale = p.ffScenes.some((s: any) => s.msgId && !p.messages.find((m: any) => m.id === s.msgId));
+        if (!isStale) return; // Đã chia cảnh theo thoại rồi, không cần làm lại
+    }
     
     const detectEmotion = (text: string) => {
         if (!text) return 'calm';
