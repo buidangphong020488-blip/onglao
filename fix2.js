@@ -1,10 +1,9 @@
 const fs = require('fs');
-let content = fs.readFileSync('src/components/onglao/components/AiDirectorManagerModal.tsx', 'utf8');
-
-content = content.replace(
-  /<select[\s\S]*?<option value="">-- Ch?n t? Kho --<\/option>[\s\S]*?<\/select>/g,
-  "{/* Removed Kho dropdown */}"
-);
-
-fs.writeFileSync('src/components/onglao/components/AiDirectorManagerModal.tsx', content, 'utf8');
-console.log('Done dropdown');
+const path = require('path');
+const p = path.join(__dirname, 'src/components/onglao/components/AiDirectorManagerModal.tsx');
+let c = fs.readFileSync(p, 'utf8');
+const lines = c.split(/\r?\n/);
+lines[1721] = '                        <h3 className="text-lg font-bold text-white mb-2">Xác nhận xóa</h3>';
+lines[1723] = '                            Bạn có chắc chắn muốn xóa {deleteConfirm.count} kịch bản không? Hành động này không thể hoàn tác.';
+fs.writeFileSync(p, lines.join('\n'));
+console.log('Done!');

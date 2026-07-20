@@ -361,12 +361,12 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                         p.setCurrentSessionId(null);
                     }
                 } else {
-                    p.showToastMsg('L?i khi x�a k?ch b?n: ' + (res.error || ''), 'error');
+                    p.showToastMsg('Lỗi khi xóa kịch bản: ' + (res.error || ''), 'error');
                 }
             }
-            p.showToastMsg('�� x�a ' + ids.length + ' k?ch b?n.', 'success');
+            p.showToastMsg('Đã xóa ' + ids.length + ' kịch bản.', 'success');
         } catch (err) {
-            p.showToastMsg('L?i khi x�a k?ch b?n.', 'error');
+            p.showToastMsg('Lỗi khi xóa kịch bản.', 'error');
         } finally {
             setSaving(false);
             setDeleteConfirm(null);
@@ -1719,9 +1719,9 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                         <div className="mx-auto w-12 h-12 bg-rose-500/20 rounded-full flex items-center justify-center mb-4">
                             <Trash2 className="text-rose-400" size={24} />
                         </div>
-                        <h3 className="text-lg font-bold text-white mb-2">X�c nh?n x�a</h3>
+                        <h3 className="text-lg font-bold text-white mb-2">Xác nhận xóa</h3>
                         <p className="text-slate-400 text-sm mb-6">
-                            B?n c� ch?c ch?n mu?n x�a {deleteConfirm.count} k?ch b?n kh�ng? H�nh d?ng n�y kh�ng th? ho�n t�c.
+                            Bạn có chắc chắn muốn xóa {deleteConfirm.count} kịch bản không? Hành động này không thể hoàn tác.
                         </p>
                         <div className="flex gap-3 justify-center">
                             <button
@@ -1729,7 +1729,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                 disabled={saving}
                                 className="px-5 py-2 rounded-xl text-sm font-bold text-slate-300 bg-slate-800 hover:bg-slate-700 transition-colors disabled:opacity-50"
                             >
-                                H?y b?
+                                Hủy bỏ
                             </button>
                             <button
                                 onClick={() => executeDeleteScripts(deleteConfirm.ids)}
@@ -1737,7 +1737,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                 className="px-5 py-2 rounded-xl text-sm font-bold text-white bg-rose-600 hover:bg-rose-500 flex items-center gap-2 transition-colors disabled:opacity-50"
                             >
                                 {saving ? <Loader2 size={16} className="animate-spin" /> : null}
-                                {saving ? '�ang x�a...' : 'X�a ngay'}
+                                {saving ? 'Đang xóa...' : 'Xóa ngay'}
                             </button>
                         </div>
                     </div>
