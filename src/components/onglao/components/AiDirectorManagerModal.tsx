@@ -107,7 +107,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                     if (res.success && res.data) {
                         const mapped = res.data.map((m: any) => ({
                             id: m.id || m.msgId || Date.now(),
-                            role: m.role === 'ASSISTANT' ? 'ai' : 'user',
+                            role: m.role === 'ASSISTANT' ? 'ai' : (m.role === 'OUTRO' ? 'outro' : 'user'),
                             text: m.content,
                             timestamp: m.createdAt ? new Date(m.createdAt) : new Date(),
                             audioUrl: m.audioUrl || null,
@@ -230,7 +230,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
             if (res.success && res.data) {
                 const mapped = res.data.map((m: any) => ({
                     id: m.id,
-                    role: m.role === 'ASSISTANT' ? 'ai' : 'user',
+                    role: m.role === 'ASSISTANT' ? 'ai' : (m.role === 'OUTRO' ? 'outro' : 'user'),
                     text: m.content,
                     audioUrl: m.audioUrl,
                     emotion: m.emotion || 'calm'
@@ -239,7 +239,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
 
                 // Tạo raw text cho 1 textbox
                 const raw = mapped.map((m: any) => {
-                    const prefix = m.role === 'ai' ? (p.customLaoName || 'Lão') : (p.customUserName || 'Con');
+                    const prefix = m.role === 'ai' ? (p.customLaoName || 'Lão') : (m.role === 'outro' ? 'Outro' : (p.customUserName || 'Con'));
                     return `${prefix}: ${m.text}`;
                 }).join('\n\n');
                 setEditingRawText(raw);
@@ -388,8 +388,9 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
             const newMsgs: any[] = [];
             let currentRole = 'ai';
 
-            const laoNames = ['lão', 'đáp', 'ai', 'người khai thị'];
-            const userNames = ['con', 'người hỏi', 'hỏi'];
+            const laoNames = ['lão', 'đáp', 'ai', 'người khai thị', 'lao', 'assistant', 'reply', 'answer'];
+            const userNames = ['con', 'người hỏi', 'hỏi', 'user', 'question', 'ask'];
+            const outroNames = ['outro', 'kết', 'kết thúc', 'end', 'ending'];
             const customLao = p.customLaoName?.trim().toLowerCase();
             const customUser = p.customUserName?.trim().toLowerCase();
             if (customLao && !laoNames.includes(customLao)) laoNames.push(customLao);
@@ -398,6 +399,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
             // Xây dựng regex bắt TÊN: nội dung
             const laoPattern = new RegExp(`^(${laoNames.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\[.*?\\]|\\s*\\(.*?\\))?\\s*:`, 'i');
             const userPattern = new RegExp(`^(${userNames.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\[.*?\\]|\\s*\\(.*?\\))?\\s*:`, 'i');
+            const outroPattern = new RegExp(`^(${outroNames.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\[.*?\\]|\\s*\\(.*?\\))?\\s*:`, 'i');
 
             lines.forEach(line => {
                  const text = line.trim();
@@ -414,6 +416,10 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                     role = 'ai';
                     cleanText = text.replace(laoPattern, '').trim();
                     currentRole = 'ai';
+                 } else if (outroPattern.test(text)) {
+                    role = 'outro';
+                    cleanText = text.replace(outroPattern, '').trim();
+                    currentRole = 'outro';
                  } else {
                     role = currentRole;
                     cleanText = text;
@@ -440,7 +446,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
             // Chuẩn bị payload cho batch save
             const messagesPayload = finalMsgs.map(msg => ({
                 id: msg.id.toString(),
-                role: (msg.role === 'ai' ? 'ASSISTANT' : 'USER') as 'USER' | 'ASSISTANT' | 'SYSTEM',
+                role: (msg.role === 'ai' ? 'ASSISTANT' : (msg.role === 'outro' ? 'OUTRO' : 'USER')) as 'USER' | 'ASSISTANT' | 'SYSTEM' | 'OUTRO',
                 content: msg.text,
                 audioUrl: msg.audioUrl,
                 voiceStyleId: null
@@ -1018,7 +1024,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                 if (res.success && res.data) {
                     const mapped = res.data.map((m: any) => ({
                         id: m.id,
-                        role: m.role === 'ASSISTANT' ? 'ai' : 'user',
+                        role: m.role === 'ASSISTANT' ? 'ai' : (m.role === 'OUTRO' ? 'outro' : 'user'),
                         text: m.content,
                         audioUrl: m.audioUrl,
                         emotion: m.emotion || 'calm'

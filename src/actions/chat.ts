@@ -192,7 +192,7 @@ export async function batchSaveScriptAction(
   sessionId: string,
   messages: Array<{
     id: string;
-    role: "USER" | "ASSISTANT" | "SYSTEM";
+    role: "USER" | "ASSISTANT" | "SYSTEM" | "OUTRO";
     content: string;
     audioUrl?: string | null;
     voiceStyleId?: number | null;

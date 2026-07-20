@@ -376,8 +376,13 @@ const VideoCreatorModal = () => {
                                         <label htmlFor="batch-upload" className="mt-2 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded text-[9px] font-bold cursor-pointer transition-all">Hoặc Chọn File</label>
                                     </div>
                                     
-                                    {ffScenes.map((scene: any, idx: any) => (
-                                        <div key={scene.id} className="flex gap-2 items-center bg-slate-950 p-2 rounded-lg border border-white/5 relative group mt-1">
+                                    {(() => {
+                                        const hasMsgScenes = ffScenes?.some((s: any) => s.msgId);
+                                        return ffScenes.map((scene: any, idx: any) => {
+                                            const isRedundant = hasMsgScenes && !scene.msgId && scene.role !== 'outro';
+                                            if (isRedundant) return null;
+                                            return (
+                                                <div key={scene.id} className="flex gap-2 items-center bg-slate-950 p-2 rounded-lg border border-white/5 relative group mt-1">
                                             {/* Bảng điều khiển mini (Move & Delete) */}
                                             <div className="absolute -top-3 -right-2 flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                                                 <div className="flex gap-0.5 bg-slate-800 p-1 rounded-md shadow-lg border border-white/10">
@@ -492,7 +497,9 @@ const VideoCreatorModal = () => {
 
                                             </div>
                                         </div>
-                                    ))}
+                                    );
+                                });
+                            })()}
                                 </div>
                             )}
                          </div>
