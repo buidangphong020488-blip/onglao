@@ -45,3 +45,6 @@ OngLao.zip
 
 # Large database dumps
 /docs/160-mao-dau.json
+
+# Data folder
+/data
