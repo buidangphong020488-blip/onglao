@@ -312,6 +312,7 @@ const VideoCreatorModal = () => {
                                                 const name = f.name.toLowerCase();
                                                 let role = 'user';
                                                 if (name.includes('lao') || name.includes('lão') || name.includes('ai') || name.includes('đáp')) role = 'lao';
+                                                else if (name.includes('outro') || name.includes('kết') || name.includes('ket')) role = 'outro';
                                                 
                                                 let em = 'calm';
                                                 if (name.includes('buon') || name.includes('buồn') || name.includes('sad')) em = 'sad';
@@ -323,11 +324,26 @@ const VideoCreatorModal = () => {
                                             
                                             setFfScenes((prev: any[]) => {
                                                 const newScenes = [...prev];
+                                                const updatedIndices = new Set<number>();
+                                                
                                                 fileData.forEach(fd => {
-                                                    let matchIdx = newScenes.findIndex(s => s.role === fd.role && s.emotion === fd.emotion && !s.url);
-                                                    if (matchIdx === -1) matchIdx = newScenes.findIndex(s => s.role === fd.role && !s.url);
+                                                    // 1. Ưu tiên tìm cảnh khớp cả vai + cảm xúc và chưa bị ghi đè trong lượt này
+                                                    let matchIdx = newScenes.findIndex((s, idx) => 
+                                                        s.role === fd.role && 
+                                                        s.emotion === fd.emotion && 
+                                                        !updatedIndices.has(idx)
+                                                    );
+                                                    // 2. Nếu không khớp cảm xúc, tìm cảnh khớp vai và chưa bị ghi đè trong lượt này
+                                                    if (matchIdx === -1) {
+                                                        matchIdx = newScenes.findIndex((s, idx) => 
+                                                            s.role === fd.role && 
+                                                            !updatedIndices.has(idx)
+                                                        );
+                                                    }
+                                                    
                                                     if (matchIdx !== -1) {
                                                         newScenes[matchIdx] = { ...newScenes[matchIdx], url: fd.url, idbKey: null };
+                                                        updatedIndices.add(matchIdx);
                                                     } else {
                                                         newScenes.push({ id: `scene_batch_${Date.now()}_${Math.random()}`, role: fd.role, emotion: fd.emotion, url: fd.url, idbKey: null });
                                                     }
@@ -348,6 +364,7 @@ const VideoCreatorModal = () => {
                                                 const name = f.name.toLowerCase();
                                                 let role = 'user';
                                                 if (name.includes('lao') || name.includes('lão') || name.includes('ai') || name.includes('đáp')) role = 'lao';
+                                                else if (name.includes('outro') || name.includes('kết') || name.includes('ket')) role = 'outro';
                                                 
                                                 let em = 'calm';
                                                 if (name.includes('buon') || name.includes('buồn') || name.includes('sad')) em = 'sad';
@@ -359,11 +376,26 @@ const VideoCreatorModal = () => {
                                             
                                             setFfScenes((prev: any[]) => {
                                                 const newScenes = [...prev];
+                                                const updatedIndices = new Set<number>();
+                                                
                                                 fileData.forEach(fd => {
-                                                    let matchIdx = newScenes.findIndex(s => s.role === fd.role && s.emotion === fd.emotion && !s.url);
-                                                    if (matchIdx === -1) matchIdx = newScenes.findIndex(s => s.role === fd.role && !s.url);
+                                                    // 1. Ưu tiên tìm cảnh khớp cả vai + cảm xúc và chưa bị ghi đè trong lượt này
+                                                    let matchIdx = newScenes.findIndex((s, idx) => 
+                                                        s.role === fd.role && 
+                                                        s.emotion === fd.emotion && 
+                                                        !updatedIndices.has(idx)
+                                                    );
+                                                    // 2. Nếu không khớp cảm xúc, tìm cảnh khớp vai và chưa bị ghi đè trong lượt này
+                                                    if (matchIdx === -1) {
+                                                        matchIdx = newScenes.findIndex((s, idx) => 
+                                                            s.role === fd.role && 
+                                                            !updatedIndices.has(idx)
+                                                        );
+                                                    }
+                                                    
                                                     if (matchIdx !== -1) {
                                                         newScenes[matchIdx] = { ...newScenes[matchIdx], url: fd.url, idbKey: null };
+                                                        updatedIndices.add(matchIdx);
                                                     } else {
                                                         newScenes.push({ id: `scene_batch_${Date.now()}_${Math.random()}`, role: fd.role, emotion: fd.emotion, url: fd.url, idbKey: null });
                                                     }
