@@ -466,17 +466,8 @@ const VideoCreatorModal = () => {
                                                         );
                                                     }
 
-                                                    // Nếu cảnh này là cảnh chung (fallback) cho nhiều câu
-                                                    return (
-                                                        <div className="w-full text-[8px] bg-slate-900/60 px-1.5 py-1 rounded border border-white/5 max-h-[60px] overflow-y-auto mb-0.5 flex flex-col gap-0.5">
-                                                            <span className="text-[7.5px] font-black text-emerald-400 uppercase tracking-wider block">Dùng chung cho ({matchedMsgs.length} câu thoại):</span>
-                                                            {matchedMsgs.map((m: any, mIdx: number) => (
-                                                                <div key={m.id} className="truncate text-slate-400" title={m.text}>
-                                                                    {mIdx + 1}. {m.text}
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    );
+                                                    // Nếu cảnh này là cảnh chung (fallback) cho nhiều câu, không hiển thị danh sách thoại gộp
+                                                    return null;
                                                 })()}
                                                 <div className="flex gap-1.5 w-full">
                                                     <select 
