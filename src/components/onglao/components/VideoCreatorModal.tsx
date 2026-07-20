@@ -434,20 +434,38 @@ const VideoCreatorModal = () => {
                                                         </div>
                                                     );
                                                     if (targetRole === 'outro') return null;
-                                                    const matchedMsgs = messages.filter((m: any) => {
-                                                        const mRole = m.role === 'ASSISTANT' || m.role === 'ai' ? 'ai' : 'user';
-                                                        return mRole === targetRole;
-                                                    });
+                                                    
+                                                    // Nếu scene có msgId thì chỉ lấy đúng câu thoại đó
+                                                    const matchedMsgs = scene.msgId 
+                                                        ? messages.filter((m: any) => m.id === scene.msgId || `scene_msg_${m.id}` === scene.id || scene.id.includes(`_${m.id}`))
+                                                        : messages.filter((m: any) => {
+                                                            const mRole = m.role === 'ASSISTANT' || m.role === 'ai' ? 'ai' : 'user';
+                                                            return mRole === targetRole;
+                                                        });
+
                                                     if (matchedMsgs.length === 0) return (
                                                         <div className="w-full text-[8px] text-amber-400 bg-amber-900/20 px-1.5 py-1 rounded border border-amber-500/20 mb-0.5">
                                                             ⚠️ Chưa có thoại khớp vai này
                                                         </div>
                                                     );
+
+                                                    // Nếu cảnh này được gán riêng cho 1 câu thoại cụ thể
+                                                    if (scene.msgId || matchedMsgs.length === 1) {
+                                                        const m = matchedMsgs[0];
+                                                        return (
+                                                            <div className="w-full text-[10px] text-slate-300 italic mb-0.5 bg-slate-900 px-1.5 py-1 rounded border border-white/5" title={m.text}>
+                                                                <span className="text-indigo-400 font-bold not-italic mr-1">Thoại:</span>
+                                                                "{m.text}"
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    // Nếu cảnh này là cảnh chung (fallback) cho nhiều câu
                                                     return (
                                                         <div className="w-full text-[8px] bg-slate-900/60 px-1.5 py-1 rounded border border-white/5 max-h-[60px] overflow-y-auto mb-0.5 flex flex-col gap-0.5">
-                                                            <span className="text-[7.5px] font-black text-indigo-400 uppercase tracking-wider block">Thoại ({matchedMsgs.length} câu):</span>
+                                                            <span className="text-[7.5px] font-black text-emerald-400 uppercase tracking-wider block">Dùng chung cho ({matchedMsgs.length} câu thoại):</span>
                                                             {matchedMsgs.map((m: any, mIdx: number) => (
-                                                                <div key={m.id} className="truncate text-slate-300" title={m.text}>
+                                                                <div key={m.id} className="truncate text-slate-400" title={m.text}>
                                                                     {mIdx + 1}. {m.text}
                                                                 </div>
                                                             ))}

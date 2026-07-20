@@ -141,7 +141,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const playIntervalRef = useRef<any>(null);
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 5;
+    const [itemsPerPage, setItemsPerPage] = useState(5);
     const [editingTitle, setEditingTitle] = useState('');
     const [editingDate, setEditingDate] = useState('');
     const [editingLaoVoice, setEditingLaoVoice] = useState('Algieba');
@@ -1309,29 +1309,44 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                             )}
 
                             {/* Phân trang */}
-                            {totalPages > 1 && (
-                                <div className="flex justify-center items-center gap-2 mt-auto pt-4 border-t border-white/5 shrink-0">
-                                    <button 
-                                        disabled={activePage === 1}
-                                        onClick={() => setCurrentPage(activePage - 1)}
-                                        className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-40 disabled:hover:bg-slate-800 rounded-xl transition-all flex items-center justify-center border border-white/5 cursor-pointer disabled:cursor-not-allowed"
+                            <div className="flex justify-between items-center mt-auto pt-4 border-t border-white/5 shrink-0">
+                                {/* Combobox số dòng */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-slate-500">Hiển thị</span>
+                                    <select
+                                        value={itemsPerPage}
+                                        onChange={e => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                        className="text-xs bg-slate-800 border border-white/10 text-slate-300 rounded-lg px-2 py-1.5 cursor-pointer hover:border-indigo-500/50 focus:outline-none focus:border-indigo-500 transition-colors"
                                     >
-                                        <ChevronLeft size={16} />
-                                    </button>
-                                    
-                                    <span className="text-xs text-slate-400 font-medium px-4 select-none">
-                                        Trang <span className="text-indigo-400 font-black">{activePage}</span> / {totalPages}
-                                    </span>
-                                    
-                                    <button 
-                                        disabled={activePage === totalPages}
-                                        onClick={() => setCurrentPage(activePage + 1)}
-                                        className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-40 disabled:hover:bg-slate-800 rounded-xl transition-all flex items-center justify-center border border-white/5 cursor-pointer disabled:cursor-not-allowed"
-                                    >
-                                        <ChevronRight size={16} />
-                                    </button>
+                                        {[5, 10, 50, 100].map(n => (
+                                            <option key={n} value={n}>{n} dòng</option>
+                                        ))}
+                                    </select>
+                                    <span className="text-xs text-slate-500">/ {scripts.length} kịch bản</span>
                                 </div>
-                            )}
+                                {/* Nút prev/next */}
+                                {totalPages > 1 && (
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            disabled={activePage === 1}
+                                            onClick={() => setCurrentPage(activePage - 1)}
+                                            className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-40 disabled:hover:bg-slate-800 rounded-xl transition-all flex items-center justify-center border border-white/5 cursor-pointer disabled:cursor-not-allowed"
+                                        >
+                                            <ChevronLeft size={16} />
+                                        </button>
+                                        <span className="text-xs text-slate-400 font-medium px-4 select-none">
+                                            Trang <span className="text-indigo-400 font-black">{activePage}</span> / {totalPages}
+                                        </span>
+                                        <button
+                                            disabled={activePage === totalPages}
+                                            onClick={() => setCurrentPage(activePage + 1)}
+                                            className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-40 disabled:hover:bg-slate-800 rounded-xl transition-all flex items-center justify-center border border-white/5 cursor-pointer disabled:cursor-not-allowed"
+                                        >
+                                            <ChevronRight size={16} />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     ) : (() => {
                         const isAiScript = selectedScript && !selectedScript.title.toLowerCase().includes('[thủ công]');
