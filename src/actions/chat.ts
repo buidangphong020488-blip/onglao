@@ -109,6 +109,20 @@ export async function deleteChatSessionAction(sessionId: string) {
   }
 }
 
+// 6b. Cập nhật nội dung 1 tin nhắn (khi user edit inline)
+export async function updateChatMessageContentAction(messageId: string, content: string) {
+  try {
+    const msg = await prisma.chatMessage.update({
+      where: { id: messageId },
+      data: { content },
+    });
+    return { success: true, data: msg };
+  } catch (error: any) {
+    console.error("Error updating chat message content:", error);
+    return { success: false, error: error.message };
+  }
+}
+
 // 6. Cập nhật tiêu đề phiên chat
 export async function updateChatSessionTitleAction(sessionId: string, title: string, updatedAt?: Date) {
   try {

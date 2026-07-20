@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { useOngLaoContext } from '../context/OngLaoContext';
 import MiniLaoFace from './MiniLaoFace';
 import { Sparkles, FlipHorizontal, Sliders, RotateCcw, X } from 'lucide-react';
@@ -34,6 +34,23 @@ export const CharacterStage = () => {
     handleChatLaoWheel
   } = p;
 
+  // Fix passive event listener: gắn wheel listener native {passive: false} để preventDefault hoạt động
+  const laoStageRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = laoStageRef.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.05 : 0.05;
+      setChatLaoTransform((prev: any) => ({
+        ...prev,
+        s: Math.max(0.5, Math.min(4.0, prev.s + delta))
+      }));
+    };
+    el.addEventListener('wheel', handler, { passive: false });
+    return () => el.removeEventListener('wheel', handler);
+  }, [setChatLaoTransform]);
+
   return (
     <div className="flex-1 flex flex-col items-center justify-center relative px-4 overflow-hidden mb-32">
       <div className="relative scale-[0.6] sm:scale-80 md:scale-105 transition-transform duration-700">
@@ -54,7 +71,7 @@ export const CharacterStage = () => {
                 onPointerMove={handleChatLaoPointerMove}
                 onPointerUp={handleChatLaoPointerUp}
                 onPointerLeave={handleChatLaoPointerUp}
-                onWheel={handleChatLaoWheel}
+                ref={laoStageRef}
                 style={{
                     transform: `translate(${chatLaoTransform.x}px, ${chatLaoTransform.y}px) scale(${chatLaoTransform.s})`,
                     transition: p.chatLaoDragInfo.current?.isDragging ? 'none' : 'transform 0.1s ease-out'

@@ -236,9 +236,14 @@ export const SessionsSidebar = () => {
             (s: any) =>
               s.type === "chat" || s.type === "chat|script" || !s.type,
           )
-          .sort((a: any, b: any) =>
-            b.isPinned === a.isPinned ? b.id - a.id : b.isPinned ? 1 : -1,
-          )
+          .sort((a: any, b: any) => {
+            // Pinned luôn lên trên
+            if (b.isPinned !== a.isPinned) return b.isPinned ? 1 : -1;
+            // Sau đó sort theo createdAt mới nhất lên đầu
+            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return dateB - dateA;
+          })
           .map((session: any) => (
             <div
               key={session.id}
@@ -272,17 +277,34 @@ export const SessionsSidebar = () => {
                       }}
                     />
                   ) : (
-                    <p
-                      className={`text-sm font-bold truncate ${session.id === currentSessionId ? "text-orange-400" : "text-slate-300"}`}
-                    >
-                      {session.isPinned && (
-                        <Pin
-                          size={12}
-                          className="inline mr-1 text-emerald-400"
-                        />
-                      )}{" "}
-                      {session.title}
-                    </p>
+                    <div>
+                      <p
+                        className={`text-sm font-bold truncate ${session.id === currentSessionId ? "text-orange-400" : "text-slate-300"}`}
+                      >
+                        {session.isPinned && (
+                          <Pin
+                            size={12}
+                            className="inline mr-1 text-emerald-400"
+                          />
+                        )}{" "}
+                        {session.title}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {session.createdAt && (
+                          <p className="text-[10px] text-slate-500">
+                            {new Date(session.createdAt).toLocaleString('vi-VN', {
+                              day: '2-digit', month: '2-digit', year: 'numeric',
+                              hour: '2-digit', minute: '2-digit'
+                            })}
+                          </p>
+                        )}
+                        {session.messagesLoaded && session.messages?.length > 0 && (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${session.id === currentSessionId ? 'bg-orange-500/20 text-orange-400' : 'bg-slate-700 text-slate-400'}`}>
+                            {session.messages.length} tin
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
                 <div className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity shrink-0">

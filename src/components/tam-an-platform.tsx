@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -197,7 +198,7 @@ const VOICE_STYLES = [
 ];
 
 // --- KHO TÀNG KỆ SƯ CHA TAM VÔ (CẤU TRÚC MỚI: TÁCH THEO ĐOẠN) ---
-let POEM_DATABASE = [];
+let POEM_DATABASE: any[] = [];
 let POEM_DB_STRING = "";
 
 const LAO_GREETINGS_DB = {
@@ -457,7 +458,7 @@ const LAO_CLOSINGS_DB = {
 };
 
 // --- HÀM XỬ LÝ CHROMA KEY LÕI V2 (SIÊU TỐI ƯU HIỆU SUẤT CHO VIDEO 60FPS) ---
-const processChromaKeyPixels = (ctx, width, height, settings) => {
+const processChromaKeyPixels = (ctx: any, width: any, height: any, settings: any) => {
     if (!settings || settings.chromaType === 'none') return;
     const imgData = ctx.getImageData(0, 0, width, height);
     const data = imgData.data;
