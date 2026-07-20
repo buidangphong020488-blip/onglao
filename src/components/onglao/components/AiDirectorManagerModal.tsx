@@ -396,40 +396,57 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
             if (customLao && !laoNames.includes(customLao)) laoNames.push(customLao);
             if (customUser && !userNames.includes(customUser)) userNames.push(customUser);
             
-            // Xây dựng regex bắt TÊN: nội dung
-            const laoPattern = new RegExp(`^(${laoNames.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\[.*?\\]|\\s*\\(.*?\\))?\\s*:`, 'i');
-            const userPattern = new RegExp(`^(${userNames.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\[.*?\\]|\\s*\\(.*?\\))?\\s*:`, 'i');
-            const outroPattern = new RegExp(`^(${outroNames.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\[.*?\\]|\\s*\\(.*?\\))?\\s*:`, 'i');
+            // Xây dựng regex bắt TÊN: nội dung (có thể kèm [cảm xúc] hoặc (cảm xúc))
+            const laoPattern = new RegExp(`^(${laoNames.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\[(.*?)\\]|\\s*\\((.*?)\\))?\\s*:`, 'i');
+            const userPattern = new RegExp(`^(${userNames.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\[(.*?)\\]|\\s*\\((.*?)\\))?\\s*:`, 'i');
+            const outroPattern = new RegExp(`^(${outroNames.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\[(.*?)\\]|\\s*\\((.*?)\\))?\\s*:`, 'i');
 
             lines.forEach(line => {
                  const text = line.trim();
                  if (!text) return;
 
                  let role = null;
+                 let emotion = 'calm';
                  let cleanText = text;
 
-                 if (userPattern.test(text)) {
+                 const userMatch = text.match(userPattern);
+                 const laoMatch = text.match(laoPattern);
+                 const outroMatch = text.match(outroPattern);
+
+                 if (userMatch) {
                     role = 'user';
-                    cleanText = text.replace(userPattern, '').trim();
+                    emotion = userMatch[2] || userMatch[3] || 'calm';
+                    cleanText = text.replace(userMatch[0], '').trim();
                     currentRole = 'user';
-                 } else if (laoPattern.test(text)) {
+                 } else if (laoMatch) {
                     role = 'ai';
-                    cleanText = text.replace(laoPattern, '').trim();
+                    emotion = laoMatch[2] || laoMatch[3] || 'calm';
+                    cleanText = text.replace(laoMatch[0], '').trim();
                     currentRole = 'ai';
-                 } else if (outroPattern.test(text)) {
+                 } else if (outroMatch) {
                     role = 'outro';
-                    cleanText = text.replace(outroPattern, '').trim();
+                    emotion = outroMatch[2] || outroMatch[3] || 'calm';
+                    cleanText = text.replace(outroMatch[0], '').trim();
                     currentRole = 'outro';
                  } else {
                     role = currentRole;
                     cleanText = text;
+                    emotion = newMsgs.length > 0 && newMsgs[newMsgs.length - 1].role === role 
+                        ? newMsgs[newMsgs.length - 1].emotion 
+                        : 'calm';
+                 }
+
+                 // Chuẩn hóa emotion
+                 emotion = emotion.toLowerCase().trim();
+                 if (!['calm', 'sad', 'joy', 'hook'].includes(emotion)) {
+                    emotion = 'calm';
                  }
 
                  if (role && cleanText) {
                      if (newMsgs.length > 0 && newMsgs[newMsgs.length - 1].role === role) {
                          newMsgs[newMsgs.length - 1].text += '\n' + cleanText;
                      } else {
-                         newMsgs.push({ role, text: cleanText, emotion: 'calm' });
+                         newMsgs.push({ role, text: cleanText, emotion });
                      }
                  }
             });
@@ -449,7 +466,8 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                 role: (msg.role === 'ai' ? 'ASSISTANT' : (msg.role === 'outro' ? 'OUTRO' : 'USER')) as 'USER' | 'ASSISTANT' | 'SYSTEM' | 'OUTRO',
                 content: msg.text,
                 audioUrl: msg.audioUrl,
-                voiceStyleId: null
+                voiceStyleId: null,
+                emotion: msg.emotion
             }));
 
             const deleteMessageIds: string[] = [];

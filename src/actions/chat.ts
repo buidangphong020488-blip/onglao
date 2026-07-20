@@ -196,6 +196,7 @@ export async function batchSaveScriptAction(
     content: string;
     audioUrl?: string | null;
     voiceStyleId?: number | null;
+    emotion?: string | null;
   }>,
   deleteMessageIds: string[],
   title?: string,
@@ -227,6 +228,7 @@ export async function batchSaveScriptAction(
             audioUrl: msg.audioUrl || null,
             content: msg.content,
             role: msg.role as MessageRole,
+            emotion: msg.emotion || 'calm',
           },
           create: {
             id: msg.id && msg.id.length > 5 ? msg.id : undefined,
@@ -235,6 +237,7 @@ export async function batchSaveScriptAction(
             content: msg.content,
             audioUrl: msg.audioUrl || null,
             voiceStyleId: msg.voiceStyleId || null,
+            emotion: msg.emotion || 'calm',
           },
         });
         savedMessages.push(m);
