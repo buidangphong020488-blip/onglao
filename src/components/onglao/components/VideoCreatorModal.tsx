@@ -308,6 +308,7 @@ const VideoCreatorModal = () => {
                                             const files = Array.from(e.dataTransfer.files).filter((f: any) => f.type.startsWith('video/'));
                                             if (!files.length) return;
                                             
+                                            console.log("Batch Upload Drop - Received files:", files.map(f => f.name));
                                             const fileData = files.map((f: any) => {
                                                 const name = f.name.toLowerCase();
                                                 let role = 'user';
@@ -319,12 +320,14 @@ const VideoCreatorModal = () => {
                                                 else if (name.includes('vui') || name.includes('joy') || name.includes('hạnh phúc') || name.includes('hanh phuc')) em = 'joy';
                                                 else if (name.includes('hook') || name.includes('nhan manh') || name.includes('nhấn mạnh')) em = 'hook';
                                                 
-                                                return { url: URL.createObjectURL(f), role, emotion: em };
+                                                return { name: f.name, url: URL.createObjectURL(f), role, emotion: em };
                                             });
+                                            console.log("Parsed file data:", fileData);
                                             
                                             setFfScenes((prev: any[]) => {
                                                 const newScenes = [...prev];
                                                 const updatedIndices = new Set<number>();
+                                                console.log("Current scenes in state before batch update:", prev.map((s, idx) => ({ idx, id: s.id, role: s.role, emotion: s.emotion, hasUrl: !!s.url })));
                                                 
                                                 fileData.forEach(fd => {
                                                     // 1. Ưu tiên tìm cảnh khớp cả vai + cảm xúc và chưa bị ghi đè trong lượt này
@@ -342,9 +345,11 @@ const VideoCreatorModal = () => {
                                                     }
                                                     
                                                     if (matchIdx !== -1) {
+                                                        console.log(`Matched file ${fd.name} (${fd.role}, ${fd.emotion}) to scene index ${matchIdx}`);
                                                         newScenes[matchIdx] = { ...newScenes[matchIdx], url: fd.url, idbKey: null };
                                                         updatedIndices.add(matchIdx);
                                                     } else {
+                                                        console.log(`No match for file ${fd.name} (${fd.role}, ${fd.emotion}) - PUSHING new scene`);
                                                         newScenes.push({ id: `scene_batch_${Date.now()}_${Math.random()}`, role: fd.role, emotion: fd.emotion, url: fd.url, idbKey: null });
                                                     }
                                                 });
@@ -360,6 +365,7 @@ const VideoCreatorModal = () => {
                                         <input type="file" multiple accept="video/*" className="hidden" id="batch-upload" onChange={(e) => {
                                             if(!e.target.files) return;
                                             const files = Array.from(e.target.files);
+                                            console.log("Batch Upload File Select - Received files:", files.map(f => f.name));
                                             const fileData = files.map((f: any) => {
                                                 const name = f.name.toLowerCase();
                                                 let role = 'user';
@@ -371,12 +377,14 @@ const VideoCreatorModal = () => {
                                                 else if (name.includes('vui') || name.includes('joy') || name.includes('hạnh phúc') || name.includes('hanh phuc')) em = 'joy';
                                                 else if (name.includes('hook') || name.includes('nhan manh') || name.includes('nhấn mạnh')) em = 'hook';
                                                 
-                                                return { url: URL.createObjectURL(f), role, emotion: em };
+                                                return { name: f.name, url: URL.createObjectURL(f), role, emotion: em };
                                             });
+                                            console.log("Parsed file data:", fileData);
                                             
                                             setFfScenes((prev: any[]) => {
                                                 const newScenes = [...prev];
                                                 const updatedIndices = new Set<number>();
+                                                console.log("Current scenes in state before batch update:", prev.map((s, idx) => ({ idx, id: s.id, role: s.role, emotion: s.emotion, hasUrl: !!s.url })));
                                                 
                                                 fileData.forEach(fd => {
                                                     // 1. Ưu tiên tìm cảnh khớp cả vai + cảm xúc và chưa bị ghi đè trong lượt này
@@ -394,9 +402,11 @@ const VideoCreatorModal = () => {
                                                     }
                                                     
                                                     if (matchIdx !== -1) {
+                                                        console.log(`Matched file ${fd.name} (${fd.role}, ${fd.emotion}) to scene index ${matchIdx}`);
                                                         newScenes[matchIdx] = { ...newScenes[matchIdx], url: fd.url, idbKey: null };
                                                         updatedIndices.add(matchIdx);
                                                     } else {
+                                                        console.log(`No match for file ${fd.name} (${fd.role}, ${fd.emotion}) - PUSHING new scene`);
                                                         newScenes.push({ id: `scene_batch_${Date.now()}_${Math.random()}`, role: fd.role, emotion: fd.emotion, url: fd.url, idbKey: null });
                                                     }
                                                 });
