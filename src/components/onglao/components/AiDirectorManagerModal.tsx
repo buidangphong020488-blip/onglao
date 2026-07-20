@@ -613,10 +613,10 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                 setEditingUserVoice(p.userVoice || 'Aoede');
                 setEditingUserVoiceStyle('');
                 p.setCustomUserName?.('Con');
-                p.setCustomLaoName?.('L�o');
+                p.setCustomLaoName?.('L\u00e3o');
                 p.setUserSelfCall?.('Con');
-                p.setUserCallLao?.('L�o');
-                p.setLaoSelfCall?.('L�o');
+                p.setUserCallLao?.('L\u00e3o');
+                p.setLaoSelfCall?.('L\u00e3o');
                 p.setLaoCallUser?.('Con');
                 
                 const validDate = new Date();
