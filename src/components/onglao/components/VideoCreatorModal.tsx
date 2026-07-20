@@ -5,10 +5,43 @@ import { X, Film, Check, Save, Sliders, Maximize, Minimize, RefreshCw, Loader2, 
 
 import { useOngLaoContext } from "../context/OngLaoContext";
 
+const DebouncedInput = ({ value, onChange, ...props }: any) => {
+    const [localValue, setLocalValue] = React.useState(value);
+    React.useEffect(() => { setLocalValue(value); }, [value]);
+    return (
+        <input 
+            {...props} 
+            value={localValue} 
+            onChange={e => setLocalValue(e.target.value)} 
+            onBlur={(e) => onChange({ target: { value: localValue } })}
+            onKeyDown={e => {
+                if (e.key === 'Enter') {
+                    onChange({ target: { value: localValue } });
+                }
+                if (props.onKeyDown) props.onKeyDown(e);
+            }}
+        />
+    )
+}
+
+const DebouncedTextarea = ({ value, onChange, ...props }: any) => {
+    const [localValue, setLocalValue] = React.useState(value);
+    React.useEffect(() => { setLocalValue(value); }, [value]);
+    return (
+        <textarea 
+            {...props} 
+            value={localValue} 
+            onChange={e => setLocalValue(e.target.value)} 
+            onBlur={(e) => onChange({ target: { value: localValue } })}
+        />
+    )
+}
+
 // VideoCreatorModal: Modal xuất video pháp bảo
 const VideoCreatorModal = () => {
   const p = useOngLaoContext();
   const previewVideoRef = React.useRef(null);
+  const [selectedFfPackId, setSelectedFfPackId] = React.useState('');
 
   // Tự động chia cảnh theo từng câu thoại khi mở modal (nếu chưa có scene gán message cụ thể)
   React.useEffect(() => {
@@ -16,15 +49,29 @@ const VideoCreatorModal = () => {
     if (!p.messages?.length) return;
     const hasMessageScenes = p.ffScenes?.some((s: any) => s.msgId);
     if (hasMessageScenes) return; // Đã chia cảnh theo thoại rồi, không cần làm lại
-    const autoScenes = p.messages.map((m: any, idx: number) => ({
-      id: `scene_msg_${m.id || idx}_${Date.now() + idx}`,
-      role: m.role === 'ai' || m.role === 'ASSISTANT' ? 'lao' : 'user',
-      emotion: m.emotion || 'calm',
-      url: null,
-      idbKey: null,
-      msgId: m.id,
-      textSnippet: m.text,
-    }));
+    
+    const detectEmotion = (text: string) => {
+        if (!text) return 'calm';
+        const lower = text.toLowerCase();
+        if (lower.match(/buồn|mệt|đau|khổ|chán|tuyệt vọng|khóc|sợ|lo lắng|chết|bế tắc/)) return 'sad';
+        if (lower.match(/vui|cười|hạnh phúc|tuyệt vời|thích|yêu|cảm ơn|biết ơn|tuyệt/)) return 'joy';
+        return 'calm';
+    };
+
+    const autoScenes = p.messages.map((m: any, idx: number) => {
+      let em = m.emotion;
+      if (!em || em === 'calm') em = detectEmotion(m.text);
+      return {
+          id: `scene_msg_${m.id || idx}_${Date.now() + idx}`,
+          role: m.role === 'ai' || m.role === 'ASSISTANT' ? 'lao' : 'user',
+          emotion: em,
+          url: null,
+          idbKey: null,
+          msgId: m.id,
+          textSnippet: m.text,
+      };
+    });
+    
     p.setFfScenes(autoScenes);
   }, [p.showVideoExportModal]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -156,25 +203,30 @@ const VideoCreatorModal = () => {
                                         <div className="flex items-center gap-2">
                                             <span className="text-[10px] text-emerald-300 font-bold shrink-0">Kho cảnh quay:</span>
                                             <select
-                                                value={currentLaoPresetId ? `${currentLaoPresetId}|${videoAspectRatio === '9x16' ? 'doc' : 'ngang'}` : ''}
+                                                value={selectedFfPackId}
                                                 onChange={(e) => {
-                                                    const rawVal = e.target.value;
-                                                    if (!rawVal) return;
-                                                    const [val, aspect] = rawVal.split('|');
+                                                    const packId = e.target.value;
+                                                    setSelectedFfPackId(packId);
+                                                    if (!packId) return;
                                                     
-                                                    setCurrentLaoPresetId(val);
-                                                    
-                                                    if (aspect === 'doc' && setVideoAspectRatio) setVideoAspectRatio('9x16');
-                                                    else if (aspect === 'ngang' && setVideoAspectRatio) setVideoAspectRatio('16x9');
-                                                    
-                                                    const char = allCharacters.find((c: any) => c.id === val);
-                                                    if (char && char.linkedIds && char.linkedIds.length > 0) {
-                                                        setCurrentUserPresetId(char.linkedIds[0]);
-                                                    }
-                                                    
-                                                    if (char) {
-                                                        const pack = char.fullFramePacks?.find((p: any) => p.aspect === aspect) || char.fullFramePacks?.[0];
-                                                        if (pack) {
+                                                    const pack = FULLFRAME_PACKS.find((p: any) => p.id === packId);
+                                                    if (pack) {
+                                                        if (pack.aspect === 'doc' && setVideoAspectRatio) setVideoAspectRatio('9x16');
+                                                        else if (pack.aspect === 'ngang' && setVideoAspectRatio) setVideoAspectRatio('16x9');
+                                                        
+                                                        // Nếu đang có các cảnh thoại (có msgId), chỉ cập nhật URL video mà không xóa cảnh thoại
+                                                        const hasMessageScenes = ffScenes?.some((s: any) => s.msgId);
+                                                        if (hasMessageScenes) {
+                                                            setFfScenes((prev: any) => prev.map((scene: any) => {
+                                                                const match = pack.scenes.find((x: any) => x.role === scene.role && x.emotion === scene.emotion) 
+                                                                            || pack.scenes.find((x: any) => x.role === scene.role && x.emotion === 'calm');
+                                                                if (match) {
+                                                                    return { ...scene, url: match.url, idbKey: match.idbKey };
+                                                                }
+                                                                return scene;
+                                                            }));
+                                                            if (p.showToastMsg) p.showToastMsg(`Đã áp dụng ${pack.name} vào các cảnh thoại!`, 'success');
+                                                        } else {
                                                             handleLoadPack(pack.id);
                                                         }
                                                     }
@@ -182,16 +234,30 @@ const VideoCreatorModal = () => {
                                                 className="bg-slate-900 border border-emerald-500/30 text-emerald-400 text-[10px] rounded px-2 py-1 outline-none cursor-pointer shadow-sm flex-1 min-w-[150px]"
                                             >
                                                 <option value="">-- Chọn Bộ Cảnh --</option>
-                                                <optgroup label="🌐 Cảnh Mặc Định (16:9)">
-                                                    {allCharacters.filter((c: any) => c.fullFramePacks?.some((p: any) => p.aspect === 'ngang')).map((char: any) => (
-                                                        <option key={`ngang_${char.id}`} value={`${char.id}|ngang`}>{char.name} {char.age ? `(${char.age} tuổi)` : ''}</option>
-                                                    ))}
-                                                </optgroup>
-                                                <optgroup label="📱 Cảnh Mặc Định (9:16)">
-                                                    {allCharacters.filter((c: any) => c.fullFramePacks?.some((p: any) => p.aspect === 'doc')).map((char: any) => (
-                                                        <option key={`doc_${char.id}`} value={`${char.id}|doc`}>{char.name} {char.age ? `(${char.age} tuổi)` : ''}</option>
-                                                    ))}
-                                                </optgroup>
+                                                {FULLFRAME_PACKS.length === 0 && (
+                                                    <option value="" disabled>-- Bạn chưa có Bộ Cảnh nào --</option>
+                                                )}
+                                                {FULLFRAME_PACKS.filter((p: any) => p.aspect === 'ngang').length > 0 && (
+                                                    <optgroup label="🌐 Cảnh Mặc Định (16:9)">
+                                                        {FULLFRAME_PACKS.filter((p: any) => p.aspect === 'ngang').map((pack: any) => (
+                                                            <option key={pack.id} value={pack.id}>{pack.name}</option>
+                                                        ))}
+                                                    </optgroup>
+                                                )}
+                                                {FULLFRAME_PACKS.filter((p: any) => p.aspect === 'doc').length > 0 && (
+                                                    <optgroup label="📱 Cảnh Mặc Định (9:16)">
+                                                        {FULLFRAME_PACKS.filter((p: any) => p.aspect === 'doc').map((pack: any) => (
+                                                            <option key={pack.id} value={pack.id}>{pack.name}</option>
+                                                        ))}
+                                                    </optgroup>
+                                                )}
+                                                {localFfPacks && localFfPacks.length > 0 && (
+                                                    <optgroup label="📁 Bộ Cảnh Của Con">
+                                                        {localFfPacks.map((pack: any) => (
+                                                            <option key={pack.id} value={pack.id}>{pack.name}</option>
+                                                        ))}
+                                                    </optgroup>
+                                                )}
                                             </select>
                                         </div>
                                         <span className="text-[9px] text-slate-500 italic">{messages?.length || 0} câu thoại trong hội thoại</span>
@@ -226,6 +292,82 @@ const VideoCreatorModal = () => {
                                             >
                                                 <Plus size={10}/> Thêm cảnh tự do
                                             </button>
+                                    </div>
+
+                                    {/* BATCH UPLOAD DROPZONE */}
+                                    <div 
+                                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                        onDrop={(e) => {
+                                            e.preventDefault(); e.stopPropagation();
+                                            const files = Array.from(e.dataTransfer.files).filter((f: any) => f.type.startsWith('video/'));
+                                            if (!files.length) return;
+                                            
+                                            const fileData = files.map((f: any) => {
+                                                const name = f.name.toLowerCase();
+                                                let role = 'user';
+                                                if (name.includes('lao') || name.includes('lão') || name.includes('ai') || name.includes('đáp')) role = 'lao';
+                                                
+                                                let em = 'calm';
+                                                if (name.includes('buon') || name.includes('buồn') || name.includes('sad')) em = 'sad';
+                                                else if (name.includes('vui') || name.includes('joy') || name.includes('hạnh phúc') || name.includes('hanh phuc')) em = 'joy';
+                                                else if (name.includes('hook') || name.includes('nhan manh') || name.includes('nhấn mạnh')) em = 'hook';
+                                                
+                                                return { url: URL.createObjectURL(f), role, emotion: em };
+                                            });
+                                            
+                                            setFfScenes((prev: any[]) => {
+                                                const newScenes = [...prev];
+                                                fileData.forEach(fd => {
+                                                    let matchIdx = newScenes.findIndex(s => s.role === fd.role && s.emotion === fd.emotion && !s.url);
+                                                    if (matchIdx === -1) matchIdx = newScenes.findIndex(s => s.role === fd.role && !s.url);
+                                                    if (matchIdx !== -1) {
+                                                        newScenes[matchIdx] = { ...newScenes[matchIdx], url: fd.url, idbKey: null };
+                                                    } else {
+                                                        newScenes.push({ id: `scene_batch_${Date.now()}_${Math.random()}`, role: fd.role, emotion: fd.emotion, url: fd.url, idbKey: null });
+                                                    }
+                                                });
+                                                return newScenes;
+                                            });
+                                            if (p.showToastMsg) p.showToastMsg(`Đã ghép tự động ${files.length} video!`, 'success');
+                                        }}
+                                        className="w-full border-2 border-dashed border-emerald-500/30 rounded-xl p-3 flex flex-col items-center justify-center cursor-pointer hover:bg-emerald-500/10 transition-colors mb-2 bg-slate-900/50"
+                                    >
+                                        <Upload size={16} className="text-emerald-400 mb-1" />
+                                        <span className="text-[10px] text-emerald-200 font-bold">Kéo thả nhiều video vào đây để ghép tự động</span>
+                                        <span className="text-[9px] text-slate-400 text-center leading-tight mt-1">AI tự nhận diện qua tên file<br/>(vd: "con_vui.mp4", "lao_buon.mp4")</span>
+                                        <input type="file" multiple accept="video/*" className="hidden" id="batch-upload" onChange={(e) => {
+                                            if(!e.target.files) return;
+                                            const files = Array.from(e.target.files);
+                                            const fileData = files.map((f: any) => {
+                                                const name = f.name.toLowerCase();
+                                                let role = 'user';
+                                                if (name.includes('lao') || name.includes('lão') || name.includes('ai') || name.includes('đáp')) role = 'lao';
+                                                
+                                                let em = 'calm';
+                                                if (name.includes('buon') || name.includes('buồn') || name.includes('sad')) em = 'sad';
+                                                else if (name.includes('vui') || name.includes('joy') || name.includes('hạnh phúc') || name.includes('hanh phuc')) em = 'joy';
+                                                else if (name.includes('hook') || name.includes('nhan manh') || name.includes('nhấn mạnh')) em = 'hook';
+                                                
+                                                return { url: URL.createObjectURL(f), role, emotion: em };
+                                            });
+                                            
+                                            setFfScenes((prev: any[]) => {
+                                                const newScenes = [...prev];
+                                                fileData.forEach(fd => {
+                                                    let matchIdx = newScenes.findIndex(s => s.role === fd.role && s.emotion === fd.emotion && !s.url);
+                                                    if (matchIdx === -1) matchIdx = newScenes.findIndex(s => s.role === fd.role && !s.url);
+                                                    if (matchIdx !== -1) {
+                                                        newScenes[matchIdx] = { ...newScenes[matchIdx], url: fd.url, idbKey: null };
+                                                    } else {
+                                                        newScenes.push({ id: `scene_batch_${Date.now()}_${Math.random()}`, role: fd.role, emotion: fd.emotion, url: fd.url, idbKey: null });
+                                                    }
+                                                });
+                                                return newScenes;
+                                            });
+                                            if (p.showToastMsg) p.showToastMsg(`Đã ghép tự động ${files.length} video!`, 'success');
+                                            e.target.value = '';
+                                        }} />
+                                        <label htmlFor="batch-upload" className="mt-2 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded text-[9px] font-bold cursor-pointer transition-all">Hoặc Chọn File</label>
                                     </div>
                                     
                                     {ffScenes.map((scene: any, idx: any) => (
@@ -419,7 +561,7 @@ const VideoCreatorModal = () => {
                                   </div>
                                   
                                   <div className="flex w-full relative mt-1">
-                                     <input type="text" value={aiBgmPrompt} onChange={e => setAiBgmPrompt(e.target.value)} disabled={isExportingVideo || isPreparingVideoData || isGeneratingBgm} placeholder="AI tự tạo nhạc thiền 30s, tiếng nước chảy..." className="w-full bg-slate-800 border border-white/10 text-xs px-3 py-2.5 rounded-l-lg outline-none text-white placeholder:text-slate-500 focus:border-emerald-500" />
+                                     <DebouncedInput type="text" value={aiBgmPrompt} onChange={(e: any) => setAiBgmPrompt(e.target.value)} disabled={isExportingVideo || isPreparingVideoData || isGeneratingBgm} placeholder="AI tự tạo nhạc thiền 30s, tiếng nước chảy..." className="w-full bg-slate-800 border border-white/10 text-xs px-3 py-2.5 rounded-l-lg outline-none text-white placeholder:text-slate-500 focus:border-emerald-500" />
                                      <button onClick={handleGenerateAiBgm} disabled={isExportingVideo || isPreparingVideoData || isGeneratingBgm || !aiBgmPrompt.trim()} className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-4 rounded-r-lg disabled:opacity-50 flex items-center justify-center gap-1.5 transition-all whitespace-nowrap">
                                         {isGeneratingBgm ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} Tạo AI
                                      </button>
@@ -501,19 +643,19 @@ const VideoCreatorModal = () => {
                                       <div className="flex flex-col gap-3 animate-in fade-in">
                                           <div className="flex flex-col gap-1.5">
                                               <label className="text-[10px] font-bold text-slate-300">Tiêu đề chính (Màu Vàng):</label>
-                                              <input 
+                                              <DebouncedInput 
                                                   type="text" 
                                                   value={introTitle} 
-                                                  onChange={e => setIntroTitle(e.target.value)} 
+                                                  onChange={(e: any) => setIntroTitle(e.target.value)} 
                                                   placeholder="VD: Chủ đề Vô Thường" 
                                                   className="w-full bg-slate-950 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:border-yellow-500 outline-none font-bold" 
                                               />
                                           </div>
                                           <div className="flex flex-col gap-1.5">
                                               <label className="text-[10px] font-bold text-slate-300">Dòng Phụ / Câu hỏi tự vấn (Màu Trắng):</label>
-                                              <textarea 
+                                              <DebouncedTextarea 
                                                   value={introSubtitle} 
-                                                  onChange={e => setIntroSubtitle(e.target.value)} 
+                                                  onChange={(e: any) => setIntroSubtitle(e.target.value)} 
                                                   placeholder="VD: Làm sao để buông bỏ muộn phiền?" 
                                                   className="w-full bg-slate-950 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:border-yellow-500 outline-none resize-none h-16 scrollbar-hide italic" 
                                               />
@@ -536,9 +678,9 @@ const VideoCreatorModal = () => {
                                   
                                   {enableOutroText && (
                                       <div className="flex flex-col gap-3 animate-in fade-in">
-                                          <textarea 
+                                          <DebouncedTextarea 
                                               value={outroText} 
-                                              onChange={e => setOutroText(e.target.value)} 
+                                              onChange={(e: any) => setOutroText(e.target.value)} 
                                               placeholder="VD: Nguyện người xem được giác ngộ giải thoát..." 
                                               className="w-full bg-slate-950 border border-white/10 rounded-lg p-3 text-sm text-center text-orange-200 focus:border-orange-500 outline-none resize-none h-24 scrollbar-hide font-bold leading-relaxed" 
                                           />
@@ -642,10 +784,10 @@ const VideoCreatorModal = () => {
                       <div className="p-5 flex flex-col gap-4">
                           <div className="flex flex-col gap-1.5">
                              <label className="text-xs font-bold text-slate-400">Tên bối cảnh:</label>
-                             <input 
+                             <DebouncedInput 
                                 type="text" 
                                 value={presetFormData.name} 
-                                onChange={e => setPresetFormData({...presetFormData, name: e.target.value})}
+                                onChange={(e: any) => setPresetFormData({...presetFormData, name: e.target.value})}
                                 autoFocus
                                 placeholder="Ví dụ: Rừng trúc ngang 1"
                                 className="w-full bg-slate-950 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-amber-500 outline-none"
@@ -727,10 +869,10 @@ const VideoCreatorModal = () => {
                       <div className="p-5 flex flex-col gap-4">
                           <div className="flex flex-col gap-1.5">
                               <label className="text-xs font-bold text-slate-400">Tên hình tướng:</label>
-                              <input 
+                              <DebouncedInput 
                                   type="text" 
                                   value={saveCharData.name} 
-                                  onChange={e => setSaveCharData({...saveCharData, name: e.target.value})} 
+                                  onChange={(e: any) => setSaveCharData({...saveCharData, name: e.target.value})} 
                                   autoFocus 
                                   placeholder="VD: Lão Video Của Tôi" 
                                   className="w-full bg-slate-950 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-orange-500 outline-none" 
@@ -782,10 +924,10 @@ const VideoCreatorModal = () => {
                        <div className="p-5 flex flex-col gap-4">
                            <div className="flex flex-col gap-1.5">
                                <label className="text-xs font-bold text-slate-400">Tên video để dễ nhớ:</label>
-                               <input 
+                               <DebouncedInput 
                                    type="text" 
                                    value={ffSaveData.name} 
-                                   onChange={e => setFfSaveData({...ffSaveData, name: e.target.value})} 
+                                   onChange={(e: any) => setFfSaveData({...ffSaveData, name: e.target.value})} 
                                    autoFocus 
                                    placeholder="VD: Cảnh Lão ngồi thiền" 
                                    className="w-full bg-slate-950 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-emerald-500 outline-none" 
@@ -817,10 +959,10 @@ const VideoCreatorModal = () => {
 
                            <div className="flex flex-col gap-1.5">
                                <label className="text-xs font-bold text-slate-400">Tên Bộ cảnh:</label>
-                               <input 
+                               <DebouncedInput 
                                    type="text" 
                                    value={savePackData.name} 
-                                   onChange={e => setSavePackData({...savePackData, name: e.target.value})} 
+                                   onChange={(e: any) => setSavePackData({...savePackData, name: e.target.value})} 
                                    autoFocus 
                                    placeholder="VD: Cảnh Cô Gái Áo Xanh (Dọc)" 
                                    className="w-full bg-slate-950 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-amber-500 outline-none" 

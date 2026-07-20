@@ -1839,7 +1839,8 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
                       msg.text,
                       msg.audioUrl,
                       null,
-                      msg.id.toString()
+                      msg.id.toString(),
+                      msg.emotion || 'calm'
                   );
                   if (saveRes.success && saveRes.data) {
                       savedMessages.push({
@@ -1882,28 +1883,36 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
 
          let role = null;
          let cleanText = text;
+         let emotion = 'calm';
 
-         if (/^(con|người hỏi|hỏi)(?:\s*\[.*?\]|\s*\(.*?\))?\s*:/i.test(text)) {
+         const userMatch = text.match(/^(con|người hỏi|hỏi)(?:\s*\[(.*?)\]|\s*\((.*?)\))?\s*:/i);
+         if (userMatch) {
             role = 'user';
+            emotion = userMatch[2] || userMatch[3] || 'calm';
             cleanText = text.replace(/^(con|người hỏi|hỏi)(?:\s*\[.*?\]|\s*\(.*?\))?\s*:\s*/i, '').trim();
             currentRole = 'user';
-         } else if (/^(lão|đáp|ai)(?:\s*\[.*?\]|\s*\(.*?\))?\s*:/i.test(text)) {
-            role = 'ai';
-            cleanText = text.replace(/^(lão|đáp|ai)(?:\s*\[.*?\]|\s*\(.*?\))?\s*:\s*/i, '').trim();
-            currentRole = 'ai';
          } else {
-            role = currentRole;
-            cleanText = text;
+             const aiMatch = text.match(/^(lão|đáp|ai)(?:\s*\[(.*?)\]|\s*\((.*?)\))?\s*:/i);
+             if (aiMatch) {
+                role = 'ai';
+                emotion = aiMatch[2] || aiMatch[3] || 'calm';
+                cleanText = text.replace(/^(lão|đáp|ai)(?:\s*\[.*?\]|\s*\(.*?\))?\s*:\s*/i, '').trim();
+                currentRole = 'ai';
+             } else {
+                role = currentRole;
+                cleanText = text;
+             }
          }
 
          if (role && cleanText) {
-             if (newMsgs.length > 0 && newMsgs[newMsgs.length - 1].role === role) {
+             if (newMsgs.length > 0 && newMsgs[newMsgs.length - 1].role === role && newMsgs[newMsgs.length - 1].emotion === emotion) {
                  newMsgs[newMsgs.length - 1].text += '\n' + cleanText;
              } else {
                  newMsgs.push({
                      id: Date.now() + Math.random(),
                      role,
                      text: cleanText,
+                     emotion: ['calm', 'sad', 'joy', 'hook'].includes(emotion) ? emotion : 'calm',
                      timestamp: new Date(),
                      audioUrl: null,
                      reactions: {}
@@ -1924,7 +1933,8 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
                           msg.text,
                           null,
                           null,
-                          msg.id.toString()
+                          msg.id.toString(),
+                          msg.emotion || 'calm'
                       );
                   }
                   showToastMsg('Đã nhập kịch bản và nối tiếp thành công!', 'success', 5000);
@@ -2478,71 +2488,6 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
     }
   };
 
-  const combineWavs = async (items: any[]) => {
-    const buffers = await Promise.all(items.map(async (item: any) => {
-      try {
-        const r = await fetch(item.url);
-        if (!r.ok) return new ArrayBuffer(0);
-        const contentType = r.headers.get('content-type') || '';
-        if (contentType.includes('text/html')) {
-          console.warn(`[combineWavs] Skip invalid HTML response for ${item.url}`);
-          return new ArrayBuffer(0);
-        }
-        const buf = await r.arrayBuffer();
-        if (buf.byteLength >= 44) {
-           const view = new DataView(buf);
-           const riff = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3));
-           if (riff !== 'RIFF') {
-              console.warn(`[combineWavs] Skip non-RIFF audio buffer for ${item.url}`);
-              return new ArrayBuffer(0);
-           }
-        }
-        return buf;
-      } catch (e) {
-        console.warn(`[combineWavs] Failed to fetch ${item.url}:`, e);
-        return new ArrayBuffer(0);
-      }
-    }));
-    if (buffers.length === 0) return { blob: null, metadata: [] };
-    
-    let totalDataLen = 0;
-    for (let i = 0; i < buffers.length; i++) {
-      totalDataLen += Math.max(0, buffers[i].byteLength - 44);
-    }
-    
-    if (totalDataLen === 0) return { blob: null, metadata: [] };
-
-    const validFirstBuffer = buffers.find((b: any) => b.byteLength >= 44);
-    if (!validFirstBuffer) return { blob: null, metadata: [] };
-
-    const combined = new Uint8Array(44 + totalDataLen);
-    combined.set(new Uint8Array(validFirstBuffer.slice(0, 44)), 0);
-    
-    const view = new DataView(combined.buffer);
-    view.setUint32(4, 36 + totalDataLen, true);
-    view.setUint32(40, totalDataLen, true);
-    
-    let offset = 44;
-    let timeOffset = 0;
-    const metadata = [];
-    const SAMPLE_RATE = 24000;
-    const BYTES_PER_SAMPLE = 2;
-    
-    for (let i = 0; i < buffers.length; i++) {
-      const dataLen = Math.max(0, buffers[i].byteLength - 44);
-      if (dataLen > 0) {
-          combined.set(new Uint8Array(buffers[i].slice(44)), offset);
-          offset += dataLen;
-          
-          const durationSec = dataLen / (SAMPLE_RATE * BYTES_PER_SAMPLE);
-          // TÂM AN FIX: Đưa thêm Emotion và msgId vào Metadata Timeline để máy quay biết cảm xúc và định danh chính xác đoạn thoại
-          metadata.push({ role: items[i].role, text: items[i].text, emotion: items[i].emotion || 'calm', msgId: items[i].msgId, start: timeOffset, end: timeOffset + durationSec });
-          timeOffset += durationSec;
-      }
-    }
-    
-    return { blob: new Blob([combined.buffer], { type: 'audio/wav' }), metadata };
-  };
 
   const getCombinedAudioUrl = async () => {
     // TÂM AN FIX: Vượt qua Stale Closure bằng cách dùng Ref truy xuất dữ liệu nóng

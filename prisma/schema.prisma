@@ -31,6 +31,7 @@ model User {
   laoPresetId      String?
   chatSessions     ChatSession[]
   favorites        UserFavorite[]
+  canhQuays        CanhQuay[]
 }
 
 model KnowledgeBase {
@@ -99,6 +100,7 @@ model ChatMessage {
   sessionId    String
   role         MessageRole
   content      String
+  emotion      String?     @default("calm")
   audioUrl     String?
   voiceStyleId Int?
   createdAt    DateTime    @default(now())
@@ -143,12 +145,14 @@ model VoicePersona {
 
 model CanhQuay {
   id          String   @id @default(uuid())
+  userId      String?  
   name        String
   assetsNgang Json?
   assetsDoc   Json?
   linkedIds   Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model OpeningPhrase {

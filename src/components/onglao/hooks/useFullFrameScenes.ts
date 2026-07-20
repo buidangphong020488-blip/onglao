@@ -351,7 +351,16 @@ export const useFullFrameScenes = ({
 
   const handleLoadPack = async (packId: any) => {
       const hardcodedPack = FULLFRAME_PACKS.find((p: any) => p.id === packId);
-      const localPack = localFfPacks.find((p: any) => p.id === packId);
+      let localPack = localFfPacks.find((p: any) => p.id === packId);
+
+      if (!localPack) {
+          for (const char of allCharacters) {
+              if (char.fullFramePacks) {
+                  const p = char.fullFramePacks.find((x: any) => x.id === packId);
+                  if (p) { localPack = p; break; }
+              }
+          }
+      }
 
       ffScenes.forEach((s: any) => { if (s.url) URL.revokeObjectURL(s.url); });
 
@@ -359,7 +368,7 @@ export const useFullFrameScenes = ({
           setFfScenes(JSON.parse(JSON.stringify(hardcodedPack.scenes)));
           showToastMsg(`Đã đổi sang bộ cảnh ${hardcodedPack.name}`, 'success', 2000);
       } else if (localPack) {
-          showToastMsg(`Đang nạp bộ cảnh "${localPack.name}" từ ổ cứng...`, 'loading', 0);
+          showToastMsg(`Đang nạp bộ cảnh "${localPack.name}"...`, 'loading', 0);
           try {
               const loadedScenes = await Promise.all(localPack.scenes.map(async (scene: any) => {
                   let url = null;

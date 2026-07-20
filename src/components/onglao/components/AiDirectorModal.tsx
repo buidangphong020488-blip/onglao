@@ -1,5 +1,6 @@
 "use client";
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import ScriptModal from './ScriptModal';
 import { Sparkles, X, Users, Info, Loader2, Wand2, Volume2 } from 'lucide-react';
 
 interface AiDirectorModalProps {
@@ -23,6 +24,7 @@ interface AiDirectorModalProps {
     userVoiceStyle: string; setUserVoiceStyle: (v: string) => void;
     // Chủ đề & style
     aiTopicText: string;        setAiTopicText: (v: string) => void;
+      publicSettings?: any;
     aiScriptLength: string;     setAiScriptLength: (v: string) => void;
     aiLaoStyle: string;         setAiLaoStyle: (v: string) => void;
     aiUserEmotionArc: string;   setAiUserEmotionArc: (v: string) => void;
@@ -308,13 +310,21 @@ const AiDirectorModal = (p: AiDirectorModalProps) => {
                             <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse inline-block" />
                             Kịch bản đã tạo (Bạn có thể sửa trực tiếp):
                         </label>
-                        <textarea
-                            value={localGenScript}
-                            onChange={e => setLocalGenScript(e.target.value)}
-                            onBlur={e => p.setGeneratedScriptText?.(e.target.value)}
-                            className="w-full h-64 bg-slate-950 border border-emerald-500/30 rounded-xl p-4 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-mono leading-relaxed"
-                            placeholder="Kịch bản sẽ xuất hiện ở đây..."
-                        />
+                            <div className="bg-slate-950 border border-emerald-500/30 rounded-xl mt-2 overflow-hidden">
+                                <ScriptModal
+                                    hideOptions={true}
+                                    show={true}
+                                    scriptText={localGenScript}
+                                    setScriptText={setLocalGenScript}
+                                    publicSettings={p.publicSettings}
+                                    customLaoName={p.customLaoName}
+                                    customUserName={p.customUserName}
+                                    importMode="new"
+                                    setImportMode={() => {}}
+                                    onImport={() => {}}
+                                    onClose={() => {}}
+                                />
+                            </div>
                     </div>
                 )}
 
@@ -432,13 +442,21 @@ const AiDirectorModal = (p: AiDirectorModalProps) => {
                                 <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse inline-block" />
                                 Kịch bản đã tạo — kiểm tra rồi nhấn Lưu!
                             </label>
-                            <textarea
-                                value={localGenScript}
-                                onChange={e => setLocalGenScript(e.target.value)}
-                                onBlur={e => p.setGeneratedScriptText?.(e.target.value)}
-                                className="w-full h-48 bg-slate-950 border border-emerald-500/30 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-mono leading-relaxed"
-                                placeholder="Kịch bản sẽ xuất hiện ở đây..."
-                            />
+                            <div className="bg-slate-950 border border-emerald-500/30 rounded-xl mt-2 overflow-hidden">
+                                <ScriptModal
+                                    hideOptions={true}
+                                    show={true}
+                                    scriptText={localGenScript}
+                                    setScriptText={setLocalGenScript}
+                                    publicSettings={p.publicSettings}
+                                    customLaoName={p.customLaoName}
+                                    customUserName={p.customUserName}
+                                    importMode="new"
+                                    setImportMode={() => {}}
+                                    onImport={() => {}}
+                                    onClose={() => {}}
+                                />
+                            </div>
                         </div>
                     )}
                     <div className="flex justify-end gap-3 mt-2 border-t border-white/5 pt-4">

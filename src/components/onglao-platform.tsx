@@ -694,28 +694,46 @@ const OngLaoPlatform = ({ initialPoems = [], autoOpenVideoModal = false }: { ini
   const { liveMovieToPlayRef } = liveStreamingState;
   const { emotion, setEmotion } = videoExportState;
 
-  // Auto-open video modal or sync browser URL path slug
+  // Auto-open modals based on URL
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      if (autoOpenVideoModal || window.location.pathname === '/createvideo') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const modalParam = urlParams.get('modal');
+      
+      if (autoOpenVideoModal || modalParam === 'create-video') {
         videoExportState.setShowVideoExportModal(true);
         videoExportState.setVideoSlug('createvideo');
+      }
+      
+      if (modalParam === 'library') {
+        poemDbState.setShowPoemModal(true);
       }
     }
   }, [autoOpenVideoModal]);
 
-  // Synchronize browser URL based on video export modal state
+  // Synchronize browser URL based on modal states
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const isExportModalOpen = videoExportState.showVideoExportModal;
-      const currentPath = window.location.pathname;
-      if (isExportModalOpen && currentPath !== '/createvideo') {
-        window.history.pushState(null, '', '/createvideo');
-      } else if (!isExportModalOpen && currentPath === '/createvideo') {
-        window.history.pushState(null, '', '/');
+      const isLibraryModalOpen = poemDbState.showPoemModal;
+      
+      const url = new URL(window.location.href);
+      const currentModal = url.searchParams.get('modal');
+      
+      let targetModal = null;
+      if (isExportModalOpen) targetModal = 'create-video';
+      else if (isLibraryModalOpen) targetModal = 'library';
+      
+      if (targetModal && currentModal !== targetModal) {
+        url.searchParams.set('modal', targetModal);
+        window.history.pushState(null, '', url.toString());
+      } else if (!targetModal && currentModal && ['create-video', 'library'].includes(currentModal)) {
+        url.searchParams.delete('modal');
+        const newUrl = url.searchParams.toString() ? url.toString() : url.pathname;
+        window.history.pushState(null, '', newUrl);
       }
     }
-  }, [videoExportState.showVideoExportModal]);
+  }, [videoExportState.showVideoExportModal, poemDbState.showPoemModal]);
 
   // Tải tin nhắn cho session hiện tại khi chuyển session
   useEffect(() => {
@@ -730,7 +748,8 @@ const OngLaoPlatform = ({ initialPoems = [], autoOpenVideoModal = false }: { ini
             role: m.role === 'ASSISTANT' ? 'ai' : 'user',
             text: m.content,
             timestamp: m.createdAt ? new Date(m.createdAt) : new Date(),
-            audioUrl: m.audioUrl || null
+            audioUrl: m.audioUrl || null,
+            emotion: m.emotion || 'calm'
           }));
           setSessions(prev => prev.map(x => x.id === currentSessionId ? { ...x, messages: mapped, messagesLoaded: true } : x));
         }
@@ -1988,7 +2007,8 @@ ${movieInstruction}${knowledgeInstruction}${liveContext}`;
                   role: m.role === 'ASSISTANT' ? 'ai' : 'user',
                   text: m.content,
                   timestamp: m.createdAt ? new Date(m.createdAt) : new Date(),
-                  audioUrl: m.audioUrl || null
+                  audioUrl: m.audioUrl || null,
+                  emotion: m.emotion || 'calm'
               }));
               setSessions(prev => prev.map(x => x.id === sessionId ? { ...x, messages: mapped, messagesLoaded: true } : x));
           }

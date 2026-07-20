@@ -56,7 +56,6 @@ const CharacterThumbnail = ({ previewUrl }: { previewUrl: string }) => {
 const MENU_ITEMS = [
   { id: 'settings',        icon: Settings2,    label: 'Cấu hình hệ thống', color: 'text-amber-400' },
   { id: 'hinh_tuong',      icon: Volume2,      label: 'Hình tướng',        color: 'text-emerald-400' },
-  { id: 'kho_canh_quay',    icon: Users,        label: 'Kho cảnh quay',      color: 'text-indigo-400'  },
   { id: 'kho_ke_phap',     icon: Database,     label: 'Kho Kệ Pháp',       color: 'text-violet-400'  },
   { id: 'trang_thai',      icon: Smile,        label: 'Trạng thái nhân vật', color: 'text-pink-400'  },
 ];
@@ -1172,16 +1171,16 @@ export default function AdminPage() {
                       )}
                       <button onClick={() => { setEditingNV({ id: 'nv_' + Date.now(), name: '', assets: { ngang: {}, doc: {} }, linkedCharsList: [], linkedIds: [] }); setVideoOrientTab('ngang'); }}
                         className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg">
-                        <Plus size={14} /> Thêm nhân vật
+                        <Plus size={14} /> Thêm cảnh quay
                       </button>
                     </div>
                   </div>
 
                   {canhQuays.length === 0 ? (
                     <div className="text-center py-24 text-slate-500 border border-dashed border-white/5 rounded-2xl">
-                      <Users size={36} className="mx-auto mb-3 text-slate-700" />
-                      <p className="text-sm font-semibold">Chưa có nhân vật nào</p>
-                      <p className="text-xs text-slate-600 mt-1">Mỗi nhân vật có video theo trạng thái (bình thường, vui, buồn...)</p>
+                      <Film size={36} className="mx-auto mb-3 text-slate-700" />
+                      <p className="text-sm font-semibold">Chưa có bộ cảnh quay nào</p>
+                      <p className="text-xs text-slate-600 mt-1">Mỗi bộ cảnh bao gồm các video theo trạng thái (bình thường, vui, buồn...)</p>
                     </div>
                   ) : (
                     <div className="flex flex-col gap-2">

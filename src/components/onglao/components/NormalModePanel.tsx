@@ -174,6 +174,7 @@ const NormalModePanel = () => {
           <AiDirectorManagerModal
               show={showAiManager}
               onClose={() => setShowAiManager(false)}
+              publicSettings={p.publicSettings}
               allCharacters={allCharacters}
               sessions={sessions}
               setSessions={setSessions}
@@ -223,6 +224,7 @@ const NormalModePanel = () => {
             setShowAITopicModal(false); 
             setShowAiManager(true); 
         }}
+        publicSettings={publicSettings}
         
         scriptText={p.scriptText}
         setScriptText={p.setScriptText}

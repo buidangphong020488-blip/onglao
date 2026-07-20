@@ -54,76 +54,110 @@ export const pcmToWav = (base64Data: any, sampleRate: any) => {
   }
 };
 
-export const combineWavs = async (items: any[]) => {
-  const buffers = await Promise.all(items.map(async (item: any) => {
-    try {
-      const r = await fetch(item.url);
-      if (!r.ok) return new ArrayBuffer(0);
-      const contentType = r.headers.get('content-type') || '';
-      if (contentType.includes('text/html')) {
-        console.warn(`[combineWavs] Skip invalid HTML response for ${item.url}`);
-        return new ArrayBuffer(0);
-      }
-      const buf = await r.arrayBuffer();
-      if (buf.byteLength >= 44) {
-         const view = new DataView(buf);
-         const riff = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3));
-         if (riff !== 'RIFF') {
-            console.warn(`[combineWavs] Skip non-RIFF audio buffer for ${item.url}`);
-            return new ArrayBuffer(0);
-         }
-      }
-      return buf;
-    } catch (e) {
-      console.warn(`[combineWavs] Failed to fetch ${item.url}:`, e);
-      return new ArrayBuffer(0);
+export const encodeWAV = (audioBuffer: any) => {
+  const numChannels = audioBuffer.numberOfChannels;
+  const sampleRate = audioBuffer.sampleRate;
+  const length = audioBuffer.length * numChannels * 2;
+  const buffer = new ArrayBuffer(44 + length);
+  const view = new DataView(buffer);
+
+  const writeString = (offset: number, string: string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
     }
-  }));
-  if (buffers.length === 0) return { blob: null, metadata: [] };
-  
-  let totalDataLen = 0;
-  for (let i = 0; i < buffers.length; i++) {
-    totalDataLen += Math.max(0, buffers[i].byteLength - 44);
-  }
-  
-  if (totalDataLen === 0) return { blob: null, metadata: [] };
+  };
 
-  const validFirstBuffer = buffers.find((b: any) => b.byteLength >= 44);
-  if (!validFirstBuffer) return { blob: null, metadata: [] };
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + length, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * numChannels * 2, true);
+  view.setUint16(32, numChannels * 2, true);
+  view.setUint16(34, 16, true);
+  writeString(36, 'data');
+  view.setUint32(40, length, true);
 
-  const combined = new Uint8Array(44 + totalDataLen);
-  combined.set(new Uint8Array(validFirstBuffer.slice(0, 44)), 0);
-  
-  const view = new DataView(combined.buffer);
-  view.setUint32(4, 36 + totalDataLen, true);
-  view.setUint32(40, totalDataLen, true);
-  
   let offset = 44;
-  let timeOffset = 0;
-  const metadata = [];
-  const SAMPLE_RATE = 24000;
-  const BYTES_PER_SAMPLE = 2;
-  
-  for (let i = 0; i < buffers.length; i++) {
-    const dataLen = Math.max(0, buffers[i].byteLength - 44);
-    if (dataLen > 0) {
-        combined.set(new Uint8Array(buffers[i].slice(44)), offset);
-        offset += dataLen;
-        
-        const durationSec = dataLen / (SAMPLE_RATE * BYTES_PER_SAMPLE);
-        metadata.push({ 
-          role: items[i].role, 
-          text: items[i].text, 
-          emotion: items[i].emotion || 'calm', 
-          msgId: items[i].msgId, 
-          start: timeOffset, 
-          end: timeOffset + durationSec 
-        });
-        timeOffset += durationSec;
+  for (let i = 0; i < audioBuffer.length; i++) {
+    for (let channel = 0; channel < numChannels; channel++) {
+      let sample = audioBuffer.getChannelData(channel)[i];
+      sample = Math.max(-1, Math.min(1, sample));
+      sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+      view.setInt16(offset, sample, true);
+      offset += 2;
     }
   }
+
+  return new Blob([buffer], { type: 'audio/wav' });
+};
+
+export const combineWavs = async (items: any[]) => {
+  const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+  const tempCtx = new AudioContextClass();
   
-  return { blob: new Blob([combined.buffer], { type: 'audio/wav' }), metadata };
+  const decodedBuffers: any[] = [];
+  const metadata: any[] = [];
+  
+  for (let i = 0; i < items.length; i++) {
+    try {
+      const r = await fetch(items[i].url);
+      if (!r.ok) continue;
+      const contentType = r.headers.get('content-type') || '';
+      if (contentType.includes('text/html')) continue;
+      const buf = await r.arrayBuffer();
+      const decoded = await tempCtx.decodeAudioData(buf);
+      decodedBuffers.push(decoded);
+      metadata.push(items[i]);
+    } catch (e) {
+      console.warn(`[combineWavs] Failed for ${items[i].url}:`, e);
+    }
+  }
+
+  if (decodedBuffers.length === 0) {
+    tempCtx.close().catch(()=>{});
+    return { blob: null, metadata: [] };
+  }
+
+  const totalLength = decodedBuffers.reduce((sum, b) => sum + b.length, 0);
+  const maxChannels = Math.max(...decodedBuffers.map(b => b.numberOfChannels));
+  
+  const combinedBuffer = tempCtx.createBuffer(maxChannels, totalLength, tempCtx.sampleRate);
+  
+  let currentOffset = 0;
+  let timeOffset = 0;
+  const finalMetadata = [];
+
+  for (let i = 0; i < decodedBuffers.length; i++) {
+    const buffer = decodedBuffers[i];
+    
+    for (let c = 0; c < maxChannels; c++) {
+      const channelData = combinedBuffer.getChannelData(c);
+      const srcChannel = c < buffer.numberOfChannels ? buffer.getChannelData(c) : buffer.getChannelData(0);
+      channelData.set(srcChannel, currentOffset);
+    }
+    
+    const durationSec = buffer.duration;
+    finalMetadata.push({
+      role: metadata[i].role,
+      text: metadata[i].text,
+      emotion: metadata[i].emotion || 'calm',
+      msgId: metadata[i].msgId,
+      start: timeOffset,
+      end: timeOffset + durationSec
+    });
+    
+    currentOffset += buffer.length;
+    timeOffset += durationSec;
+  }
+
+  const blob = encodeWAV(combinedBuffer);
+  tempCtx.close().catch(()=>{});
+  
+  return { blob, metadata: finalMetadata };
 };
 
 export const formatTime = (seconds: any) => {

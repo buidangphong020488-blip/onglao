@@ -11,6 +11,7 @@ interface CombinedScriptModalProps {
     scriptText: string; setScriptText: (v: string) => void;
     importMode: string; setImportMode: (v: string) => void;
     onImport: () => void;
+    publicSettings?: any;
     
     // AI Props
     isGenerating: boolean;
@@ -82,6 +83,7 @@ const CombinedScriptModal = (p: CombinedScriptModalProps) => {
                         importMode={p.importMode}
                         setImportMode={p.setImportMode}
                         onImport={p.onImport}
+                        publicSettings={p.publicSettings}
                     />
                 )}
 

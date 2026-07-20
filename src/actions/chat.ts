@@ -28,7 +28,8 @@ export async function saveChatMessageAction(
   content: string,
   audioUrl?: string | null,
   voiceStyleId?: number | null,
-  messageId?: string
+  messageId?: string,
+  emotion?: string | null
 ) {
   try {
     let prismaRole: MessageRole;
@@ -36,11 +37,12 @@ export async function saveChatMessageAction(
     else if (role === "ASSISTANT") prismaRole = MessageRole.ASSISTANT;
     else prismaRole = MessageRole.SYSTEM;
 
-    // Sử dụng upsert để tạo mới hoặc cập nhật audioUrl nếu tin nhắn đã tồn tại
+    // Sử dụng upsert để tạo mới hoặc cập nhật audioUrl/emotion nếu tin nhắn đã tồn tại
     const message = await prisma.chatMessage.upsert({
       where: { id: messageId || "" },
       update: {
         audioUrl: audioUrl || null,
+        emotion: emotion || null,
       },
       create: {
         id: messageId || undefined,
@@ -49,6 +51,7 @@ export async function saveChatMessageAction(
         content: content,
         audioUrl: audioUrl || null,
         voiceStyleId: voiceStyleId || null,
+        emotion: emotion || "calm",
       },
     });
 

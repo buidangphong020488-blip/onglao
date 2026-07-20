@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
       qrImageUrl: settings.qrImageUrl,
       freeLimit: settings.freeLimit,
       defaultAiConfigId: settings.defaultAiConfigId || '1',
+      characterStates: settings.characterStates || '[]',
     });
   } catch (err: any) {
     return NextResponse.json({ message: err.message }, { status: 500 });

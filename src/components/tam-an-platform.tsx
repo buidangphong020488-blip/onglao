@@ -99,53 +99,53 @@ const idb = {
         if (this.db) return this.db;
         return new Promise((resolve, reject) => {
             const req = indexedDB.open('TamAnMediaDB', 1);
-            req.onupgradeneeded = e => e.target.result.createObjectStore('assets');
-            req.onsuccess = e => { this.db = e.target.result; resolve(this.db); };
-            req.onerror = e => reject(e);
+            req.onupgradeneeded = (e: any) => e.target.result.createObjectStore('assets');
+            req.onsuccess = (e: any) => { this.db = e.target.result; resolve(this.db); };
+            req.onerror = (e: any) => reject(e);
         });
     },
-    async set(key, blob) {
+    async set(key: any, blob: any) {
         const db = await this.init();
         return new Promise((resolve, reject) => {
-            const tx = db.transaction('assets', 'readwrite');
+            const tx = (db as any).transaction('assets', 'readwrite');
             tx.objectStore('assets').put(blob, key);
-            tx.oncomplete = () => resolve();
-            tx.onerror = e => reject(e);
+            tx.oncomplete = () => resolve(undefined as any);
+            tx.onerror = (e: any) => reject(e);
         });
     },
-    async setMany(items) {
+    async setMany(items: any[]) {
         const db = await this.init();
         return new Promise((resolve, reject) => {
-            const tx = db.transaction('assets', 'readwrite');
+            const tx = (db as any).transaction('assets', 'readwrite');
             const store = tx.objectStore('assets');
             items.forEach(item => store.put(item.blob, item.key));
-            tx.oncomplete = () => resolve();
-            tx.onerror = e => reject(e);
+            tx.oncomplete = () => resolve(undefined as any);
+            tx.onerror = (e: any) => reject(e);
         });
     },
-    async get(key) {
+    async get(key: any) {
         const db = await this.init();
         return new Promise((resolve, reject) => {
-            const tx = db.transaction('assets', 'readonly');
+            const tx = (db as any).transaction('assets', 'readonly');
             const req = tx.objectStore('assets').get(key);
             req.onsuccess = () => resolve(req.result);
-            req.onerror = e => reject(e);
+            req.onerror = (e: any) => reject(e);
         });
     },
-    async remove(key) {
+    async remove(key: string) {
         const db = await this.init();
         return new Promise((resolve, reject) => {
-            const tx = db.transaction('assets', 'readwrite');
+            const tx = (db as any).transaction('assets', 'readwrite');
             tx.objectStore('assets').delete(key);
-            tx.oncomplete = () => resolve();
-            tx.onerror = e => reject(e);
+            tx.oncomplete = () => resolve(undefined as any);
+            tx.onerror = (e: any) => reject(e);
         });
     }
 };
 
 // --- FIREBASE CLOUD SYNC CONFIG ---
 // --- FIREBASE CLOUD SYNC CONFIG ---
-let app, auth, db, appId;
+let app: any, auth: any, db: any, appId: any;
 try {
     // 1. XÓA ĐOẠN FIREBASE CŨ ĐI
     // 2. DÁN ĐOẠN CONST FIREBASECONFIG BẠN VỪA COPY TRÊN WEB VÀO ĐÂY:
@@ -3996,6 +3996,7 @@ YÊU CẦU ÉP BUỘC:
             text: m.content,
             timestamp: new Date(m.createdAt),
             audioUrl: m.audioUrl,
+            emotion: m.emotion || 'calm',
             reactions: {}
           }));
           
@@ -15473,7 +15474,7 @@ ${movieInstruction}${knowledgeInstruction}${liveContext}`;
           {sessions.sort((a, b) => (b.isPinned === a.isPinned ? b.id - a.id : b.isPinned ? 1 : -1)).map(session => (
             <div key={session.id} className={`p-3 rounded-xl border transition-all flex flex-col gap-2 ${session.id === currentSessionId ? 'bg-slate-800/80 border-orange-500/50' : 'bg-slate-900/40 border-white/5 hover:bg-slate-800/60'}`}>
               <div className="flex justify-between items-center">
-                <div className="flex-1 cursor-pointer truncate mr-2" onClick={() => { setCurrentSessionId(session.id); setShowSessions(false); }}>
+                <div className="flex-1 cursor-pointer truncate mr-2" onClick={() => { setCurrentSessionId(session.id); }}>
                   {editingSessionId === session.id ? (
                      <input autoFocus className="bg-slate-950 text-white text-xs p-1 rounded outline-none border border-orange-500 w-full" value={editSessionTitle} onChange={(e) => setEditSessionTitle(e.target.value)} onBlur={() => saveSessionTitle(session.id)} onKeyPress={(e) => e.key === 'Enter' && saveSessionTitle(session.id)} />
                   ) : (

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, X, Pencil, Trash2, Plus, Play, Pause, Music, Loader2, Save, RefreshCw, ChevronLeft, ChevronRight, ArrowRight, Volume2, Film, Mic, Info } from 'lucide-react';
 import AiDirectorModal from './AiDirectorModal';
+import ScriptModal from './ScriptModal';
 import {
     getChatMessagesAction,
     deleteChatSessionAction,
@@ -37,6 +38,7 @@ interface AiDirectorManagerModalProps {
     userVoiceStyle: string; setUserVoiceStyle: (v: string) => void;
     aiTopicText: string;        setAiTopicText: (v: string) => void;
     aiScriptLength: string;     setAiScriptLength: (v: string) => void;
+    publicSettings?: any;
     aiLaoStyle: string;         setAiLaoStyle: (v: string) => void;
     aiUserEmotionArc: string;   setAiUserEmotionArc: (v: string) => void;
     aiScriptTitle: string;      setAiScriptTitle: (v: string) => void;
@@ -72,6 +74,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     const [audioProgress, setAudioProgress] = useState<{ current: number; total: number; percent: number } | null>(null);
     // Multi-select state
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [deleteConfirm, setDeleteConfirm] = useState<{ids: string[], count: number} | null>(null);
     // Per-script audio progress: scriptId -> { current, total, percent }
     const [scriptAudioProgress, setScriptAudioProgress] = useState<Record<string, { current: number; total: number; percent: number }>>({});
     const [showCreator, setShowCreator] = useState(false);
@@ -121,21 +124,9 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     }, [p.show]);
 
     const handleInsertRole = (roleName: string) => {
-        const ta = textareaRef.current;
-        if (!ta) return;
-        const start = ta.selectionStart;
-        const end = ta.selectionEnd;
-        const text = ta.value;
-        // Nếu ở đầu văn bản hoặc dòng trước đã là xuống hàng thì không cần \n
-        const actualPrefix = (start === 0 || text[start - 1] === '\n') ? `${roleName}: ` : `\n${roleName}: `;
-        
-        const newText = text.substring(0, start) + actualPrefix + text.substring(end);
-        setEditingRawText(newText);
-        
-        setTimeout(() => {
-            ta.focus();
-            ta.selectionStart = ta.selectionEnd = start + actualPrefix.length;
-        }, 10);
+        const text = editingRawText;
+        const actualPrefix = text.length === 0 || text.endsWith('\n') ? `${roleName}: ` : `\n\n${roleName}: `;
+        setEditingRawText(text + actualPrefix);
     };
 
     // Audio Playlist Player State
@@ -358,23 +349,34 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         }
     };
 
-    // Delete script session
-    const handleDeleteScript = async (id: any) => {
-        if (!confirm('Bạn có chắc chắn muốn xóa kịch bản này không?')) return;
+    // Execute actual delete
+    const executeDeleteScripts = async (ids: string[]) => {
+        setSaving(true);
         try {
-            const res = await deleteChatSessionAction(id);
-            if (res.success) {
-                p.setSessions(p.sessions.filter(s => s.id !== id));
-                if (p.currentSessionId === id) {
-                    p.setCurrentSessionId(null);
+            for (const id of ids) {
+                const res = await deleteChatSessionAction(id);
+                if (res.success) {
+                    p.setSessions((prev: any[]) => prev.filter(s => s.id !== id));
+                    if (p.currentSessionId === id) {
+                        p.setCurrentSessionId(null);
+                    }
+                } else {
+                    p.showToastMsg('L?i khi x�a k?ch b?n: ' + (res.error || ''), 'error');
                 }
-                p.showToastMsg('Đã xóa kịch bản.', 'success');
-            } else {
-                p.showToastMsg('Lỗi khi xóa kịch bản: ' + (res.error || ''), 'error');
             }
+            p.showToastMsg('�� x�a ' + ids.length + ' k?ch b?n.', 'success');
         } catch (err) {
-            p.showToastMsg('Lỗi khi xóa kịch bản.', 'error');
+            p.showToastMsg('L?i khi x�a k?ch b?n.', 'error');
+        } finally {
+            setSaving(false);
+            setDeleteConfirm(null);
+            setSelectedIds(new Set());
         }
+    };
+
+    // Trigger single delete modal
+    const handleDeleteScript = (id: any) => {
+        setDeleteConfirm({ ids: [id], count: 1 });
     };
 
     // Save editing messages
@@ -610,6 +612,12 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                 setEditingLaoVoiceStyle('');
                 setEditingUserVoice(p.userVoice || 'Aoede');
                 setEditingUserVoiceStyle('');
+                p.setCustomUserName?.('Con');
+                p.setCustomLaoName?.('L�o');
+                p.setUserSelfCall?.('Con');
+                p.setUserCallLao?.('L�o');
+                p.setLaoSelfCall?.('L�o');
+                p.setLaoCallUser?.('Con');
                 
                 const validDate = new Date();
                 const tzOffset = validDate.getTimezoneOffset() * 60000;
@@ -1341,7 +1349,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                         </div>
                                     </div>
                                     <div className="flex gap-2">
-                                        <button onClick={handleDownloadMultiSpeakerAudio} disabled={saving || downloadingAudio} className="bg-green-600/20 hover:bg-green-600/40 text-green-500 font-bold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1 transition-colors border border-green-500/20 disabled:opacity-50">
+                                        <button onClick={handleDownloadMultiSpeakerAudio} disabled={saving || downloadingAudio} className="hidden">
                                             {downloadingAudio ? <Loader2 size={14} className="animate-spin" /> : <Mic size={14} />} Tải Audio Gộp (Multi-speaker)
                                         </button>
                                         <button onClick={handleGenerateAllAudio} disabled={saving || downloadingAudio} className="bg-amber-600/20 hover:bg-amber-600/40 text-amber-500 font-bold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1 transition-colors border border-amber-500/20 disabled:opacity-50">
@@ -1583,13 +1591,18 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                             <span className="text-[10px] text-slate-500 hidden sm:inline">Đặt con trỏ chuột vào vị trí cần chèn rồi click vai nói.</span>
                                         </div>
 
-                                        <textarea
-                                            ref={textareaRef}
-                                            value={editingRawText}
-                                            onChange={(e) => setEditingRawText(e.target.value)}
-                                            disabled={saving || isRegenerating}
-                                            className="w-full min-h-[45vh] bg-slate-950 border border-white/10 rounded-xl p-4 text-sm text-white focus:border-indigo-500 outline-none resize-y font-mono scrollbar-hide leading-relaxed transition-colors focus:bg-slate-900 disabled:opacity-50"
-                                            placeholder={`${p.customUserName || 'Con'}: Lão ơi...\n\n${p.customLaoName || 'Lão'}: Chào con...`}
+                                        <ScriptModal
+                                            hideOptions={true}
+                                            show={true}
+                                            scriptText={editingRawText}
+                                            setScriptText={setEditingRawText}
+                                            publicSettings={p.publicSettings}
+                                            customLaoName={p.customLaoName}
+                                            customUserName={p.customUserName}
+                                            importMode="new"
+                                            setImportMode={() => {}}
+                                            onImport={() => {}}
+                                            onClose={() => {}}
                                         />
                                     </div>
                                 </div>
@@ -1640,6 +1653,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
 
             {/* Render Prompt script generator inside manager modal */}
             <AiDirectorModal
+                publicSettings={p.publicSettings}
                 show={showCreator}
                 onClose={() => setShowCreator(false)}
                 isGenerating={p.isGenerating}
@@ -1682,6 +1696,38 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                 setGeneratedScriptText={p.setGeneratedScriptText}
                 onSaveGeneratedScript={handleSaveGeneratedAIScript}
             />
+
+            {/* Delete Confirmation Modal */}
+            {deleteConfirm && (
+                <div className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="bg-slate-900 border border-rose-500/30 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden p-6 text-center animate-in zoom-in-95">
+                        <div className="mx-auto w-12 h-12 bg-rose-500/20 rounded-full flex items-center justify-center mb-4">
+                            <Trash2 className="text-rose-400" size={24} />
+                        </div>
+                        <h3 className="text-lg font-bold text-white mb-2">X�c nh?n x�a</h3>
+                        <p className="text-slate-400 text-sm mb-6">
+                            B?n c� ch?c ch?n mu?n x�a {deleteConfirm.count} k?ch b?n kh�ng? H�nh d?ng n�y kh�ng th? ho�n t�c.
+                        </p>
+                        <div className="flex gap-3 justify-center">
+                            <button
+                                onClick={() => setDeleteConfirm(null)}
+                                disabled={saving}
+                                className="px-5 py-2 rounded-xl text-sm font-bold text-slate-300 bg-slate-800 hover:bg-slate-700 transition-colors disabled:opacity-50"
+                            >
+                                H?y b?
+                            </button>
+                            <button
+                                onClick={() => executeDeleteScripts(deleteConfirm.ids)}
+                                disabled={saving}
+                                className="px-5 py-2 rounded-xl text-sm font-bold text-white bg-rose-600 hover:bg-rose-500 flex items-center gap-2 transition-colors disabled:opacity-50"
+                            >
+                                {saving ? <Loader2 size={16} className="animate-spin" /> : null}
+                                {saving ? '�ang x�a...' : 'X�a ngay'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

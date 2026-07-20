@@ -84,7 +84,6 @@ export const SessionsSidebar = () => {
         <button
           onClick={() => {
             setShowAutoPilotModal(true);
-            setShowSessions(false);
           }}
           className="w-full py-3 rounded-xl bg-rose-700/90 hover:bg-rose-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(225,29,72,0.4)] border border-rose-500/50 mt-1 animate-pulse"
         >
@@ -95,7 +94,6 @@ export const SessionsSidebar = () => {
         <button
           onClick={() => {
             setIsLiveMode(true);
-            setShowSessions(false);
             const laoHoaChar = allCharacters.find(
               (c: any) => c.id === "char_lao_hoa",
             );
@@ -117,7 +115,6 @@ export const SessionsSidebar = () => {
         <button
           onClick={() => {
             setShowAiManager(true);
-            setShowSessions(false);
           }}
           className="w-full py-2.5 rounded-xl bg-cyan-700/80 hover:bg-cyan-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-cyan-500/50 mt-1"
         >
@@ -126,11 +123,11 @@ export const SessionsSidebar = () => {
 
         {/* Nhập kịch bản thủ công and Đạo Diễn AI hidden per user request */}
         {/*
-        <button onClick={() => { setShowScriptModal(true); setShowSessions(false); }} className="w-full py-2.5 rounded-xl bg-slate-900 border border-white/5 text-slate-300 font-bold text-sm flex items-center justify-center gap-2 transition-all mt-1">
+        <button onClick={() => { setShowScriptModal(true); }} className="w-full py-2.5 rounded-xl bg-slate-900 border border-white/5 text-slate-300 font-bold text-sm flex items-center justify-center gap-2 transition-all mt-1">
           <FileText size={16} /> Nhập kịch bản thủ công
         </button>
 
-        <button onClick={() => { setShowAITopicModal(true); setShowSessions(false); }} className="w-full py-2.5 rounded-xl bg-indigo-700/80 hover:bg-indigo-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-indigo-500/50 mt-1">
+        <button onClick={() => { setShowAITopicModal(true); }} className="w-full py-2.5 rounded-xl bg-indigo-700/80 hover:bg-indigo-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-indigo-500/50 mt-1">
           <Sparkles size={16} /> Đạo Diễn AI (Tạo kịch bản)
         </button>
         */}
@@ -139,7 +136,6 @@ export const SessionsSidebar = () => {
         <button
           onClick={() => {
             setShowPoemModal(true);
-            setShowSessions(false);
           }}
           className="w-full py-2.5 rounded-xl bg-amber-700/80 hover:bg-amber-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-amber-500/50 mt-1"
         >
@@ -175,7 +171,6 @@ export const SessionsSidebar = () => {
                     onClick={() => {
                       handleChangeVoicePersona(vp.id);
                       setOpenDropdown(null);
-                      setShowSessions(false);
                     }}
                     className="p-3 text-xs text-white hover:bg-amber-600/50 cursor-pointer border-b border-white/5 last:border-0 truncate"
                   >
@@ -229,7 +224,6 @@ export const SessionsSidebar = () => {
         <button
           onClick={() => {
             setShowUserGuide(true);
-            setShowSessions(false);
           }}
           className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm flex items-center justify-center gap-2 transition-all border border-white/5 mt-1"
         >
