@@ -19,6 +19,7 @@ const WelcomeScreen = (p: any) => {
     userVoiceStyle, setUserVoiceStyle, VOICE_STYLES,
     isProfileCompleted, handleEnterApp,
     openDropdown, setOpenDropdown,
+    voicePersonas, currentVoicePersonaId, handleChangeVoicePersona,
   } = p;
 
   if (!isLoggedIn) {
@@ -82,15 +83,15 @@ const WelcomeScreen = (p: any) => {
                onClick={() => setOpenDropdown(openDropdown === 'welcome_lao' ? null : 'welcome_lao')}
                className="w-full bg-transparent py-0.5 pr-2 outline-none text-white font-bold text-[11px] md:text-xs cursor-pointer flex justify-between items-center text-left"
             >
-               <span className="truncate">{allCharacters.find(c => c.id === currentLaoPresetId)?.name || 'Lão Chat'}</span>
+               <span className="truncate">{(voicePersonas || []).find((p: any) => p.id === currentVoicePersonaId)?.name || 'Lão Hoa'}</span>
                <ChevronDown size={14} className="shrink-0 text-slate-500" />
             </button>
             {openDropdown === 'welcome_lao' && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-amber-500/30 rounded-xl shadow-2xl z-[100] max-h-48 overflow-y-auto overflow-x-hidden">
-                   {allCharacters.filter((c: any) => c.role === 'lao' || c.name.toLowerCase().includes('lão') || c.name.toLowerCase().includes('lao') || (c.isLocal && c.role === 'lao')).map((char: any) => (
+                   {(voicePersonas || []).map((char: any) => (
                        <div 
                            key={char.id} 
-                           onClick={() => { handleChangeChatLao(char.id); setOpenDropdown(null); }}
+                           onClick={() => { handleChangeVoicePersona(char.id); setOpenDropdown(null); }}
                            className="p-3 text-[11px] md:text-xs text-white hover:bg-amber-600/50 cursor-pointer border-b border-white/5 last:border-0 truncate"
                        >
                            {char.name}

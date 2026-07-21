@@ -2185,9 +2185,12 @@ ${movieInstruction}${knowledgeInstruction}${liveContext}`;
               setUserVoiceStyle={authState.setUserVoiceStyle}
               VOICE_STYLES={VOICE_STYLES}
               isProfileCompleted={authState.isProfileCompleted}
-              handleEnterApp={handleEnterApp}
               openDropdown={authState.openDropdown}
               setOpenDropdown={authState.setOpenDropdown}
+              voicePersonas={voicePersonas}
+              currentVoicePersonaId={currentVoicePersonaId}
+              handleChangeVoicePersona={handleChangeVoicePersona}
+              handleEnterApp={handleEnterApp}
           />
       );
   }
