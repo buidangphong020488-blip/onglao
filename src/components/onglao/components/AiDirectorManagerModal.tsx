@@ -529,6 +529,29 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                 finalDateStr = finalDate.toISOString();
             }
 
+            // TÂM AN FIX: Nếu là kịch bản tạm thời, hãy tạo nó trong database trước!
+            let realSessionId = selectedScript.id;
+            let isNewSession = false;
+            if (realSessionId.startsWith('temp_')) {
+                const targetUserId = p.currentUser?.id || p.user?.uid;
+                const prefix = selectedScript.title.startsWith('[AI]') 
+                    ? '[AI] ' 
+                    : selectedScript.title.startsWith('[Thủ công]') 
+                        ? '[Thủ công] ' 
+                        : '';
+                const baseTitle = editingTitle.trim() || 'Kịch bản mới';
+                const createdTitle = `${prefix}${baseTitle}`;
+                const createdDate = editingDate ? new Date(editingDate) : new Date();
+
+                const createRes = await createChatSessionAction(targetUserId, createdTitle, "script", createdDate);
+                if (!createRes.success || !createRes.data) {
+                    throw new Error(createRes.error || 'Lỗi tạo kịch bản mới trong database.');
+                }
+                realSessionId = createRes.data.id;
+                selectedScript.id = realSessionId;
+                isNewSession = true;
+            }
+
             const voicesPayload = {
                 laoVoice: editingLaoVoice,
                 laoVoiceStyle: editingLaoVoiceStyle,
@@ -538,7 +561,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
 
             // Gọi batch save action
             const res = await batchSaveScriptAction(
-                selectedScript.id,
+                realSessionId,
                 messagesPayload,
                 deleteMessageIds,
                 finalTitle,
@@ -551,26 +574,46 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
             }
 
             // Synchronize the local sessions state
-            p.setSessions(p.sessions.map(s => s.id === selectedScript.id ? { 
-                ...s, 
-                title: finalTitle, 
-                updatedAt: finalDateStr,
-                laoVoice: editingLaoVoice,
-                laoVoiceStyle: editingLaoVoiceStyle,
-                userVoice: editingUserVoice,
-                userVoiceStyle: editingUserVoiceStyle,
-            } : s));
+            if (isNewSession) {
+                const newSession = {
+                    id: realSessionId,
+                    title: finalTitle,
+                    type: 'script',
+                    isPinned: false,
+                    messages: finalMsgs,
+                    messagesLoaded: true,
+                    updatedAt: finalDateStr,
+                    createdAt: finalDateStr,
+                    laoVoice: editingLaoVoice,
+                    laoVoiceStyle: editingLaoVoiceStyle,
+                    userVoice: editingUserVoice,
+                    userVoiceStyle: editingUserVoiceStyle,
+                };
+                p.setSessions([newSession, ...p.sessions]);
+                setSelectedScript(newSession);
+            } else {
+                p.setSessions(p.sessions.map(s => s.id === selectedScript.id ? { 
+                    ...s, 
+                    title: finalTitle, 
+                    updatedAt: finalDateStr,
+                    laoVoice: editingLaoVoice,
+                    laoVoiceStyle: editingLaoVoiceStyle,
+                    userVoice: editingUserVoice,
+                    userVoiceStyle: editingUserVoiceStyle,
+                } : s));
 
-            // Also update the selectedScript local reference
-            setSelectedScript((prev: any) => ({
-                ...prev,
-                title: finalTitle,
-                updatedAt: finalDateStr,
-                laoVoice: editingLaoVoice,
-                laoVoiceStyle: editingLaoVoiceStyle,
-                userVoice: editingUserVoice,
-                userVoiceStyle: editingUserVoiceStyle,
-            }));
+                // Also update the selectedScript local reference
+                setSelectedScript((prev: any) => ({
+                    ...prev,
+                    id: realSessionId,
+                    title: finalTitle,
+                    updatedAt: finalDateStr,
+                    laoVoice: editingLaoVoice,
+                    laoVoiceStyle: editingLaoVoiceStyle,
+                    userVoice: editingUserVoice,
+                    userVoiceStyle: editingUserVoiceStyle,
+                }));
+            }
 
             p.showToastMsg('Đã lưu kịch bản thành công!', 'success');
             if (shouldTransition) {
@@ -650,54 +693,38 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         }
     };
 
-    const handleCreateManualScript = async () => {
-        setSaving(true);
-        try {
-            const targetUserId = p.currentUser?.id || p.user?.uid;
-            const res = await createChatSessionAction(targetUserId, "[Thủ công] Kịch bản mới", "script");
-            if (res.success && res.data) {
-                const newSession = {
-                    id: res.data.id,
-                    title: res.data.title,
-                    type: 'script',
-                    isPinned: false,
-                    messages: [],
-                    messagesLoaded: true
-                };
-                p.setSessions([newSession, ...p.sessions]);
-                setSelectedScript(newSession);
-                setEditingMessages([]);
-                setEditingRawText('');
-                setEditingTitle('Kịch bản thủ công');
-                setEditingLaoVoice(p.laoVoice || 'Algieba');
-                setEditingLaoVoiceStyle('');
-                setEditingUserVoice(p.userVoice || 'Aoede');
-                setEditingUserVoiceStyle('');
-                p.setCustomUserName?.('Con');
-                p.setCustomLaoName?.('L\u00e3o');
-                p.setUserSelfCall?.('Con');
-                p.setUserCallLao?.('L\u00e3o');
-                p.setLaoSelfCall?.('L\u00e3o');
-                p.setLaoCallUser?.('Con');
-                
-                const validDate = new Date();
-                const tzOffset = validDate.getTimezoneOffset() * 60000;
-                const localISOTime = (new Date(validDate.getTime() - tzOffset)).toISOString().slice(0, 16);
-                setEditingDate(localISOTime);
+    const handleCreateManualScript = () => {
+        const tempId = 'temp_' + Date.now();
+        const newSession = {
+            id: tempId,
+            title: "[Thủ công] Kịch bản mới",
+            type: 'script',
+            isPinned: false,
+            messages: [],
+            messagesLoaded: true
+        };
+        setSelectedScript(newSession);
+        setEditingMessages([]);
+        setEditingRawText('');
+        setEditingTitle('Kịch bản mới');
+        setEditingLaoVoice(p.laoVoice || 'Algieba');
+        setEditingLaoVoiceStyle('');
+        setEditingUserVoice(p.userVoice || 'Aoede');
+        setEditingUserVoiceStyle('');
+        p.setCustomUserName?.('Con');
+        p.setCustomLaoName?.('L\u00e3o');
+        p.setUserSelfCall?.('Con');
+        p.setUserCallLao?.('L\u00e3o');
+        p.setLaoSelfCall?.('L\u00e3o');
+        p.setLaoCallUser?.('Con');
+        
+        const validDate = new Date();
+        const tzOffset = validDate.getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(validDate.getTime() - tzOffset)).toISOString().slice(0, 16);
+        setEditingDate(localISOTime);
 
-                setView('edit');
-                p.showToastMsg('Đã tạo kịch bản trống. Vui lòng thêm thoại thủ công!', 'success');
-            } else {
-                p.showToastMsg('Lỗi tạo kịch bản: ' + (res.error || ''), 'error');
-                if (res.error === 'Unauthorized' || res.error === 'Forbidden') {
-                    setTimeout(() => window.location.reload(), 1500);
-                }
-            }
-        } catch (err) {
-            p.showToastMsg('Lỗi tạo kịch bản.', 'error');
-        } finally {
-            setSaving(false);
-        }
+        setView('edit');
+        p.showToastMsg('Đã khởi tạo kịch bản trống. Vui lòng soạn thảo và bấm "Lưu kịch bản"!', 'info');
     };
 
     // Tạo audio trực tiếp trong edit view, tự động lưu trước
@@ -1116,9 +1143,9 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                     <button 
                         onClick={() => view === 'edit' ? setView('list') : p.onClose()} 
                         className="text-slate-400 hover:text-white transition-colors"
-                        title={view === 'edit' ? 'Quay lại danh sách' : 'Đóng'}
+                        title={view === 'edit' ? 'Hủy và quay lại danh sách' : 'Đóng'}
                     >
-                        {view === 'edit' ? <ChevronLeft size={20} /> : <X size={20} />}
+                        <X size={20} />
                     </button>
                 </div>
 
