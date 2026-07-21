@@ -606,9 +606,9 @@ const LiveModePanel = () => {
                                    transform: `translate(${bg.x}%, ${bg.y}%) scale(${bg.s}) ${bg.flip ? 'scaleX(-1)' : ''}`,
                                }}>
                                {bg.type === 'video' ? (
-                                   <video src={bg.url} autoPlay loop muted={bg.muted} playsInline className="w-full h-full object-cover" ref={el => { if (el) el.volume = bg.volume !== undefined ? bg.volume : 1; }} />
+                                    <video src={bg.url || null} autoPlay loop muted={bg.muted} playsInline className="w-full h-full object-cover" ref={el => { if (el) el.volume = bg.volume !== undefined ? bg.volume : 1; }} />
                                ) : (
-                                   <img src={bg.url} className="w-full h-full object-cover" alt="bg" />
+                                   <img src={bg.url || null} className="w-full h-full object-cover" alt="bg" />
                                )}
                           </div>
                        ))}
@@ -761,7 +761,7 @@ const LiveModePanel = () => {
                           ) : (
                               <video 
                                   ref={liveIdlePlayerRef}
-                                  src={liveIdleVideos[currentLiveIdleVideoIndex]?.url} 
+                                  src={liveIdleVideos[currentLiveIdleVideoIndex]?.url || null} 
                                   autoPlay 
                                   className="w-full h-full object-contain bg-black"
                                   onLoadedMetadata={(e: any) => {
