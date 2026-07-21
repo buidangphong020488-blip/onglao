@@ -27,6 +27,7 @@ interface ScriptBlock {
 
 const ScriptModal = ({ show, onClose, scriptText, setScriptText, importMode, setImportMode, onImport, asTab, publicSettings, hideOptions, customLaoName, customUserName }: ScriptModalProps) => {
     const [blocks, setBlocks] = useState<ScriptBlock[]>([]);
+    const lastSerializedTextRef = React.useRef('');
 
     const EMOTIONS: Record<string, string> = React.useMemo(() => {
         try {
@@ -42,6 +43,12 @@ const ScriptModal = ({ show, onClose, scriptText, setScriptText, importMode, set
 
     useEffect(() => {
         if (!show) return;
+        
+        // Skip parsing if this update was triggered by our own serialization
+        if (scriptText === lastSerializedTextRef.current) {
+            return;
+        }
+
         const lines = scriptText.split('\n').filter(l => l.trim());
         const newBlocks: ScriptBlock[] = [];
         let currentRole = 'ai';
@@ -57,7 +64,7 @@ const ScriptModal = ({ show, onClose, scriptText, setScriptText, importMode, set
             let text = line.trim();
             const escapeRegex = (s: string | undefined) => s ? s.toLowerCase().replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&") : '';
             const userNamePattern = [escapeRegex(customUserName), 'con', 'ngu?i h?i', 'h?i'].filter(Boolean).join('|');
-            const aiNamePattern = [escapeRegex(customLaoName), 'l�o', 'd�p', 'ai'].filter(Boolean).join('|');
+            const aiNamePattern = [escapeRegex(customLaoName), 'lo', 'dp', 'ai'].filter(Boolean).join('|');
 
             const userRegex = new RegExp(`^(${userNamePattern})(?:\\s*\\[(.*?)\\]|\\s*\\((.*?)\\))?\\s*:`, 'i');
             const aiRegex = new RegExp(`^(${aiNamePattern})(?:\\s*\\[(.*?)\\]|\\s*\\((.*?)\\))?\\s*:`, 'i');
@@ -80,17 +87,19 @@ const ScriptModal = ({ show, onClose, scriptText, setScriptText, importMode, set
             if (newBlocks.length > 0 && newBlocks[newBlocks.length - 1].role === role && newBlocks[newBlocks.length - 1].emotion === emotion && !userMatch && !aiMatch) {
                 newBlocks[newBlocks.length - 1].text += '\n' + text;
             } else {
-                newBlocks.push({ id: Date.now().toString() + idx, role, emotion: ['calm', 'sad', 'joy', 'hook'].includes(emotion) ? emotion : 'calm', text });
+                newBlocks.push({ id: `${role}_${idx}_${Date.now().toString().substring(8)}`, role, emotion: ['calm', 'sad', 'joy', 'hook'].includes(emotion) ? emotion : 'calm', text });
             }
         });
         setBlocks(newBlocks);
+        lastSerializedTextRef.current = scriptText;
     }, [scriptText, show]);
 
     const serializeAndSave = (currentBlocks: ScriptBlock[]) => {
         const text = currentBlocks.map(b => {
-            const roleStr = b.role === 'ai' ? (customLaoName || 'L�o') : (customUserName || 'Con');
+            const roleStr = b.role === 'ai' ? (customLaoName || 'Lo') : (customUserName || 'Con');
             return `${roleStr} [${b.emotion}]: ${b.text}`;
         }).join('\n');
+        lastSerializedTextRef.current = text;
         setScriptText(text);
     };
 
