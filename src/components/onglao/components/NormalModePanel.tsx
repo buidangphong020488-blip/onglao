@@ -174,7 +174,6 @@ const NormalModePanel = () => {
           <AiDirectorManagerModal
               show={showAiManager}
               onClose={() => setShowAiManager(false)}
-              publicSettings={p.publicSettings}
               allCharacters={allCharacters}
               sessions={sessions}
               setSessions={setSessions}
@@ -219,12 +218,11 @@ const NormalModePanel = () => {
 
       <CombinedScriptModal
         show={showScriptModal || showAITopicModal}
+        initialTab={showScriptModal ? 'manual' : 'ai'}
         onClose={() => { 
             setShowScriptModal(false); 
             setShowAITopicModal(false); 
-            setShowAiManager(true); 
         }}
-        publicSettings={publicSettings}
         
         scriptText={p.scriptText}
         setScriptText={p.setScriptText}
@@ -287,11 +285,11 @@ const NormalModePanel = () => {
       />
 
       {showUserGuide && (
-        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" onClick={() => setShowUserGuide(false)}>
+        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" >
           <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in duration-300" onClick={e => e.stopPropagation()}>
              <div className="p-5 border-b border-white/5 flex justify-between items-center bg-slate-800/50">
                <h2 className="text-lg font-black text-orange-400 flex items-center gap-3 tracking-widest"><Info size={22}/> Hướng dẫn sử dụng</h2>
-               <button onClick={() => setShowUserGuide(false)} className="text-slate-400 hover:text-white transition-colors bg-slate-800 p-2 rounded-full"><X size={20}/></button>
+               <button  className="text-slate-400 hover:text-white transition-colors bg-slate-800 p-2 rounded-full"><X size={20}/></button>
              </div>
              <div className="p-6 overflow-y-auto flex flex-col gap-6 text-sm text-slate-300 scrollbar-hide">
                 <p className="text-center text-slate-400 italic mb-2">Dưới đây là các pháp khí hỗ trợ con trong quá trình thưa thỉnh cùng Lão.</p>
@@ -302,7 +300,7 @@ const NormalModePanel = () => {
                 <div className="flex gap-4 items-start bg-slate-800/30 p-4 rounded-2xl border border-white/5"><div className="p-3 bg-indigo-500/20 rounded-xl text-indigo-400 shadow-lg"><History size={24}/></div><div><h3 className="text-white font-bold text-base mb-1">Pháp bảo khai thị (Lịch sử)</h3><p>Biểu tượng Đồng hồ góc trên bên phải. Cho phép con xem lại toàn bộ nội dung đàm đạo, đúc kết kệ pháp, xuất ra Video đàm đạo, tải file MP3 hoặc chia sẻ trọn vẹn cuộc trò chuyện.</p></div></div>
              </div>
              <div className="p-4 border-t border-white/5 text-center">
-               <button onClick={() => setShowUserGuide(false)} className="px-8 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-xl font-bold tracking-widest text-sm transition-all shadow-lg">Đã rõ khai thị</button>
+               <button  className="px-8 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-xl font-bold tracking-widest text-sm transition-all shadow-lg">Đã rõ khai thị</button>
              </div>
           </div>
         </div>
@@ -343,7 +341,7 @@ const NormalModePanel = () => {
             <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-b from-slate-800 to-slate-950 rounded-full flex items-center justify-center shadow-xl shadow-orange-500/20 border border-white/10 animate-pulse overflow-hidden">
               {/* TÂM AN FIX: Cập nhật đầy đủ thông số FX cho Ảnh Đại Diện Góc Trái */}
               <div className="w-full h-full flex items-center justify-center" style={{ transform: `scale(${allCharacters.find(c => c.id === currentLaoPresetId)?.recommendedScale || 1})` }}>
-                 <MiniLaoFace className="w-full h-full" appearance={laoAppearance} visualType={laoVisualType} customImages={processedLaoImages} customVideos={chatLaoVideos} chromaSettings={laoChromaSettings} flipped={charOffsets.lao.flip} isSpeakingSession={isLaoSpeakingSession} enableFX={enableAutoHarmonization} shadowConfig={laoShadow} harmonizeSettings={harmonizeSettings} mouthOpen={mouthOpen} />
+                 <MiniLaoFace className="w-full h-full" appearance={laoAppearance} visualType={laoVisualType} customImages={processedLaoImages} customVideos={chatLaoVideos} chromaSettings={laoChromaSettings} flipped={charOffsets.lao.flip} isSpeakingSession={isLaoSpeakingSession} enableFX={enableAutoHarmonization} shadowConfig={laoShadow} harmonizeSettings={harmonizeSettings} />
               </div>
             </div>
             <div>
@@ -484,7 +482,7 @@ const NormalModePanel = () => {
       
       {/* MODAL AUTO-PILOT (XƯ�?NG PHIM TỰ ĐỘNG) */}
       {showAutoPilotModal && (
-         <div className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-md flex justify-center items-center p-4" onClick={() => !apState.isRunning && setShowAutoPilotModal(false)}>
+         <div className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-md flex justify-center items-center p-4" >
             <div className="bg-slate-900 border border-rose-500/50 rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
                 
                 <div className="p-5 border-b border-white/5 flex justify-between items-center bg-slate-800 shrink-0 relative overflow-hidden">

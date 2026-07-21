@@ -200,9 +200,119 @@ export const useVideoExport = ({
   const [renderedVideoUrl, setRenderedVideoUrl] = useState<any>(null);
   const [isVideoFullscreen, setIsVideoFullscreen] = useState(false); 
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false); // Thêm state cho chế độ Fullscreen lúc đang edit
-  const [videoExt, setVideoExt] = useState('webm');
-  const [exportTab, setExportTab] = useState('basic'); // basic | advance | background | appearance
+  const [videoExt, setVideoExt] = useState('mp4');
+  const [exportTab, setExportTab] = useState('basic'); // basic | advance | background | appearance | history
   const [hoveredElement, setHoveredElement] = useState<any>(null);
+
+  // --- TÂM AN THÊM: QUẢN LÝ LỊCH SỬ VIDEO ĐÃ RENDER (TÍCH HỢP POSTGRESQL DB) ---
+  const [renderHistory, setRenderHistory] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('onglao_video_render_history');
+        return saved ? JSON.parse(saved) : [];
+      } catch (e) {}
+    }
+    return [];
+  });
+
+  // Nạp dữ liệu lịch sử từ PostgreSQL Database khi khởi tạo
+  useEffect(() => {
+    fetch('/api/render-history')
+      .then(res => res.json())
+      .then(resData => {
+        if (resData.success && Array.isArray(resData.data) && resData.data.length > 0) {
+          setRenderHistory(prev => {
+            const map = new Map();
+            resData.data.forEach((item: any) => map.set(item.id, item));
+            prev.forEach((item: any) => {
+              if (!map.has(item.id)) map.set(item.id, item);
+            });
+            const merged = Array.from(map.values()).sort((a: any, b: any) => (b.createdAt || 0) - (a.createdAt || 0));
+            try {
+              localStorage.setItem('onglao_video_render_history', JSON.stringify(merged));
+            } catch (e) {}
+            return merged;
+          });
+        }
+      })
+      .catch(err => console.warn('Lỗi nạp lịch sử từ PostgreSQL:', err));
+  }, []);
+
+  const saveRenderHistoryItem = (blob: Blob, url: string, customName?: string) => {
+    try {
+      const id = 'vid_' + Date.now();
+      const newItem = {
+        id,
+        name: customName || `Video_${new Date().toLocaleTimeString('vi-VN')} (${videoResolution}p)`,
+        url,
+        createdAt: Date.now(),
+        resolution: videoResolution,
+        aspectRatio: videoAspectRatio,
+        format: videoExt || 'mp4'
+      };
+
+      if (blob) {
+        idb.set('rendered_vid_' + id, blob).catch(err => console.warn('Lỗi lưu IDB video history:', err));
+      }
+
+      // Lưu Metadata & Đường dẫn file vật lý dự án vào PostgreSQL DB vĩnh viễn
+      fetch('/api/render-history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: newItem.id,
+          name: newItem.name,
+          url: newItem.url,
+          createdAt: newItem.createdAt,
+          resolution: newItem.resolution,
+          aspectRatio: newItem.aspectRatio,
+          format: newItem.format
+        })
+      }).catch(err => console.warn('Lỗi lưu PostgreSQL:', err));
+
+      setRenderHistory(prev => {
+        const updated = [newItem, ...prev];
+        try {
+          const jsonList = updated.map(h => ({
+            id: h.id,
+            name: h.name,
+            url: h.url,
+            createdAt: h.createdAt,
+            resolution: h.resolution,
+            aspectRatio: h.aspectRatio,
+            format: h.format
+          }));
+          localStorage.setItem('onglao_video_render_history', JSON.stringify(jsonList));
+        } catch (e) {}
+        return updated;
+      });
+    } catch (e) {}
+  };
+
+  const deleteRenderHistoryItem = (id: string) => {
+    try {
+      idb.del('rendered_vid_' + id).catch(() => {});
+      
+      // Xóa trong PostgreSQL DB
+      fetch(`/api/render-history?id=${id}`, { method: 'DELETE' }).catch(() => {});
+
+      setRenderHistory(prev => {
+        const updated = prev.filter(item => item.id !== id);
+        try {
+          const jsonList = updated.map(h => ({
+            id: h.id,
+            name: h.name,
+            createdAt: h.createdAt,
+            resolution: h.resolution,
+            aspectRatio: h.aspectRatio,
+            format: h.format
+          }));
+          localStorage.setItem('onglao_video_render_history', JSON.stringify(jsonList));
+        } catch (e) {}
+        return updated;
+      });
+    } catch (e) {}
+  };
 
   // --- TÂM AN THÊM: STATE CHO INTRO & OUTRO ---
   const [enableIntro, setEnableIntro] = useState(true);
@@ -1820,7 +1930,6 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
       };
       setSessions([newSession, ...sessions]);
       setCurrentSessionId(res.data.id);
-      setShowSessions(false);
     }
   };
 
@@ -1835,12 +1944,12 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
               for (const msg of messages) {
                   const saveRes = await saveChatMessageAction(
                       newSessionId,
-                      msg.role === 'ai' ? 'ASSISTANT' : 'USER',
+                      msg.role === 'ai' ? 'ASSISTANT' : (msg.role === 'outro' ? 'OUTRO' : 'USER'),
                       msg.text,
                       msg.audioUrl,
                       null,
                       msg.id.toString(),
-                      msg.emotion || 'calm'
+                      msg.emotion
                   );
                   if (saveRes.success && saveRes.data) {
                       savedMessages.push({
@@ -1883,36 +1992,28 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
 
          let role = null;
          let cleanText = text;
-         let emotion = 'calm';
 
-         const userMatch = text.match(/^(con|người hỏi|hỏi)(?:\s*\[(.*?)\]|\s*\((.*?)\))?\s*:/i);
-         if (userMatch) {
+         if (/^(con|người hỏi|hỏi)(?:\s*\[.*?\]|\s*\(.*?\))?\s*:/i.test(text)) {
             role = 'user';
-            emotion = userMatch[2] || userMatch[3] || 'calm';
             cleanText = text.replace(/^(con|người hỏi|hỏi)(?:\s*\[.*?\]|\s*\(.*?\))?\s*:\s*/i, '').trim();
             currentRole = 'user';
+         } else if (/^(lão|đáp|ai)(?:\s*\[.*?\]|\s*\(.*?\))?\s*:/i.test(text)) {
+            role = 'ai';
+            cleanText = text.replace(/^(lão|đáp|ai)(?:\s*\[.*?\]|\s*\(.*?\))?\s*:\s*/i, '').trim();
+            currentRole = 'ai';
          } else {
-             const aiMatch = text.match(/^(lão|đáp|ai)(?:\s*\[(.*?)\]|\s*\((.*?)\))?\s*:/i);
-             if (aiMatch) {
-                role = 'ai';
-                emotion = aiMatch[2] || aiMatch[3] || 'calm';
-                cleanText = text.replace(/^(lão|đáp|ai)(?:\s*\[.*?\]|\s*\(.*?\))?\s*:\s*/i, '').trim();
-                currentRole = 'ai';
-             } else {
-                role = currentRole;
-                cleanText = text;
-             }
+            role = currentRole;
+            cleanText = text;
          }
 
          if (role && cleanText) {
-             if (newMsgs.length > 0 && newMsgs[newMsgs.length - 1].role === role && newMsgs[newMsgs.length - 1].emotion === emotion) {
+             if (newMsgs.length > 0 && newMsgs[newMsgs.length - 1].role === role) {
                  newMsgs[newMsgs.length - 1].text += '\n' + cleanText;
              } else {
                  newMsgs.push({
                      id: Date.now() + Math.random(),
                      role,
                      text: cleanText,
-                     emotion: ['calm', 'sad', 'joy', 'hook'].includes(emotion) ? emotion : 'calm',
                      timestamp: new Date(),
                      audioUrl: null,
                      reactions: {}
@@ -1933,8 +2034,7 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
                           msg.text,
                           null,
                           null,
-                          msg.id.toString(),
-                          msg.emotion || 'calm'
+                          msg.id.toString()
                       );
                   }
                   showToastMsg('Đã nhập kịch bản và nối tiếp thành công!', 'success', 5000);
@@ -2488,6 +2588,71 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
     }
   };
 
+  const combineWavs = async (items: any[]) => {
+    const buffers = await Promise.all(items.map(async (item: any) => {
+      try {
+        const r = await fetch(item.url);
+        if (!r.ok) return new ArrayBuffer(0);
+        const contentType = r.headers.get('content-type') || '';
+        if (contentType.includes('text/html')) {
+          console.warn(`[combineWavs] Skip invalid HTML response for ${item.url}`);
+          return new ArrayBuffer(0);
+        }
+        const buf = await r.arrayBuffer();
+        if (buf.byteLength >= 44) {
+           const view = new DataView(buf);
+           const riff = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3));
+           if (riff !== 'RIFF') {
+              console.warn(`[combineWavs] Skip non-RIFF audio buffer for ${item.url}`);
+              return new ArrayBuffer(0);
+           }
+        }
+        return buf;
+      } catch (e) {
+        console.warn(`[combineWavs] Failed to fetch ${item.url}:`, e);
+        return new ArrayBuffer(0);
+      }
+    }));
+    if (buffers.length === 0) return { blob: null, metadata: [] };
+    
+    let totalDataLen = 0;
+    for (let i = 0; i < buffers.length; i++) {
+      totalDataLen += Math.max(0, buffers[i].byteLength - 44);
+    }
+    
+    if (totalDataLen === 0) return { blob: null, metadata: [] };
+
+    const validFirstBuffer = buffers.find((b: any) => b.byteLength >= 44);
+    if (!validFirstBuffer) return { blob: null, metadata: [] };
+
+    const combined = new Uint8Array(44 + totalDataLen);
+    combined.set(new Uint8Array(validFirstBuffer.slice(0, 44)), 0);
+    
+    const view = new DataView(combined.buffer);
+    view.setUint32(4, 36 + totalDataLen, true);
+    view.setUint32(40, totalDataLen, true);
+    
+    let offset = 44;
+    let timeOffset = 0;
+    const metadata = [];
+    const SAMPLE_RATE = 24000;
+    const BYTES_PER_SAMPLE = 2;
+    
+    for (let i = 0; i < buffers.length; i++) {
+      const dataLen = Math.max(0, buffers[i].byteLength - 44);
+      if (dataLen > 0) {
+          combined.set(new Uint8Array(buffers[i].slice(44)), offset);
+          offset += dataLen;
+          
+          const durationSec = dataLen / (SAMPLE_RATE * BYTES_PER_SAMPLE);
+          // TÂM AN FIX: Đưa thêm Emotion và msgId vào Metadata Timeline để máy quay biết cảm xúc và định danh chính xác đoạn thoại
+          metadata.push({ role: items[i].role, text: items[i].text, emotion: items[i].emotion || 'calm', msgId: items[i].msgId, start: timeOffset, end: timeOffset + durationSec });
+          timeOffset += durationSec;
+      }
+    }
+    
+    return { blob: new Blob([combined.buffer], { type: 'audio/wav' }), metadata };
+  };
 
   const getCombinedAudioUrl = async () => {
     // TÂM AN FIX: Vượt qua Stale Closure bằng cách dùng Ref truy xuất dữ liệu nóng
@@ -2741,21 +2906,21 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
 
   // --- Nâng cấp tính năng Share Video MXH ---
   const handleShareVideoSocial = async () => {
-      if (!renderedVideoBlob) return;
-      const filename = `Khai_thi_Lao_${Date.now()}.${videoExt}`;
-      const file = new File([renderedVideoBlob], filename, { type: renderedVideoBlob.type });
+      if (!renderedVideoBlob && !renderedVideoUrl) return;
+      const filename = `Khai_thi_Lao_${Date.now()}.${videoExt || 'webm'}`;
+      const file = renderedVideoBlob ? new File([renderedVideoBlob], filename, { type: renderedVideoBlob.type || 'video/webm' }) : null;
       
       const fallbackToDownload = () => {
-          showToastMsg('Môi trường chặn chia sẻ trực tiếp. Đang tự động tải video về máy...', 'info', 4000);
+          showToastMsg('Trình duyệt máy tính chưa cấp quyền chia sẻ trực tiếp. Đã tải video về máy để bạn đăng MXH!', 'info', 4000);
           const link = document.createElement('a');
-          link.href = renderedVideoUrl;
+          link.href = renderedVideoUrl || (renderedVideoBlob ? URL.createObjectURL(renderedVideoBlob) : '');
           link.download = filename;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
       };
 
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      if (file && typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
           try {
               await navigator.share({
                   title: 'Đàm đạo cùng Lão',
@@ -2763,14 +2928,110 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
                   files: [file]
               });
           } catch (e: any) {
-              if (e.name !== 'AbortError') {
-                  console.error("Lỗi chia sẻ Video", e);
+              if (e?.name !== 'AbortError') {
                   fallbackToDownload();
               }
           }
       } else {
           fallbackToDownload();
       }
+  };
+
+  // --- TÍNH NĂNG LƯU CẤU HÌNH CÀI ĐẶT VIDEO ---
+  const handleSaveVideoConfig = () => {
+    try {
+      const config = {
+        videoAspectRatio,
+        videoResolution,
+        videoTransition,
+        videoTransitionDuration,
+        subtitleYPos,
+        subtitleScale,
+        subtitleColor,
+        subtitleSentenceCount,
+        logoData,
+        logoSettings,
+        bgmVolume,
+        enableIntro,
+        introTitle,
+        introSubtitle,
+        enableOutroText,
+        outroText,
+        charOffsets,
+        customBgs,
+        savedAt: Date.now()
+      };
+      
+      const key = currentSessionId ? `onglao_video_config_${currentSessionId}` : 'onglao_video_config_global';
+      localStorage.setItem(key, JSON.stringify(config));
+      localStorage.setItem('onglao_video_config_latest', JSON.stringify(config));
+      
+      showToastMsg('Đã lưu thành công tất cả cài đặt tạo video!', 'success', 3500);
+      return true;
+    } catch (e: any) {
+      showToastMsg('Lỗi khi lưu cài đặt: ' + e.message, 'error');
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const key = currentSessionId ? `onglao_video_config_${currentSessionId}` : 'onglao_video_config_global';
+      const saved = localStorage.getItem(key) || localStorage.getItem('onglao_video_config_latest');
+      if (saved) {
+        try {
+          const cfg = JSON.parse(saved);
+          if (cfg.videoAspectRatio) setVideoAspectRatio(cfg.videoAspectRatio);
+          if (cfg.videoResolution) setVideoResolution(cfg.videoResolution);
+          if (cfg.videoTransition) setVideoTransition(cfg.videoTransition);
+          if (cfg.videoTransitionDuration) setVideoTransitionDuration(cfg.videoTransitionDuration);
+          if (cfg.subtitleYPos !== undefined) setSubtitleYPos(cfg.subtitleYPos);
+          if (cfg.subtitleScale !== undefined) setSubtitleScale(cfg.subtitleScale);
+          if (cfg.subtitleColor) setSubtitleColor(cfg.subtitleColor);
+          if (cfg.subtitleSentenceCount !== undefined) setSubtitleSentenceCount(cfg.subtitleSentenceCount);
+          if (cfg.logoData && !logoData) setLogoData(cfg.logoData);
+          if (cfg.logoSettings) setLogoSettings(cfg.logoSettings);
+          if (cfg.bgmVolume !== undefined) setBgmVolume(cfg.bgmVolume);
+          if (cfg.enableIntro !== undefined) setEnableIntro(cfg.enableIntro);
+          if (cfg.introTitle !== undefined) setIntroTitle(cfg.introTitle);
+          if (cfg.introSubtitle !== undefined) setIntroSubtitle(cfg.introSubtitle);
+          if (cfg.enableOutroText !== undefined) setEnableOutroText(cfg.enableOutroText);
+          if (cfg.outroText !== undefined) setOutroText(cfg.outroText);
+          if (cfg.charOffsets) setCharOffsets(cfg.charOffsets);
+          if (cfg.customBgs) setCustomBgs(cfg.customBgs);
+        } catch (e) {}
+      }
+    }
+  }, [currentSessionId]);
+
+  const getLogoBounds = (canvasW: number, canvasH: number, logoImg: any, settings: any) => {
+    const scale = settings?.scale || 1.0;
+    const logoSize = Math.round(Math.min(canvasW, canvasH) * 0.15 * scale);
+    const padding = Math.round(Math.min(canvasW, canvasH) * 0.03);
+    const aspect = (logoImg && logoImg.width && logoImg.height) ? (logoImg.height / logoImg.width) : 1.0;
+    const logoH = Math.round(logoSize * aspect);
+
+    let logoX = padding;
+    let logoY = padding;
+
+    if (settings?.x !== undefined && settings?.y !== undefined && settings?.position === 'custom') {
+        logoX = Math.round(canvasW * (settings.x / 100));
+        logoY = Math.round(canvasH * (settings.y / 100));
+    } else if (settings?.position === 'top-right' || (!settings?.position)) {
+        logoX = canvasW - logoSize - padding;
+        logoY = padding;
+    } else if (settings?.position === 'bottom-left') {
+        logoX = padding;
+        logoY = canvasH - logoH - padding;
+    } else if (settings?.position === 'bottom-right') {
+        logoX = canvasW - logoSize - padding;
+        logoY = canvasH - logoH - padding;
+    } else if (settings?.position === 'top-left') {
+        logoX = padding;
+        logoY = padding;
+    }
+
+    return { logoX, logoY, logoW: logoSize, logoH };
   };
 
   const getCanvasHitTarget = (clientX: any, clientY: any, canvas: any) => {
@@ -2780,6 +3041,13 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
     const scaleY = canvas.height / rect.height;
     const mouseX = (clientX - rect.left) * scaleX;
     const mouseY = (clientY - rect.top) * scaleY;
+
+    if (processedLogoRef.current && logoSettings?.visible !== false) {
+        const bounds = getLogoBounds(canvas.width, canvas.height, processedLogoRef.current, logoSettings);
+        if (mouseX >= bounds.logoX - 10 && mouseX <= bounds.logoX + bounds.logoW + 10 && mouseY >= bounds.logoY - 10 && mouseY <= bounds.logoY + bounds.logoH + 10) {
+            return { type: 'logo', ...bounds };
+        }
+    }
 
     const { laoW, laoH, laoX, laoY, userW, userH, userX, userY, refWidth, refHeight } = calculatePositions(canvas.width, canvas.height);
     
@@ -2812,15 +3080,27 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
     const targetInfo = getCanvasHitTarget(clientX, clientY, exportCanvasRef.current);
     
     if (targetInfo) {
+        let initialX = 0;
+        let initialY = 0;
+        if (targetInfo.type === 'lao') { initialX = charOffsets.lao.x; initialY = charOffsets.lao.y; }
+        else if (targetInfo.type === 'user') { initialX = charOffsets.user.x; initialY = charOffsets.user.y; }
+        else if (targetInfo.type === 'sub') { initialY = subtitleYPos; }
+        else if (targetInfo.type === 'bg') { initialX = customBgs.find((b: any)=>b.id===targetInfo.id)?.x || 0; initialY = customBgs.find((b: any)=>b.id===targetInfo.id)?.y || 0; }
+        else if (targetInfo.type === 'logo') {
+            const bounds = getLogoBounds(exportCanvasRef.current.width, exportCanvasRef.current.height, processedLogoRef.current, logoSettings);
+            initialX = logoSettings.x !== undefined ? logoSettings.x : ((bounds.logoX / exportCanvasRef.current.width) * 100);
+            initialY = logoSettings.y !== undefined ? logoSettings.y : ((bounds.logoY / exportCanvasRef.current.height) * 100);
+        }
+
         dragInfo.current = {
             isDragging: true,
             target: targetInfo.type,
             bgId: targetInfo.id || null,
             startX: clientX,
             startY: clientY,
-            initialX: targetInfo.type === 'lao' ? charOffsets.lao.x : targetInfo.type === 'user' ? charOffsets.user.x : targetInfo.type === 'bg' ? customBgs.find(b=>b.id===targetInfo.id)?.x || 0 : 0,
-            initialY: targetInfo.type === 'sub' ? subtitleYPos : targetInfo.type === 'lao' ? charOffsets.lao.y : targetInfo.type === 'user' ? charOffsets.user.y : targetInfo.type === 'bg' ? customBgs.find(b=>b.id===targetInfo.id)?.y || 0 : 0,
-            startOffsetsSnapshot: JSON.parse(JSON.stringify(charOffsets)) // Lưu trạng thái trước khi kéo
+            initialX,
+            initialY,
+            startOffsetsSnapshot: JSON.parse(JSON.stringify(charOffsets))
         };
         try { e.currentTarget.setPointerCapture(e.pointerId); } catch(err) {}
     }
@@ -2855,6 +3135,13 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
         setCharOffsets((prev: any) => ({...prev, user: {...prev.user, x: initialX + deltaX_pct, y: initialY + deltaY_pct}}));
     } else if (target === 'bg' && bgId) {
         setCustomBgs((prev: any) => prev.map((bg: any) => bg.id === bgId ? { ...bg, x: initialX + deltaX_pct, y: initialY + deltaY_pct } : bg));
+    } else if (target === 'logo') {
+        setLogoSettings((prev: any) => ({
+            ...prev,
+            position: 'custom',
+            x: Math.max(0, Math.min(95, initialX + deltaX_pct)),
+            y: Math.max(0, Math.min(95, initialY + deltaY_pct))
+        }));
     }
   };
 
@@ -2866,9 +3153,7 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
 
   const handleCanvasPointerUp = (e: any) => {
     if (dragInfo.current.isDragging) {
-        // Lưu lịch sử khi kết thúc kéo thả nhân vật
         if (dragInfo.current.target === 'lao' || dragInfo.current.target === 'user') {
-             // TÂM AN FX: Tự động kiểm tra và lật hướng nhìn dùng callback để lấy toạ độ mới nhất
              setCharOffsets((prev: any) => {
                  const { laoFlip, userFlip } = calculateAutoFlip(prev.lao.x, prev.user.x, currentLaoPresetId, currentUserPresetId);
                  return {
@@ -2893,6 +3178,11 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
 
     if (!hit || hit.type === 'sub') {
         setSubtitleScale((prev: any) => Math.max(0.4, Math.min(3.0, prev + delta)));
+    } else if (hit.type === 'logo') {
+        setLogoSettings((prev: any) => ({
+            ...prev,
+            scale: Math.max(0.2, Math.min(3.0, (prev.scale || 1.0) + delta))
+        }));
     } else if (hit.type === 'lao') {
         setCharOffsets((prev: any) => ({...prev, lao: {...prev.lao, s: Math.max(0.5, Math.min(2.5, prev.lao.s + delta))}}));
     } else if (hit.type === 'user') {
@@ -3457,12 +3747,26 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
         // --- KẾT THÚC KHÔNG GIAN CAMERA 3D ---
         ctx.restore();
 
-        // 3. VẼ LỚP OVERLAY CỐ ĐỊNH TRÊN MÀN HÌNH (UI Overlay)
-        if (processedLogoRef.current) {
+        if (processedLogoRef.current && logoSettings?.visible !== false) {
             const logoImg = processedLogoRef.current;
-            const logoSize = Math.min(width, height) * 0.15;
-            const logoH = logoSize * (logoImg.height / logoImg.width);
-            ctx.drawImage(logoImg, width - logoSize - 20, 20, logoSize, logoH);
+            const { logoX, logoY, logoW, logoH } = getLogoBounds(width, height, logoImg, logoSettings);
+            
+            ctx.save();
+            ctx.globalAlpha = logoSettings.opacity !== undefined ? logoSettings.opacity : 0.8;
+            if (logoSettings.isCircular) {
+                ctx.beginPath();
+                ctx.arc(logoX + logoW/2, logoY + logoH/2, Math.min(logoW, logoH)/2, 0, Math.PI*2);
+                ctx.closePath();
+                ctx.clip();
+            }
+            ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
+            
+            if (hoveredElement?.type === 'logo') {
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(logoX - 4, logoY - 4, logoW + 8, logoH + 8);
+            }
+            ctx.restore();
         }
 
         const activeText = "Đây là phụ đề mẫu. Dấu câu được ngắt tự động, rõ ràng.";
@@ -3504,7 +3808,7 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
     };
     drawStaticPreview();
     return () => { isMounted = false; };
-  }, [showVideoExportModal, isExportingVideo, renderedVideoUrl, videoAspectRatio, videoResolution, subtitleYPos, subtitleScale, subtitleColor, subtitleSentenceCount, userGender, userAge, charOffsets, customBgs, bgUpdateTrigger, logoData, hoveredElement, laoAppearance, userAppearance, processedLaoImages, laoVisualType, processedUserImages, userVisualType, showLaoAura, enableAutoHarmonization, harmonizeSettings, laoShadow, userShadow, isFullFrameMode]); // TÂM AN FIX: Thêm isFullFrameMode
+  }, [showVideoExportModal, isExportingVideo, renderedVideoUrl, videoAspectRatio, videoResolution, subtitleYPos, subtitleScale, subtitleColor, subtitleSentenceCount, userGender, userAge, charOffsets, customBgs, bgUpdateTrigger, logoData, logoSettings, hoveredElement, laoAppearance, userAppearance, processedLaoImages, laoVisualType, processedUserImages, userVisualType, showLaoAura, enableAutoHarmonization, harmonizeSettings, laoShadow, userShadow, isFullFrameMode]);
 
 
 
@@ -3575,6 +3879,8 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
     setIsPreviewFullscreen,
     setShowVideoExportModal,
     setShowAiManager,
+    setExportTab,
+    saveRenderHistoryItem,
     videoExportSource,
     bgUpdateTrigger,
     setBgUpdateTrigger,
@@ -3789,6 +4095,11 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
     toggleFullscreen,
     handleDownloadVideo,
     handleShareVideoSocial,
+    handleSaveVideoConfig,
+    renderHistory,
+    setRenderHistory,
+    saveRenderHistoryItem,
+    deleteRenderHistoryItem,
     showDiagnostics,
     handleDeletePreset,
     isGlobalPlaying,

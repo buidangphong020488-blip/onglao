@@ -4,6 +4,7 @@ import React from "react";
 import { X, Film, Check, Save, Sliders, Maximize, Minimize, RefreshCw, Loader2, Play, Pause, ChevronDown, Sparkles, FileText, Volume2, Plus, Info, Upload, PlayCircle, Eye, EyeOff, Music, Video, Archive, Share as ShareIcon, Copy, ChevronUp, Trash2, Palette, Music4, Wand2, XCircle, Undo2, Redo2, LayoutTemplate, Image as ImageIcon } from "lucide-react";
 
 import { useOngLaoContext } from "../context/OngLaoContext";
+import { idb } from "../constants";
 
 const DebouncedInput = ({ value, onChange, ...props }: any) => {
     const [localValue, setLocalValue] = React.useState(value);
@@ -53,7 +54,17 @@ const VideoCreatorModal = () => {
     if (hasMessageScenes) {
         // Kiểm tra xem các scene cũ có bị "lạc lõng" so với messages hiện tại không (do đổi kịch bản)
         const isStale = p.ffScenes.some((s: any) => s.msgId && !p.messages.find((m: any) => m.id === s.msgId));
-        if (!isStale) return; // Đã chia cảnh theo thoại rồi, không cần làm lại
+        // Kiểm tra xem có các scene dư thừa (không có msgId và không phải outro) từ lần tải lên trước không
+        const hasRedundant = p.ffScenes.some((s: any) => !s.msgId && s.role !== 'outro');
+        
+        if (!isStale && !hasRedundant) return; // Đã sạch sẽ và đồng bộ rồi, không cần làm lại
+        
+        if (hasRedundant && !isStale) {
+            // Lọc bỏ tất cả các scene dư thừa mà không reset lại URL của các scene hợp lệ
+            const cleaned = p.ffScenes.filter((s: any) => s.msgId || s.role === 'outro');
+            p.setFfScenes(cleaned);
+            return;
+        }
     }
     
     const detectEmotion = (text: string) => {
@@ -79,13 +90,14 @@ const VideoCreatorModal = () => {
     });
     
     p.setFfScenes(autoScenes);
-  }, [p.showVideoExportModal]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [p.showVideoExportModal, p.messages, p.currentSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!p.showVideoExportModal) return null;
 
   const {
-    showVideoExportModal, setShowVideoExportModal, videoAspectRatio, setVideoAspectRatio, videoTransition, setVideoTransition, videoTransitionDuration, setVideoTransitionDuration, chatLaoTransform, setChatLaoTransform, showChatLaoControls, setShowChatLaoControls, videoResolution, setVideoResolution, subtitleSentenceCount, setSubtitleSentenceCount, subtitleColor, setSubtitleColor, subtitleYPos, setSubtitleYPos, subtitleScale, setSubtitleScale, isExportingVideo, setIsExportingVideo, isPreparingVideoData, setIsPreparingVideoData, renderedVideoBlob, setRenderedVideoBlob, renderedVideoUrl, setRenderedVideoUrl, isVideoFullscreen, setIsVideoFullscreen, isPreviewFullscreen, setIsPreviewFullscreen, videoExt, setVideoExt, exportTab, setExportTab, hoveredElement, setHoveredElement, enableIntro, setEnableIntro, introTitle, setIntroTitle, introSubtitle, setIntroSubtitle, enableOutroText, setEnableOutroText, outroText, setOutroText, isFullFrameMode, setIsFullFrameMode, EMOTIONS, FULLFRAME_PACKS, ffScenes, setFfScenes, ffSaveData, setFfSaveData, showFfSaveModal, setShowFfSaveModal, logoData, setLogoData, logoSettings, setLogoSettings, bgmAudioData, setBgmAudioData, bgmVolume, setBgmVolume, aiBgmPrompt, setAiBgmPrompt, isGeneratingBgm, setIsGeneratingBgm, tempAiBgmData, setTempAiBgmData, showPresetModal, setShowPresetModal, presetFormData, setPresetFormData, showDownloadMenu, setShowDownloadMenu, showShareMenu, setShowShareMenu, localFfPacks, setLocalFfPacks, localFfClips, setLocalFfClips, showSavePackModal, setShowSavePackModal, savePackData, setSavePackData, diagnosticReport, setShowDiagnostics, ffScenesRef, exportCanvasRef, logoFileInputRef, bgmFileInputRef, exportMediaRecorderRef, exportAudioCtxRef, laoExportVidRefs, userExportVidRefs, chatLaoDragInfo, handleChatLaoPointerDown, handleChatLaoPointerMove, handleChatLaoPointerUp, handleChatLaoWheel, handleLoadPack, handleDeleteFfPack, showUploadGuide, handleUploadFolder, handleCopyFfScenesCode, executeSaveFfPack, moveFfScene, handleSelectFfClipV2, handleDeleteFfClipV2, handleUploadLogo, removeLogo, handleGenerateAiBgm, removeBgm, handleUploadBgm, handleClearCache, startVideoExport, cancelVideoExport, resetVideoExport, toggleFullscreen, handleDownloadVideo, handleShareVideoSocial, showDiagnostics, handleDeletePreset, isGlobalPlaying, setIsGlobalPlaying, globalAudioRef, stopLipSync, emotion, setEmotion, spellCheckControllersRef, spellCheckTimeoutsRef, latestAutoPlayaiMsgIdRef, showAutoPilotModal, setShowAutoPilotModal, apTopics, setApTopics, apSettings, setApSettings, apState, setApState, handleFetchTrendingTopics, handleGenerateAITopic, handleImportScript, startAutoPilot, stopAutoPilot, isGeneratingAITopic, setIsGeneratingAITopic, customBgs, setCustomBgs, presetBackgrounds, activeBgId, setActiveBgId, DEFAULT_BGM_LIST, playingMsg, isLaoSpeakingSession, messages, handleConfirmPreset, handleUndoPosition, handleRedoPosition, handleCanvasPointerDown, handleCanvasPointerMove, handleCanvasPointerUp, handleCanvasPointerLeave, handleCanvasWheel, executeSaveFfClip, pastOffsets, futureOffsets, showSaveCharModal, setShowSaveCharModal, saveCharData, setSaveCharData, handleSaveCharacterToLocal, executeSaveCharacter,
-    allCharacters, currentLaoPresetId, setCurrentLaoPresetId, currentUserPresetId, setCurrentUserPresetId
+    showVideoExportModal, setShowVideoExportModal, videoAspectRatio, setVideoAspectRatio, videoTransition, setVideoTransition, videoTransitionDuration, setVideoTransitionDuration, chatLaoTransform, setChatLaoTransform, showChatLaoControls, setShowChatLaoControls, videoResolution, setVideoResolution, subtitleSentenceCount, setSubtitleSentenceCount, subtitleColor, setSubtitleColor, subtitleYPos, setSubtitleYPos, subtitleScale, setSubtitleScale, isExportingVideo, setIsExportingVideo, isPreparingVideoData, setIsPreparingVideoData, renderedVideoBlob, setRenderedVideoBlob, renderedVideoUrl, setRenderedVideoUrl, isVideoFullscreen, setIsVideoFullscreen, isPreviewFullscreen, setIsPreviewFullscreen, videoExt, setVideoExt, exportTab, setExportTab, hoveredElement, setHoveredElement, enableIntro, setEnableIntro, introTitle, setIntroTitle, introSubtitle, setIntroSubtitle, enableOutroText, setEnableOutroText, outroText, setOutroText, isFullFrameMode, setIsFullFrameMode, EMOTIONS, FULLFRAME_PACKS, ffScenes, setFfScenes, ffSaveData, setFfSaveData, showFfSaveModal, setShowFfSaveModal, logoData, setLogoData, logoSettings, setLogoSettings, bgmAudioData, setBgmAudioData, bgmVolume, setBgmVolume, aiBgmPrompt, setAiBgmPrompt, isGeneratingBgm, setIsGeneratingBgm, tempAiBgmData, setTempAiBgmData, showPresetModal, setShowPresetModal, presetFormData, setPresetFormData, showDownloadMenu, setShowDownloadMenu, showShareMenu, setShowShareMenu, localFfPacks, setLocalFfPacks, localFfClips, setLocalFfClips, showSavePackModal, setShowSavePackModal, savePackData, setSavePackData, diagnosticReport, setShowDiagnostics, ffScenesRef, exportCanvasRef, logoFileInputRef, bgmFileInputRef, exportMediaRecorderRef, exportAudioCtxRef, laoExportVidRefs, userExportVidRefs, chatLaoDragInfo, handleChatLaoPointerDown, handleChatLaoPointerMove, handleChatLaoPointerUp, handleChatLaoWheel, handleLoadPack, handleDeleteFfPack, showUploadGuide, handleUploadFolder, handleCopyFfScenesCode, executeSaveFfPack, moveFfScene, handleSelectFfClipV2, handleDeleteFfClipV2, handleUploadLogo, removeLogo, handleGenerateAiBgm, removeBgm, handleUploadBgm, handleClearCache, handleSaveVideoConfig, startVideoExport, cancelVideoExport, resetVideoExport, toggleFullscreen, handleDownloadVideo, handleShareVideoSocial, showDiagnostics, handleDeletePreset, isGlobalPlaying, setIsGlobalPlaying, globalAudioRef, stopLipSync, emotion, setEmotion, spellCheckControllersRef, spellCheckTimeoutsRef, latestAutoPlayaiMsgIdRef, showAutoPilotModal, setShowAutoPilotModal, apTopics, setApTopics, apSettings, setApSettings, apState, setApState, handleFetchTrendingTopics, handleGenerateAITopic, handleImportScript, startAutoPilot, stopAutoPilot, isGeneratingAITopic, setIsGeneratingAITopic, customBgs, setCustomBgs, presetBackgrounds, activeBgId, setActiveBgId, DEFAULT_BGM_LIST, playingMsg, isLaoSpeakingSession, messages, handleConfirmPreset, handleUndoPosition, handleRedoPosition, handleCanvasPointerDown, handleCanvasPointerMove, handleCanvasPointerUp, handleCanvasPointerLeave, handleCanvasWheel, executeSaveFfClip, pastOffsets, futureOffsets, showSaveCharModal, setShowSaveCharModal, saveCharData, setSaveCharData, handleSaveCharacterToLocal, executeSaveCharacter,
+    allCharacters, currentLaoPresetId, setCurrentLaoPresetId, currentUserPresetId, setCurrentUserPresetId,
+    renderHistory, setRenderHistory, deleteRenderHistoryItem
   } = p;
 
   return (
@@ -97,93 +109,61 @@ const VideoCreatorModal = () => {
               </div>
               
               <div className="flex flex-col md:flex-row gap-6 p-4 md:p-6 flex-1 min-h-0">
-                 {/* BÊN TRÁI: BẢNG ĐIỀU CHỈNH THÔNG SỐ */}
+                 {/* BÊN TRÁI: BẢNG ĐIỀU CHỈNH THÔNG SỐ & LỊCH SỬ RENDER */}
                  <div className={`w-full md:w-5/12 flex flex-col gap-4 overflow-y-auto pb-4 pr-2 scrollbar-hide h-full ${isPreviewFullscreen ? 'hidden md:flex opacity-0 pointer-events-none' : ''}`}>
-                    {renderedVideoUrl ? (
-                      <div className="flex flex-col h-full gap-4 justify-center">
-                        <div className="bg-emerald-900/30 border border-emerald-500/50 p-4 rounded-xl text-emerald-400 text-sm shadow-inner">
-                           <p className="font-bold mb-2 flex items-center gap-2 text-base"><Check size={20}/> Render video thành công!</p>
-                           <p className="text-slate-300">Video của con đã sẵn sàng ở khung bên cạnh. Hãy bấm phát để xem lại. Nếu thấy ưng ý, hãy tải về máy hoặc chia sẻ trực tiếp lên Mạng xã hội.</p>
-                        </div>
-                        <div className="flex flex-col gap-3 mt-4">
-                           <button onClick={handleDownloadVideo} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl tracking-wider flex justify-center items-center gap-2 shadow-[0_0_20px_rgba(52,211,153,0.3)] transition-all transform hover:scale-[1.02]">
-                              <Save size={18}/> Lưu video vào máy
-                           </button>
-                           
-                           <button onClick={handleShareVideoSocial} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl tracking-wider flex justify-center items-center gap-2 shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all transform hover:scale-[1.02]">
-                              <ShareIcon size={18}/> Chia sẻ lên MXH
-                           </button>
-
-                           {diagnosticReport && (
-                               <button onClick={() => setShowDiagnostics(true)} className="w-full bg-indigo-600/20 border border-indigo-500/50 hover:bg-indigo-600/40 text-indigo-300 font-bold py-3.5 rounded-xl tracking-wider flex justify-center items-center gap-2 transition-all shadow-sm mt-1">
-                                  <Sliders size={16}/> Phân Tích Kỹ Thuật (Nội Soi)
-                               </button>
-                           )}
-
-                           <div className="flex gap-3 mt-2">
-                               <button onClick={toggleFullscreen} className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-3.5 rounded-xl tracking-wider flex justify-center items-center gap-2 transition-all border border-white/5">
-                                  <Maximize size={16}/> Xem Toàn Màn Hình
-                               </button>
-                               <button onClick={resetVideoExport} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3.5 rounded-xl tracking-wider flex justify-center items-center gap-2 border border-white/5 transition-all">
-                                  <RefreshCw size={16}/> Tạo Video Mới
-                               </button>
-                           </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex border-b border-white/10 mb-2 shrink-0">
-                           <button onClick={() => setExportTab('basic')} className={`flex-1 py-2.5 text-[11px] md:text-sm font-bold tracking-wider transition-all border-b-2 ${exportTab === 'basic' ? 'border-orange-500 text-orange-400 bg-orange-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Cơ bản</button>
-                           <button onClick={() => setExportTab('text')} className={`flex-1 py-2.5 text-[11px] md:text-sm font-bold tracking-wider transition-all border-b-2 ${exportTab === 'text' ? 'border-yellow-500 text-yellow-400 bg-yellow-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Thông điệp</button>
-                        </div>
+                    <div className="flex border-b border-white/10 mb-2 shrink-0 overflow-x-auto scrollbar-hide">
+                       <button onClick={() => setExportTab('basic')} className={`flex-1 py-2.5 px-2 text-[11px] md:text-xs font-bold tracking-wider transition-all border-b-2 whitespace-nowrap ${exportTab === 'basic' ? 'border-orange-500 text-orange-400 bg-orange-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Cơ bản</button>
+                       <button onClick={() => setExportTab('text')} className={`flex-1 py-2.5 px-2 text-[11px] md:text-xs font-bold tracking-wider transition-all border-b-2 whitespace-nowrap ${exportTab === 'text' ? 'border-yellow-500 text-yellow-400 bg-yellow-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Thông điệp</button>
+                       <button onClick={() => setExportTab('history')} className={`flex-1 py-2.5 px-2 text-[11px] md:text-xs font-bold tracking-wider transition-all border-b-2 whitespace-nowrap flex items-center justify-center gap-1 ${exportTab === 'history' ? 'border-emerald-500 text-emerald-400 bg-emerald-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>📜 Lịch sử {renderHistory?.length > 0 ? `(${renderHistory.length})` : ''}</button>
+                    </div>
 
                         {exportTab === 'basic' && (
                           <div className="flex flex-col gap-5 flex-1 animate-in fade-in">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                               <div className="flex flex-col gap-2">
-                                  <label className="text-xs font-bold text-orange-400 tracking-wider">Khung hình (Tỉ lệ)</label>
-                                  <select disabled={isExportingVideo || isPreparingVideoData} value={videoAspectRatio} onChange={e => setVideoAspectRatio(e.target.value)} className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-xl focus:border-orange-500 outline-none text-sm">
-                                     <option value="16x9">16:9 (Youtube)</option>
-                                     <option value="9x16">9:16 (Tiktok, Reels)</option>
-                                     <option value="1x1">1:1 (Facebook)</option>
-                                     <option value="4x3">4:3 (Truyền thống)</option>
-                                     <option value="3x4">3:4 (Dọc ngắn)</option>
-                                  </select>
-                               </div>
-                               <div className="flex flex-col gap-2">
-                                  <label className="text-xs font-bold text-orange-400 tracking-wider">Độ phân giải</label>
-                                  <select disabled={isExportingVideo || isPreparingVideoData} value={videoResolution} onChange={e => setVideoResolution(e.target.value)} className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-xl focus:border-orange-500 outline-none text-sm">
-                                     <option value="480">480p (Rất nhẹ)</option>
-                                     <option value="720">720p (HD tiêu chuẩn)</option>
-                                     <option value="1080">1080p (Full HD)</option>
-                                     <option value="1440">1440p (2K siêu nét)</option>
-                                     <option value="2160">2160p (4K điện ảnh)</option>
-                                  </select>
-                               </div>
-                               <div className="flex flex-col gap-2">
-                                  <label className="text-xs font-bold text-orange-400 tracking-wider flex items-center gap-1.5"><Sparkles size={14}/> Chuyển cảnh</label>
-                                  <select disabled={isExportingVideo || isPreparingVideoData} value={videoTransition} onChange={e => setVideoTransition(e.target.value)} className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-xl focus:border-orange-500 outline-none text-sm">
-                                     <option value="none">Cắt cứng (Mặc định)</option>
-                                     <option value="fade_black">Mờ đen (Dip to black)</option>
-                                     <option value="fade_white">Chớp trắng (Flash)</option>
-                                     <option value="blur">Lóa sáng tâm linh</option>
-                                     <option value="random">Ngẫu nhiên tự động</option>
-                                  </select>
-                                  {videoTransition !== 'none' && (
-                                      <div className="flex flex-col gap-1 mt-1 animate-in fade-in bg-slate-900 p-2.5 rounded-xl border border-white/5">
-                                          <span className="text-[10px] text-orange-200 flex justify-between font-bold">Thời gian kéo dài: <span className="text-white">{videoTransitionDuration}s</span></span>
-                                          <input type="range" min="0.1" max="2.0" step="0.1" value={videoTransitionDuration} onChange={e => setVideoTransitionDuration(Number(e.target.value))} className="accent-orange-500" disabled={isExportingVideo || isPreparingVideoData} />
-                                      </div>
-                                  )}
-                               </div>
-                               <div className="flex flex-col gap-2">
-                                  <label className="text-xs font-bold text-orange-400 tracking-wider">Định dạng file</label>
-                                  <select disabled={isExportingVideo || isPreparingVideoData} value={videoExt} onChange={e => setVideoExt(e.target.value)} className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-xl focus:border-orange-500 outline-none text-sm">
-                                     <option value="webm">WebM (.webm - Siêu nhẹ)</option>
-                                     <option value="mp4">MP4 (.mp4 - Phổ thông)</option>
-                                  </select>
-                               </div>
-                            </div>
+                             <div className="grid grid-cols-2 gap-3 bg-slate-950/60 p-3.5 rounded-xl border border-white/10">
+                                <div className="flex flex-col gap-1.5">
+                                   <label className="h-6 flex items-center text-xs font-bold text-orange-400 tracking-wider whitespace-nowrap">Khung hình (Tỉ lệ)</label>
+                                   <select disabled={isExportingVideo || isPreparingVideoData} value={videoAspectRatio} onChange={e => setVideoAspectRatio(e.target.value)} className="w-full bg-slate-900 border border-white/10 text-white p-2 rounded-lg focus:border-orange-500 outline-none text-xs font-medium">
+                                      <option value="16x9">16:9 (Youtube / Ngang)</option>
+                                      <option value="9x16">9:16 (Tiktok / Dọc)</option>
+                                      <option value="1x1">1:1 (Facebook / Vuông)</option>
+                                      <option value="4x3">4:3 (Truyền thống)</option>
+                                      <option value="3x4">3:4 (Dọc ngắn)</option>
+                                   </select>
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                   <label className="h-6 flex items-center text-xs font-bold text-orange-400 tracking-wider whitespace-nowrap">Độ phân giải</label>
+                                   <select disabled={isExportingVideo || isPreparingVideoData} value={videoResolution} onChange={e => setVideoResolution(e.target.value)} className="w-full bg-slate-900 border border-white/10 text-white p-2 rounded-lg focus:border-orange-500 outline-none text-xs font-medium">
+                                      <option value="480">480p (Rất nhẹ)</option>
+                                      <option value="720">720p (HD tiêu chuẩn)</option>
+                                      <option value="1080">1080p (Full HD)</option>
+                                      <option value="1440">1440p (2K siêu nét)</option>
+                                      <option value="2160">2160p (4K điện ảnh)</option>
+                                   </select>
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                   <label className="h-6 flex items-center text-xs font-bold text-orange-400 tracking-wider whitespace-nowrap gap-1.5"><Sparkles size={13}/> Chuyển cảnh</label>
+                                   <select disabled={isExportingVideo || isPreparingVideoData} value={videoTransition} onChange={e => setVideoTransition(e.target.value)} className="w-full bg-slate-900 border border-white/10 text-white p-2 rounded-lg focus:border-orange-500 outline-none text-xs font-medium">
+                                      <option value="none">Cắt cứng (Mặc định)</option>
+                                      <option value="fade_black">Mờ đen (Dip to black)</option>
+                                      <option value="fade_white">Chớp trắng (Flash)</option>
+                                      <option value="blur">Lóa sáng tâm linh</option>
+                                      <option value="random">Ngẫu nhiên tự động</option>
+                                   </select>
+                                   {videoTransition !== 'none' && (
+                                       <div className="flex flex-col gap-1 mt-1 animate-in fade-in bg-slate-900 p-2 rounded-lg border border-white/5">
+                                           <span className="text-[10px] text-orange-200 flex justify-between font-bold">Thời gian kéo dài: <span className="text-white">{videoTransitionDuration}s</span></span>
+                                           <input type="range" min="0.1" max="2.0" step="0.1" value={videoTransitionDuration} onChange={e => setVideoTransitionDuration(Number(e.target.value))} className="accent-orange-500" disabled={isExportingVideo || isPreparingVideoData} />
+                                       </div>
+                                   )}
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                   <label className="h-6 flex items-center text-xs font-bold text-orange-400 tracking-wider whitespace-nowrap">Định dạng file</label>
+                                   <select disabled={isExportingVideo || isPreparingVideoData} value={videoExt} onChange={e => setVideoExt(e.target.value)} className="w-full bg-slate-900 border border-white/10 text-white p-2 rounded-lg focus:border-orange-500 outline-none text-xs font-medium">
+                                      <option value="mp4">MP4 (.mp4 - Phổ thông)</option>
+                                      <option value="webm">WebM (.webm - Siêu nhẹ)</option>
+                                   </select>
+                                </div>
+                             </div>
 
                          {/* Chế độ Cắt ghép Video Dựng sẵn Toàn Cảnh */}
                          <div className="flex flex-col gap-2 mt-1 mb-1 animate-in fade-in">
@@ -269,36 +249,67 @@ const VideoCreatorModal = () => {
                                         <span className="text-[9px] text-slate-500 italic">{messages?.length || 0} câu thoại trong hội thoại</span>
                                     </div>
 
-                                    <div className="flex justify-end mb-1 gap-2">
-                                            <button 
-                                                onClick={() => {
-                                                    if (!messages || messages.length === 0) {
-                                                        showToastMsg('Không có lời thoại nào trong hội thoại hiện tại.', 'error');
-                                                        return;
-                                                    }
-                                                    const autoScenes = messages.map((m: any, idx: number) => ({
-                                                        id: `scene_msg_${m.id || idx}_${Date.now()}`,
-                                                        role: m.role === 'ai' || m.role === 'ASSISTANT' ? 'lao' : 'user',
-                                                        emotion: m.emotion || 'calm',
-                                                        url: null,
-                                                        idbKey: null,
-                                                        msgId: m.id,
-                                                        textSnippet: m.text
-                                                    }));
-                                                    setFfScenes(autoScenes);
-                                                    showToastMsg(`Đã tạo ${autoScenes.length} cảnh từ lời thoại!`, 'success');
-                                                }}
-                                                className="bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1.5 rounded text-[9px] font-bold transition-all flex items-center gap-1 shadow-md shrink-0"
-                                            >
-                                                <Sparkles size={10}/> Tự động chia cảnh theo thoại
-                                            </button>
-                                            <button 
-                                                onClick={() => setFfScenes((prev: any) => [...prev, { id: `scene_${Date.now()}`, role: 'user', emotion: 'calm', url: null, idbKey: null }])}
-                                                className="bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1.5 rounded text-[9px] font-bold transition-all flex items-center gap-1 shadow-md shrink-0"
-                                            >
-                                                <Plus size={10}/> Thêm cảnh tự do
-                                            </button>
-                                    </div>
+                                     <div className="grid grid-cols-2 gap-2 my-1.5">
+                                             <button 
+                                                 onClick={() => {
+                                                     if (!messages || messages.length === 0) {
+                                                         showToastMsg("Không có lời thoại nào trong hội thoại hiện tại.", "error");
+                                                         return;
+                                                     }
+                                                     const autoScenes = messages.map((m: any, idx: number) => ({
+                                                         id: `scene_msg_${m.id || idx}_${Date.now()}`,
+                                                         role: m.role === "ai" || m.role === "ASSISTANT" ? "lao" : "user",
+                                                         emotion: m.emotion || "calm",
+                                                         url: null,
+                                                         idbKey: null,
+                                                         msgId: m.id,
+                                                         textSnippet: m.text
+                                                     }));
+                                                     setFfScenes(autoScenes);
+                                                     showToastMsg(`Đã tạo ${autoScenes.length} cảnh từ lời thoại!`, "success");
+                                                 }}
+                                                 className="bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 shadow-sm font-sans"
+                                             >
+                                                 <Sparkles size={11}/> Chia cảnh theo thoại
+                                             </button>
+                                             <button 
+                                                 onClick={() => setFfScenes((prev: any) => [...prev, { id: `scene_${Date.now()}`, role: "user", emotion: "calm", url: null, idbKey: null }])}
+                                                 className="bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 shadow-sm font-sans"
+                                             >
+                                                 <Plus size={11}/> Thêm cảnh tự do
+                                             </button>
+                                             <button 
+                                                 onClick={() => {
+                                                     if (!ffScenes || ffScenes.length === 0) {
+                                                         if (p.showToastMsg) p.showToastMsg("Chưa có cảnh quay nào để lưu.", "error");
+                                                         return;
+                                                     }
+                                                     if (setSavePackData) {
+                                                         setSavePackData({
+                                                             name: `Bộ Cảnh ${new Date().toLocaleDateString("vi-VN")} ${new Date().toLocaleTimeString("vi-VN")}`,
+                                                             aspect: videoAspectRatio === "16x9" ? "ngang" : "doc",
+                                                             description: ""
+                                                         });
+                                                     }
+                                                     setShowSavePackModal(true);
+                                                 }}
+                                                 className="bg-amber-600 hover:bg-amber-500 text-white px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 shadow-sm font-sans"
+                                             >
+                                                 <Save size={11}/> Lưu Bộ Cảnh Này
+                                             </button>
+                                             <button 
+                                                 onClick={() => {
+                                                     setFfScenes((prev: any[]) => prev.map((s: any) => {
+                                                         if (s.url) URL.revokeObjectURL(s.url);
+                                                         return { ...s, url: null, idbKey: null };
+                                                     }));
+                                                     if (p.showToastMsg) p.showToastMsg("Đã xoá toàn bộ video cảnh quay!", "success");
+                                                 }}
+                                                 className="bg-rose-600 hover:bg-rose-500 text-white px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 shadow-sm font-sans"
+                                             >
+                                                 <Trash2 size={11}/> Xóa tất cả cảnh
+                                             </button>
+                                     </div>
 
                                     {/* BATCH UPLOAD DROPZONE */}
                                     <div 
@@ -320,37 +331,39 @@ const VideoCreatorModal = () => {
                                                 else if (name.includes('vui') || name.includes('joy') || name.includes('hạnh phúc') || name.includes('hanh phuc')) em = 'joy';
                                                 else if (name.includes('hook') || name.includes('nhan manh') || name.includes('nhấn mạnh')) em = 'hook';
                                                 
-                                                return { name: f.name, url: URL.createObjectURL(f), role, emotion: em };
+                                                const idbKey = `ff_clip_${role}_${em}_${Date.now()}_${Math.floor(Math.random()*10000)}`;
+                                                idb.set(idbKey, f).catch(err => console.warn('Lỗi lưu IDB:', err));
+                                                return { name: f.name, url: URL.createObjectURL(f), role, emotion: em, idbKey };
                                             });
                                             console.log("Parsed file data:", fileData);
                                             
                                             setFfScenes((prev: any[]) => {
                                                 const newScenes = [...prev];
                                                 const updatedIndices = new Set<number>();
-                                                console.log("Current scenes in state before batch update:", prev.map((s, idx) => ({ idx, id: s.id, role: s.role, emotion: s.emotion, hasUrl: !!s.url })));
                                                 
                                                 fileData.forEach(fd => {
-                                                    // 1. Ưu tiên tìm cảnh khớp cả vai + cảm xúc và chưa bị ghi đè trong lượt này
                                                     let matchIdx = newScenes.findIndex((s, idx) => 
+                                                        (s.msgId || s.role === 'outro') &&
                                                         s.role === fd.role && 
                                                         s.emotion === fd.emotion && 
                                                         !updatedIndices.has(idx)
                                                     );
-                                                    // 2. Nếu không khớp cảm xúc, tìm cảnh khớp vai và chưa bị ghi đè trong lượt này
                                                     if (matchIdx === -1) {
                                                         matchIdx = newScenes.findIndex((s, idx) => 
+                                                            (s.msgId || s.role === 'outro') &&
                                                             s.role === fd.role && 
                                                             !updatedIndices.has(idx)
                                                         );
                                                     }
                                                     
                                                     if (matchIdx !== -1) {
-                                                        console.log(`Matched file ${fd.name} (${fd.role}, ${fd.emotion}) to scene index ${matchIdx}`);
-                                                        newScenes[matchIdx] = { ...newScenes[matchIdx], url: fd.url, idbKey: null };
+                                                        newScenes[matchIdx] = { ...newScenes[matchIdx], url: fd.url, idbKey: fd.idbKey };
                                                         updatedIndices.add(matchIdx);
-                                                    } else {
-                                                        console.log(`No match for file ${fd.name} (${fd.role}, ${fd.emotion}) - PUSHING new scene`);
-                                                        newScenes.push({ id: `scene_batch_${Date.now()}_${Math.random()}`, role: fd.role, emotion: fd.emotion, url: fd.url, idbKey: null });
+                                                    } else if (fd.role === 'outro') {
+                                                        const hasOutro = newScenes.some(s => s.role === 'outro');
+                                                        if (!hasOutro) {
+                                                            newScenes.push({ id: `scene_batch_${Date.now()}_${Math.random()}`, role: fd.role, emotion: fd.emotion, url: fd.url, idbKey: fd.idbKey });
+                                                        }
                                                     }
                                                 });
                                                 return newScenes;
@@ -377,37 +390,39 @@ const VideoCreatorModal = () => {
                                                 else if (name.includes('vui') || name.includes('joy') || name.includes('hạnh phúc') || name.includes('hanh phuc')) em = 'joy';
                                                 else if (name.includes('hook') || name.includes('nhan manh') || name.includes('nhấn mạnh')) em = 'hook';
                                                 
-                                                return { name: f.name, url: URL.createObjectURL(f), role, emotion: em };
+                                                const idbKey = `ff_clip_${role}_${em}_${Date.now()}_${Math.floor(Math.random()*10000)}`;
+                                                idb.set(idbKey, f).catch(err => console.warn('Lỗi lưu IDB:', err));
+                                                return { name: f.name, url: URL.createObjectURL(f), role, emotion: em, idbKey };
                                             });
                                             console.log("Parsed file data:", fileData);
                                             
                                             setFfScenes((prev: any[]) => {
                                                 const newScenes = [...prev];
                                                 const updatedIndices = new Set<number>();
-                                                console.log("Current scenes in state before batch update:", prev.map((s, idx) => ({ idx, id: s.id, role: s.role, emotion: s.emotion, hasUrl: !!s.url })));
                                                 
                                                 fileData.forEach(fd => {
-                                                    // 1. Ưu tiên tìm cảnh khớp cả vai + cảm xúc và chưa bị ghi đè trong lượt này
                                                     let matchIdx = newScenes.findIndex((s, idx) => 
+                                                        (s.msgId || s.role === 'outro') &&
                                                         s.role === fd.role && 
                                                         s.emotion === fd.emotion && 
                                                         !updatedIndices.has(idx)
                                                     );
-                                                    // 2. Nếu không khớp cảm xúc, tìm cảnh khớp vai và chưa bị ghi đè trong lượt này
                                                     if (matchIdx === -1) {
                                                         matchIdx = newScenes.findIndex((s, idx) => 
+                                                            (s.msgId || s.role === 'outro') &&
                                                             s.role === fd.role && 
                                                             !updatedIndices.has(idx)
                                                         );
                                                     }
                                                     
                                                     if (matchIdx !== -1) {
-                                                        console.log(`Matched file ${fd.name} (${fd.role}, ${fd.emotion}) to scene index ${matchIdx}`);
-                                                        newScenes[matchIdx] = { ...newScenes[matchIdx], url: fd.url, idbKey: null };
+                                                        newScenes[matchIdx] = { ...newScenes[matchIdx], url: fd.url, idbKey: fd.idbKey };
                                                         updatedIndices.add(matchIdx);
-                                                    } else {
-                                                        console.log(`No match for file ${fd.name} (${fd.role}, ${fd.emotion}) - PUSHING new scene`);
-                                                        newScenes.push({ id: `scene_batch_${Date.now()}_${Math.random()}`, role: fd.role, emotion: fd.emotion, url: fd.url, idbKey: null });
+                                                    } else if (fd.role === 'outro') {
+                                                        const hasOutro = newScenes.some(s => s.role === 'outro');
+                                                        if (!hasOutro) {
+                                                            newScenes.push({ id: `scene_batch_${Date.now()}_${Math.random()}`, role: fd.role, emotion: fd.emotion, url: fd.url, idbKey: fd.idbKey });
+                                                        }
                                                     }
                                                 });
                                                 return newScenes;
@@ -465,7 +480,9 @@ const VideoCreatorModal = () => {
                                                     if (file) {
                                                         if (scene.url) URL.revokeObjectURL(scene.url);
                                                         const url = URL.createObjectURL(file as any);
-                                                        setFfScenes((prev: any) => prev.map((s: any) => s.id === scene.id ? {...s, url, idbKey: null} : s));
+                                                        const idbKey = `ff_clip_${scene.role}_${scene.emotion}_${Date.now()}_${Math.floor(Math.random()*10000)}`;
+                                                        idb.set(idbKey, file).catch(err => console.warn('Lỗi lưu IDB:', err));
+                                                        setFfScenes((prev: any) => prev.map((s: any) => s.id === scene.id ? {...s, url, idbKey} : s));
                                                     }
                                                     e.target.value = '';
                                                 }} />
@@ -648,7 +665,6 @@ const VideoCreatorModal = () => {
                                         </div>
                                      </div>
                                   )}
-
                                   {bgmAudioData && !tempAiBgmData && (
                                      <div className="flex items-center justify-between w-full bg-emerald-900/30 border border-emerald-500/30 rounded-lg p-2.5 mt-1">
                                        <span className="text-xs text-emerald-400 font-bold truncate pr-2 max-w-[200px]">{bgmAudioData.name}</span>
@@ -656,35 +672,37 @@ const VideoCreatorModal = () => {
                                      </div>
                                   )}
 
-                                  <div className={`w-full flex flex-col gap-1.5 ${!bgmAudioData && !tempAiBgmData ? 'opacity-30' : ''}`}>
-                                     <span className="text-[10px] text-slate-400 flex justify-between font-bold"><span>Âm lượng nhạc nền:</span> <span>{Math.round(bgmVolume * 100)}%</span></span>
-                                     <input type="range" disabled={isExportingVideo || (!bgmAudioData && !tempAiBgmData)} min="0.01" max="1" step="0.01" value={bgmVolume} onChange={e => setBgmVolume(Number(e.target.value))} className="w-full accent-emerald-500 disabled:opacity-50" />
-                                  </div>
-                               </div>
-                            </div>
-                            
-                            {/* NÚT DỌN RÁC RAM TRƯỚC KHI RENDER */}
-                            <div className="flex flex-col gap-2 mt-2">
-                               <div className="bg-emerald-900/10 border border-emerald-500/20 p-3 rounded-xl shadow-inner">
-                                  <p className="text-[11px] text-emerald-400 font-bold flex items-center gap-1.5 mb-1.5"><Wand2 size={14}/> Tối ưu hóa bộ nhớ</p>
-                                  <p className="text-[10px] text-slate-400 mb-3 leading-relaxed">Nếu trình duyệt bị giật lag sau thời gian dài sử dụng, hãy bấm nút dưới đây để làm sạch bộ nhớ đệm. Việc này giúp video render ra mượt mà và không bị rớt khung hình.</p>
-                                  <button onClick={handleClearCache} disabled={isExportingVideo || isPreparingVideoData} className="w-full bg-slate-800 hover:bg-slate-700 text-emerald-400 font-bold py-2.5 rounded-lg border border-emerald-500/30 flex items-center justify-center gap-2 transition-all shadow-sm">
-                                     <Trash2 size={14} /> Xóa Cache & Giải phóng RAM
-                                  </button>
-                               </div>
-                            </div>
+                                   <div className={`w-full flex flex-col gap-1.5 ${!bgmAudioData && !tempAiBgmData ? 'opacity-30' : ''}`}>
+                                      <span className="text-[10px] text-slate-400 flex justify-between font-bold"><span>Âm lượng nhạc nền:</span> <span>{Math.round(bgmVolume * 100)}%</span></span>
+                                      <input type="range" disabled={isExportingVideo || (!bgmAudioData && !tempAiBgmData)} min="0.01" max="1" step="0.01" value={bgmVolume} onChange={e => setBgmVolume(Number(e.target.value))} className="w-full accent-emerald-500 disabled:opacity-50" />
+                                   </div>
+                                </div>
+                             </div>
 
-                            <div className="mt-4 pt-4 border-t border-white/5">
+                             <div className="mt-4 pt-4 border-t border-white/5">
                                {!isExportingVideo ? (
-                                  <button onClick={startVideoExport} disabled={isPreparingVideoData} className="w-full bg-orange-600 hover:bg-orange-500 text-white font-bold py-4 rounded-xl tracking-wider flex justify-center items-center gap-2 shadow-lg disabled:opacity-50 disabled:cursor-wait transition-all hover:scale-[1.02]">
-                                     {isPreparingVideoData ? <><Loader2 size={18} className="animate-spin"/> Đang gom dữ liệu âm thanh...</> : <><Video size={18}/> Bắt Đầu Render Video</>}
-                                  </button>
+                                  <div className="grid grid-cols-2 gap-3 w-full">
+                                     <button 
+                                        onClick={handleSaveVideoConfig} 
+                                        disabled={isPreparingVideoData} 
+                                        className="w-full bg-slate-800 hover:bg-slate-700 text-emerald-400 font-bold py-4 rounded-xl border border-emerald-500/30 flex items-center justify-center gap-2 transition-all shadow-md hover:scale-[1.02] text-sm"
+                                     >
+                                        <Save size={18} /> Lưu Cài Đặt
+                                     </button>
+                                     <button 
+                                        onClick={startVideoExport} 
+                                        disabled={isPreparingVideoData} 
+                                        className="w-full bg-orange-600 hover:bg-orange-500 text-white font-bold py-4 rounded-xl tracking-wider flex justify-center items-center gap-2 shadow-lg disabled:opacity-50 disabled:cursor-wait transition-all hover:scale-[1.02] text-sm"
+                                     >
+                                        {isPreparingVideoData ? <><Loader2 size={18} className="animate-spin"/> Đang render video...</> : <><Video size={18}/> Bắt Đầu Render</>}
+                                     </button>
+                                  </div>
                                ) : (
                                   <button onClick={cancelVideoExport} className="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-4 rounded-xl tracking-wider shadow-lg flex items-center justify-center gap-2 animate-pulse">
                                      <XCircle size={18}/> Dừng & Hủy Bỏ Render
                                   </button>
                                )}
-                            </div>
+                             </div>
                           </div>
                         )}
 
@@ -755,24 +773,91 @@ const VideoCreatorModal = () => {
                               <div className="mt-auto pt-4 border-t border-white/5">
                                  {!isExportingVideo ? (
                                     <button onClick={startVideoExport} disabled={isPreparingVideoData} className="w-full bg-orange-600 hover:bg-orange-500 text-white font-bold py-4 rounded-xl tracking-wider flex justify-center items-center gap-2 shadow-lg disabled:opacity-50 disabled:cursor-wait transition-all hover:scale-[1.02]">
-                                       {isPreparingVideoData ? <><Loader2 size={18} className="animate-spin"/> Đang gom dữ liệu...</> : <><Video size={18}/> Bắt Đầu Render Video</>}
+                                       {isPreparingVideoData ? <><Loader2 size={18} className="animate-spin"/> Đang render Video...</> : <><Video size={18}/> Bắt Đầu Render Video</>}
                                     </button>
                                  ) : (
-                                    <button onClick={cancelVideoExport} className="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-4 rounded-xl tracking-wider shadow-lg flex items-center justify-center gap-2 animate-pulse">
-                                       <XCircle size={18}/> Dừng & Hủy Bỏ
-                                    </button>
-                                 )}
+                                    <button onClick={cancelVideoExport} className="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-3.5 rounded-xl tracking-wider shadow-lg flex items-center justify-center gap-2 animate-pulse text-xs">
+                                        <XCircle size={16}/> Dừng & Hủy Bỏ
+                                     </button>
+                                  )}
+                               </div>
+                            </div>
+                         )}
+
+                         {exportTab === 'history' && (
+                           <div className="flex flex-col gap-4 flex-1 animate-in fade-in overflow-y-auto pr-1">
+                              <div className="flex items-center justify-between bg-slate-800/80 p-3 rounded-xl border border-white/10 shrink-0">
+                                 <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5"><Film size={14}/> Lịch Sử Video Đã Render</span>
+                                 <span className="text-[10px] text-slate-400 font-mono">{renderHistory?.length || 0} video</span>
                               </div>
-                          </div>
-                        )}
-                      </>
-                    )}
-                 </div>
+
+                              {!renderHistory || renderHistory.length === 0 ? (
+                                 <div className="flex flex-col items-center justify-center p-8 text-center bg-slate-950/50 rounded-xl border border-dashed border-white/10 my-auto">
+                                    <Film size={32} className="text-slate-600 mb-2" />
+                                    <p className="text-xs text-slate-400 font-bold mb-1">Chưa có video nào trong lịch sử</p>
+                                    <p className="text-[10px] text-slate-500">Bấm nút "Bắt Đầu Render Video" để xuất video mới.</p>
+                                 </div>
+                              ) : (
+                                 <div className="flex flex-col gap-3 overflow-y-auto pr-1 max-h-[60vh]">
+                                    {renderHistory.map((item: any, idx: number) => (
+                                       <div key={item.id || idx} className={`flex flex-col p-3 rounded-xl border transition-all ${renderedVideoUrl === item.url ? 'bg-emerald-950/40 border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.15)]' : 'bg-slate-950 border-white/10 hover:border-white/20'}`}>
+                                          <div className="flex items-center justify-between mb-1.5">
+                                             <div className="flex items-center gap-2">
+                                                <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold flex items-center justify-center font-mono">#{renderHistory.length - idx}</span>
+                                                <span className="text-xs font-bold text-white truncate max-w-[180px]">{item.name || `Video #${renderHistory.length - idx}`}</span>
+                                             </div>
+                                             <span className="text-[10px] text-slate-400 font-mono">{item.createdAt ? new Date(item.createdAt).toLocaleTimeString('vi-VN') : ''}</span>
+                                          </div>
+
+                                          <div className="flex items-center gap-2 text-[10px] text-slate-400 mb-2.5">
+                                             <span className="bg-slate-900 px-2 py-0.5 rounded font-mono text-amber-300 border border-white/5">{item.resolution || '1080'}p</span>
+                                             <span className="bg-slate-900 px-2 py-0.5 rounded font-mono text-cyan-300 border border-white/5">{item.aspectRatio || '16x9'}</span>
+                                             <span className="bg-slate-900 px-2 py-0.5 rounded font-mono uppercase text-emerald-300 border border-white/5">{item.format || 'mp4'}</span>
+                                          </div>
+
+                                          <div className="grid grid-cols-3 gap-2">
+                                             <button onClick={() => { setRenderedVideoUrl(item.url); setRenderedVideoBlob(item.blob || null); }} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1.5 rounded-lg text-[10px] flex items-center justify-center gap-1 transition-all">
+                                                <PlayCircle size={12}/> Xem
+                                             </button>
+                                             <button onClick={() => {
+                                                const a = document.createElement('a');
+                                                a.href = item.url;
+                                                a.download = `${item.name || 'OngLao_Video'}.${item.format || 'mp4'}`;
+                                                a.click();
+                                             }} className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-1.5 rounded-lg text-[10px] flex items-center justify-center gap-1 border border-white/10 transition-all">
+                                                <Save size={12}/> Tải Về
+                                             </button>
+                                             <button onClick={() => { if (deleteRenderHistoryItem) deleteRenderHistoryItem(item.id); }} className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold py-1.5 rounded-lg text-[10px] flex items-center justify-center gap-1 transition-all">
+                                                <X size={12}/> Xóa
+                                             </button>
+                                          </div>
+                                       </div>
+                                    ))}
+                                 </div>
+                              )}
+
+                           </div>
+                         )}
+                  </div>
 
                  {/* BÊN PHẢI: BẢNG PREVIEW / RENDER VIDEO */}
                  <div className={`w-full bg-black border border-white/10 overflow-hidden relative shadow-inner flex items-center justify-center flex-col shrink-0 transition-all duration-300 ${isPreviewFullscreen ? 'fixed inset-0 z-[250] rounded-none' : 'md:w-7/12 rounded-xl aspect-[16/9] md:aspect-auto md:h-full'}`}>
                     {renderedVideoUrl ? (
-                       <video ref={previewVideoRef} controls src={renderedVideoUrl} className="w-full h-full object-contain bg-slate-950" />
+                       <div className="relative w-full h-full bg-slate-950 flex flex-col items-center justify-center">
+                          {/* Thanh điều khiển trên cùng màn hình preview */}
+                          <div className="absolute top-3 left-3 right-3 z-50 flex items-center justify-end bg-black/80 backdrop-blur-md p-2 rounded-xl border border-white/10 shadow-2xl">
+                             <div className="flex items-center gap-2">
+                                <button onClick={handleDownloadVideo} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shadow transition-all hover:scale-105">
+                                   <Save size={14}/> Tải Video
+                                </button>
+                                <button onClick={handleShareVideoSocial} className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shadow transition-all hover:scale-105">
+                                   <ShareIcon size={14}/> Chia Sẻ
+                                </button>
+                             </div>
+                          </div>
+
+                          <video ref={previewVideoRef} controls autoPlay src={renderedVideoUrl} className="w-full h-full object-contain bg-slate-950 pt-12" />
+                       </div>
                     ) : (
                        <>
                           {/* NÚT UNDO / REDO TRÊN MÀN HÌNH CANAVS */}
@@ -837,13 +922,13 @@ const VideoCreatorModal = () => {
            
            {/* MODAL LƯU / SỬA PRESET BỐI CẢNH */}
            {showPresetModal && (
-               <div className="fixed inset-0 z-[250] bg-black/60 backdrop-blur-sm flex justify-center items-center p-4" onClick={() => setShowPresetModal(false)}>
+               <div className="fixed inset-0 z-[250] bg-black/60 backdrop-blur-sm flex justify-center items-center p-4" >
                   <div className="bg-slate-900 border border-amber-500/30 rounded-xl w-full max-w-sm shadow-2xl flex flex-col animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
                       <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-800 rounded-t-xl">
                           <h2 className="font-bold text-amber-400 tracking-wider flex items-center gap-2">
                              <LayoutTemplate size={16}/> {presetFormData.id ? 'Sửa thông tin Bối cảnh' : 'Lưu Bối cảnh mới'}
                           </h2>
-                          <button onClick={() => setShowPresetModal(false)} className="text-slate-400 hover:text-white"><X size={18}/></button>
+                          <button  className="text-slate-400 hover:text-white"><X size={18}/></button>
                       </div>
                       <div className="p-5 flex flex-col gap-4">
                           <div className="flex flex-col gap-1.5">
@@ -875,7 +960,7 @@ const VideoCreatorModal = () => {
                           </div>
 
                           <div className="flex justify-end gap-3 mt-2">
-                              <button onClick={() => setShowPresetModal(false)} className="px-4 py-2 rounded-lg font-bold text-slate-400 hover:text-white text-xs transition-colors">Hủy</button>
+                              <button  className="px-4 py-2 rounded-lg font-bold text-slate-400 hover:text-white text-xs transition-colors">Hủy</button>
                               <button onClick={handleConfirmPreset} disabled={!presetFormData.name.trim()} className="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-lg disabled:opacity-50 transition-all flex items-center gap-2">
                                  <Check size={14}/> {presetFormData.id ? 'Cập nhật' : 'Lưu bối cảnh'}
                               </button>
@@ -887,13 +972,13 @@ const VideoCreatorModal = () => {
 
            {/* MODAL NỘI SOI CHẨN ĐOÁN RENDER (PROFILER) */}
            {showDiagnostics && diagnosticReport && (
-               <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" onClick={() => setShowDiagnostics(false)}>
+               <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" >
                   <div className="bg-slate-900 border border-indigo-500/50 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col animate-in zoom-in-95 max-h-[85vh]" onClick={e => e.stopPropagation()}>
                       <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-800 rounded-t-2xl">
                           <h2 className="font-bold text-indigo-400 tracking-wider flex items-center gap-2">
                              <Sliders size={18}/> Báo Cáo Nội Soi Kỹ Thuật
                           </h2>
-                          <button onClick={() => setShowDiagnostics(false)} className="text-slate-400 hover:text-white"><X size={20}/></button>
+                          <button  className="text-slate-400 hover:text-white"><X size={20}/></button>
                       </div>
                       <div className="p-5 flex flex-col gap-4 overflow-hidden h-full">
                           <p className="text-[12px] text-slate-300 leading-relaxed shrink-0">
@@ -905,7 +990,7 @@ const VideoCreatorModal = () => {
                               className="w-full h-full min-h-[40vh] bg-slate-950 border border-white/10 rounded-lg p-4 text-[11px] text-emerald-400 font-mono outline-none resize-none scrollbar-hide"
                           />
                           <div className="flex justify-end gap-3 mt-2 shrink-0">
-                              <button onClick={() => setShowDiagnostics(false)} className="px-5 py-2.5 rounded-lg font-bold text-slate-400 hover:text-white text-xs transition-colors">Đóng</button>
+                              <button  className="px-5 py-2.5 rounded-lg font-bold text-slate-400 hover:text-white text-xs transition-colors">Đóng</button>
                               <button 
                                   onClick={() => {
                                       copyToClipboard(diagnosticReport);
@@ -924,11 +1009,11 @@ const VideoCreatorModal = () => {
 
            {/* MODAL LƯU NHÂN VẬT VÀO KHO MÁY */}
            {showSaveCharModal && (
-               <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" onClick={() => setShowSaveCharModal(false)}>
+               <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" >
                   <div className="bg-slate-900 border border-orange-500/30 rounded-2xl w-full max-w-sm shadow-2xl flex flex-col animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
                       <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-800 rounded-t-2xl">
                           <h2 className="font-bold text-orange-400 tracking-wider flex items-center gap-2"><Save size={16}/> Lưu Hình Tướng Mới</h2>
-                          <button onClick={() => setShowSaveCharModal(false)} className="text-slate-400 hover:text-white"><X size={18}/></button>
+                          <button  className="text-slate-400 hover:text-white"><X size={18}/></button>
                       </div>
                       <div className="p-5 flex flex-col gap-4">
                           <div className="flex flex-col gap-1.5">
@@ -967,7 +1052,7 @@ const VideoCreatorModal = () => {
                               </div>
                           )}
                           <div className="flex justify-end gap-3 mt-2">
-                              <button onClick={() => setShowSaveCharModal(false)} className="px-4 py-2 rounded-lg font-bold text-slate-400 hover:text-white text-xs transition-colors">Hủy</button>
+                              <button  className="px-4 py-2 rounded-lg font-bold text-slate-400 hover:text-white text-xs transition-colors">Hủy</button>
                               <button onClick={executeSaveCharacter} disabled={!saveCharData.name.trim()} className="px-5 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-bold shadow-lg disabled:opacity-50 transition-all flex items-center gap-2">
                                   <Check size={14}/> Xác nhận lưu
                               </button>
@@ -979,11 +1064,11 @@ const VideoCreatorModal = () => {
 
            {/* MODAL LƯU VIDEO DỰNG SẴN VÀO KHO */}
            {showFfSaveModal && (
-               <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" onClick={() => setShowFfSaveModal(false)}>
+               <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" >
                    <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl w-full max-w-sm shadow-2xl flex flex-col animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
                        <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-800 rounded-t-2xl">
                            <h2 className="font-bold text-emerald-400 tracking-wider flex items-center gap-2"><Save size={16}/> Lưu Video Lẻ</h2>
-                           <button onClick={() => setShowFfSaveModal(false)} className="text-slate-400 hover:text-white"><X size={18}/></button>
+                           <button  className="text-slate-400 hover:text-white"><X size={18}/></button>
                        </div>
                        <div className="p-5 flex flex-col gap-4">
                            <div className="flex flex-col gap-1.5">
@@ -998,7 +1083,7 @@ const VideoCreatorModal = () => {
                                />
                            </div>
                            <div className="flex justify-end gap-3 mt-2">
-                               <button onClick={() => setShowFfSaveModal(false)} className="px-4 py-2 rounded-lg font-bold text-slate-400 hover:text-white text-xs transition-colors">Hủy</button>
+                               <button  className="px-4 py-2 rounded-lg font-bold text-slate-400 hover:text-white text-xs transition-colors">Hủy</button>
                                <button onClick={executeSaveFfClipV2} disabled={!ffSaveData.name.trim()} className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-lg disabled:opacity-50 transition-all flex items-center gap-2">
                                    <Check size={14}/> Xác nhận lưu
                                </button>
@@ -1010,11 +1095,11 @@ const VideoCreatorModal = () => {
 
            {/* TÂM AN THÊM: MODAL LƯU TOÀN BỘ THÀNH BỘ CẢNH (PACK) CÁ NHÂN */}
            {showSavePackModal && (
-               <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" onClick={() => setShowSavePackModal(false)}>
+               <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" >
                    <div className="bg-slate-900 border border-amber-500/30 rounded-2xl w-full max-w-sm shadow-2xl flex flex-col animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
                        <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-800 rounded-t-2xl">
                            <h2 className="font-bold text-amber-400 tracking-wider flex items-center gap-2"><Archive size={16}/> Lưu Bộ Cảnh Cá Nhân</h2>
-                           <button onClick={() => setShowSavePackModal(false)} className="text-slate-400 hover:text-white"><X size={18}/></button>
+                           <button  className="text-slate-400 hover:text-white"><X size={18}/></button>
                        </div>
                        <div className="p-5 flex flex-col gap-4">
                            <p className="text-[11px] text-slate-300 italic bg-amber-900/10 border border-amber-500/20 p-3 rounded-lg">
@@ -1046,7 +1131,7 @@ const VideoCreatorModal = () => {
                            </div>
 
                            <div className="flex justify-end gap-3 mt-2">
-                               <button onClick={() => setShowSavePackModal(false)} className="px-4 py-2 rounded-lg font-bold text-slate-400 hover:text-white text-xs transition-colors">Hủy</button>
+                               <button  className="px-4 py-2 rounded-lg font-bold text-slate-400 hover:text-white text-xs transition-colors">Hủy</button>
                                <button onClick={executeSaveFfPack} disabled={!savePackData.name.trim()} className="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-lg disabled:opacity-50 transition-all flex items-center gap-2">
                                    <Check size={14}/> Xác nhận lưu
                                </button>

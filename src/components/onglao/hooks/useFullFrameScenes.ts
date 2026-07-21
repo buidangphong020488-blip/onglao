@@ -4,7 +4,7 @@ import { idb } from '../constants';
 
 const resolveFfAssetUrl = async (val: any) => {
     if (!val) return null;
-    if (val.startsWith('http') || val.startsWith('/') || val.startsWith('blob:')) {
+    if (val.startsWith('http') || val.startsWith('/')) {
         return val;
     }
     const cleanKey = val.startsWith('idb://') ? val.replace('idb://', '') : val;
@@ -26,20 +26,62 @@ export const useFullFrameScenes = ({
   setFullFramePacks,
   allCharacters = [],
   currentLaoPresetId = null,
-  currentUserPresetId = null
+  currentUserPresetId = null,
+  currentSessionId = null
 }: any) => {
   const [ffScenes, setFfScenes] = useState<any[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('onglao_ff_scenes');
+      const savedKey = currentSessionId ? `onglao_ff_scenes_${currentSessionId}` : 'onglao_ff_scenes';
+      const saved = localStorage.getItem(savedKey) || localStorage.getItem('onglao_ff_scenes');
       if (saved) {
-        try { return JSON.parse(saved); } catch (e) {}
+        try {
+          const parsed = JSON.parse(saved);
+          return parsed.map((s: any) => ({
+            ...s,
+            url: (s.url && s.url.startsWith('blob:')) ? null : s.url
+          }));
+        } catch (e) {}
       }
     }
     return [];
   });
+
+  // Tự động khôi phục Video Blobs mới từ IndexedDB cho các cảnh có idbKey khi load hoặc đổi kịch bản
   useEffect(() => {
-    localStorage.setItem('onglao_ff_scenes', JSON.stringify(ffScenes));
-  }, [ffScenes]);
+    let isMounted = true;
+    const restoreBlobs = async () => {
+      let changed = false;
+      const updated = await Promise.all(ffScenes.map(async (scene: any) => {
+        if (scene.idbKey && !scene.url) {
+          const resolved = await resolveFfAssetUrl(scene.idbKey);
+          if (resolved) {
+            changed = true;
+            return { ...scene, url: resolved };
+          }
+        }
+        return scene;
+      }));
+      if (changed && isMounted) {
+        setFfScenes(updated);
+      }
+    };
+    
+    if (ffScenes.some((s: any) => s.idbKey && !s.url)) {
+      restoreBlobs();
+    }
+    return () => { isMounted = false; };
+  }, [ffScenes, currentSessionId]);
+
+  useEffect(() => {
+    const cleanForStorage = ffScenes.map((s: any) => ({
+      ...s,
+      url: (s.url && s.url.startsWith('blob:')) ? null : s.url
+    }));
+    localStorage.setItem('onglao_ff_scenes', JSON.stringify(cleanForStorage));
+    if (currentSessionId) {
+      localStorage.setItem(`onglao_ff_scenes_${currentSessionId}`, JSON.stringify(cleanForStorage));
+    }
+  }, [ffScenes, currentSessionId]);
   const [localFfClips, setLocalFfClips] = useState<any[]>([]);
   const [showFfSaveModal, setShowFfSaveModal] = useState(false);
   const [ffSaveData, setFfSaveData] = useState({ sceneId: '', name: '' });
@@ -351,16 +393,7 @@ export const useFullFrameScenes = ({
 
   const handleLoadPack = async (packId: any) => {
       const hardcodedPack = FULLFRAME_PACKS.find((p: any) => p.id === packId);
-      let localPack = localFfPacks.find((p: any) => p.id === packId);
-
-      if (!localPack) {
-          for (const char of allCharacters) {
-              if (char.fullFramePacks) {
-                  const p = char.fullFramePacks.find((x: any) => x.id === packId);
-                  if (p) { localPack = p; break; }
-              }
-          }
-      }
+      const localPack = localFfPacks.find((p: any) => p.id === packId);
 
       ffScenes.forEach((s: any) => { if (s.url) URL.revokeObjectURL(s.url); });
 
@@ -368,7 +401,7 @@ export const useFullFrameScenes = ({
           setFfScenes(JSON.parse(JSON.stringify(hardcodedPack.scenes)));
           showToastMsg(`Đã đổi sang bộ cảnh ${hardcodedPack.name}`, 'success', 2000);
       } else if (localPack) {
-          showToastMsg(`Đang nạp bộ cảnh "${localPack.name}"...`, 'loading', 0);
+          showToastMsg(`Đang nạp bộ cảnh "${localPack.name}" từ ổ cứng...`, 'loading', 0);
           try {
               const loadedScenes = await Promise.all(localPack.scenes.map(async (scene: any) => {
                   let url = null;

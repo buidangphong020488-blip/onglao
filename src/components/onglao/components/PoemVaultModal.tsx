@@ -450,7 +450,7 @@ const PoemVaultModal = ({ isAdminMode = false, inline = false }: { isAdminMode?:
           {!inline && (
               <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-800 rounded-t-2xl shrink-0">
                   <h2 className="font-black text-emerald-400 tracking-widest flex items-center gap-2"><BookOpen size={18}/> Kho Tàng Pháp Bảo</h2>
-                  <button onClick={() => setShowPoemModal(false)} className="text-slate-400 hover:text-white"><X size={20}/></button>
+                  <button  className="text-slate-400 hover:text-white"><X size={20}/></button>
               </div>
           )}
 
@@ -1367,11 +1367,11 @@ const PoemVaultModal = ({ isAdminMode = false, inline = false }: { isAdminMode?:
 
       {/* MODAL TÙY CHỌN XUẤT FILE SAO LƯU */}
       {showBackupOptionsModal && (
-         <div className="fixed inset-0 z-[250] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" onClick={() => setShowBackupOptionsModal(false)}>
+         <div className="fixed inset-0 z-[250] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" >
             <div className="bg-slate-900 border border-rose-500/30 rounded-2xl w-full max-w-sm shadow-2xl flex flex-col animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-800 rounded-t-2xl">
                     <h2 className="font-black text-rose-400 tracking-widest flex items-center gap-2"><Archive size={18}/> Tùy chọn nén âm thanh</h2>
-                    <button onClick={() => setShowBackupOptionsModal(false)} className="text-slate-400 hover:text-white"><X size={20}/></button>
+                    <button  className="text-slate-400 hover:text-white"><X size={20}/></button>
                 </div>
                 <div className="p-5 flex flex-col gap-4">
                     <p className="text-xs text-slate-300 leading-relaxed mb-1">Hãy chọn các nhóm âm thanh con muốn đóng gói vào File dự phòng. (Chọn ít sẽ giúp dung lượng nhẹ và tải nhanh hơn).</p>
@@ -1422,7 +1422,7 @@ const PoemVaultModal = ({ isAdminMode = false, inline = false }: { isAdminMode?:
                     </div>
                     
                     <div className="flex justify-end gap-3 mt-2">
-                        <button onClick={() => setShowBackupOptionsModal(false)} className="px-5 py-2.5 rounded-xl font-bold text-slate-400 hover:text-white text-xs transition-colors">Hủy</button>
+                        <button  className="px-5 py-2.5 rounded-xl font-bold text-slate-400 hover:text-white text-xs transition-colors">Hủy</button>
                         <button 
                             onClick={executeFullBackup} 
                             disabled={!backupOptions.stanzas && !backupOptions.meanings && !backupOptions.greetings}
@@ -1544,7 +1544,7 @@ const PoemVaultModal = ({ isAdminMode = false, inline = false }: { isAdminMode?:
   if (inline) return innerContent;
 
   return (
-      <div className="fixed inset-0 z-[160] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" onClick={() => setShowPoemModal(false)}>
+      <div className="fixed inset-0 z-[160] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" >
          <div className="w-full max-w-4xl" onClick={e => e.stopPropagation()}>
              {innerContent}
          </div>

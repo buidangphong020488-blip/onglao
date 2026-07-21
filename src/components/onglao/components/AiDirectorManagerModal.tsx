@@ -89,6 +89,42 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     const [editingLanguage, setEditingLanguage] = useState('vi');
     const [isRegenerating, setIsRegenerating] = useState(false);
 
+    // Đồng bộ hoá ID kịch bản lên thanh địa chỉ (URL slug) khi mở chế độ Sửa kịch bản
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            const currentId = url.searchParams.get('id');
+            const currentModal = url.searchParams.get('modal');
+            
+            if (p.show && view === 'edit' && selectedScript?.id) {
+                if (currentId !== selectedScript.id) {
+                    url.searchParams.set('id', selectedScript.id);
+                    window.history.pushState(null, '', url.toString());
+                }
+            } else if (p.show && currentModal === 'ai-director') {
+                if (currentId) {
+                    url.searchParams.delete('id');
+                    window.history.pushState(null, '', url.toString());
+                }
+            }
+        }
+    }, [view, selectedScript?.id, p.show]);
+
+    // Tự động nhảy vào kịch bản chỉnh sửa nếu URL có sẵn id kịch bản khi mở modal
+    useEffect(() => {
+        if (typeof window !== 'undefined' && p.show && p.sessions.length > 0) {
+            const url = new URL(window.location.href);
+            const idParam = url.searchParams.get('id');
+            const modalParam = url.searchParams.get('modal');
+            if (modalParam === 'ai-director' && idParam && view === 'list') {
+                const script = p.sessions.find(s => s.id === idParam);
+                if (script) {
+                    handleStartEdit(script);
+                }
+            }
+        }
+    }, [p.show, p.sessions, view]);
+
     const preloadedRef = useRef(false);
     // Tự động tải tin nhắn cho tất cả kịch bản khi mở modal để tránh race condition khi nghe thử/tạo video
     useEffect(() => {

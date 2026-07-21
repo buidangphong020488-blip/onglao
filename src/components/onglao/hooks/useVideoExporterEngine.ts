@@ -86,7 +86,8 @@ export const useVideoExporterEngine = ({
   setRenderedVideoUrl,
   setIsPreviewFullscreen,
   setShowVideoExportModal,
-  setShowAiManager,
+  setExportTab,
+  saveRenderHistoryItem,
   videoExportSource,
   bgUpdateTrigger,
   setBgUpdateTrigger,
@@ -105,6 +106,7 @@ export const useVideoExporterEngine = ({
   ffScenesRef,
   setFfScenes
 }: any) => {
+  const blurCanvasRef = useRef<any>(null);
 
   const resetVideoExport = () => {
     setIsExportingVideo(false);
@@ -112,8 +114,49 @@ export const useVideoExporterEngine = ({
     setBgUpdateTrigger((prev: any) => prev + 1);
   };
 
+  const releaseExportRAM = () => {
+    try {
+      // 1. Phá hủy tất cả các phần tử Video ngầm đã nạp vào RAM
+      if (ffVidRefs.current) {
+        Object.keys(ffVidRefs.current).forEach((key) => {
+          const v = ffVidRefs.current[key];
+          if (v) {
+            try {
+              v.pause();
+              v.src = "";
+              v.removeAttribute('src');
+              v.load();
+            } catch (e) {}
+          }
+        });
+        ffVidRefs.current = {};
+      }
+
+      // 2. Dọn các canvas mờ & canvas đệm
+      if (blurCanvasRef.current) {
+        blurCanvasRef.current.width = 1;
+        blurCanvasRef.current.height = 1;
+        blurCanvasRef.current = null;
+      }
+
+      // 3. Xóa bộ nhớ đệm frame tạm
+      preloadedLaoFrames.current = {};
+      preloadedUserFrames.current = {};
+      preloadedBowFrames.current = {};
+      processedBgsRef.current = {};
+      processedLogoRef.current = null;
+
+      // 4. Gọi Garbage Collector nếu trình duyệt hỗ trợ
+      if (typeof window !== 'undefined' && (window as any).gc) {
+        try { (window as any).gc(); } catch (e) {}
+      }
+    } catch (e) {}
+  };
+
   const handleClearCache = () => {
-      showToastMsg('Đang quét và dọn dẹp bộ nhớ đệm (RAM/VRAM)...', 'loading', 2500);
+      showToastMsg('Đang dọn dẹp bộ nhớ đệm (RAM/VRAM)...', 'loading', 2500);
+
+      releaseExportRAM();
 
       // 1. Phá hủy các Canvas xử lý điểm ảnh (Nặng RAM nhất) của Bối cảnh Video
       Object.values(bgVideoRefs.current).forEach((vObj: any) => {
@@ -179,6 +222,22 @@ export const useVideoExporterEngine = ({
     if (exportAnimFrameRef.current) {
         cancelAnimationFrame(exportAnimFrameRef.current);
         exportAnimFrameRef.current = null;
+    }
+
+    // Auto-persist tất cả video blobs chưa có idbKey vào IndexedDB để lưu trữ vĩnh viễn
+    if (ffScenesRef.current && ffScenesRef.current.length > 0) {
+        for (const scene of ffScenesRef.current) {
+            if (scene.url && scene.url.startsWith('blob:') && !scene.idbKey) {
+                try {
+                    const blob = await fetch(scene.url).then(r => r.blob());
+                    const key = `ff_clip_${scene.role}_${scene.emotion}_${Date.now()}_${Math.floor(Math.random()*10000)}`;
+                    await idb.set(key, blob);
+                    scene.idbKey = key;
+                } catch (e) {
+                    console.warn("Auto-persist blob to IDB error:", e);
+                }
+            }
+        }
     }
 
     try {
@@ -274,6 +333,154 @@ export const useVideoExporterEngine = ({
       const combinedAudioBuffer = await combinedAudioBlob.arrayBuffer();
       const decodedAudioBuffer = await exportAudioCtxRef.current.decodeAudioData(combinedAudioBuffer);
 
+      // --- FFMEG ENGINE EXPORT (SIÊU TỐC - 0% GIẬT LAG VIA FORMDATA MULTIPART) ---
+      try {
+        showToastMsg('Đang render Video...', 'loading', 0);
+
+        const formData = new FormData();
+        formData.append('audio', combinedAudioBlob, 'narration.mp3');
+
+        if (bgmAudioData && bgmAudioData.url) {
+          try {
+            const bgmRes = await fetch(bgmAudioData.url);
+            if (bgmRes.ok) {
+              const bgmBlob = await bgmRes.blob();
+              formData.append('bgm', bgmBlob, 'bgm.mp3');
+            }
+          } catch (e) {}
+        }
+
+        const scenesList: any[] = [];
+        const totalDur = decodedAudioBuffer.duration || 10;
+        
+        if (combinedAudioMetadata && combinedAudioMetadata.length > 0) {
+          for (let i = 0; i < combinedAudioMetadata.length; i++) {
+            const meta = combinedAudioMetadata[i];
+            const segDuration = (meta.durationMs || 3000) / 1000;
+            let matchedScene = ffScenesRef.current.find((s: any) => s.msgId === meta.msgId || s.id.endsWith(`_${meta.msgId}`));
+            if (!matchedScene) {
+              matchedScene = ffScenesRef.current.find((s: any) => s.role === meta.role) || ffScenesRef.current[i % ffScenesRef.current.length];
+            }
+            
+            let clipUrl = matchedScene?.url || '';
+            let blobToConvert: Blob | null = null;
+
+            if (matchedScene?.idbKey) {
+              try { blobToConvert = await idb.get(matchedScene.idbKey); } catch (e) {}
+            }
+            if (!blobToConvert && clipUrl.startsWith('idb://')) {
+              try { blobToConvert = await idb.get(clipUrl.replace('idb://', '')); } catch (e) {}
+            }
+            if (!blobToConvert && clipUrl) {
+              try {
+                const fetchTarget = (clipUrl.startsWith('http') || clipUrl.startsWith('blob:'))
+                  ? clipUrl 
+                  : (clipUrl.startsWith('/') ? window.location.origin + clipUrl : window.location.origin + '/' + clipUrl);
+                const vRes = await fetch(fetchTarget);
+                if (vRes.ok) blobToConvert = await vRes.blob();
+              } catch (e) {}
+            }
+
+            if (!blobToConvert && ffScenesRef.current && ffScenesRef.current.length > 0) {
+              for (const altSc of ffScenesRef.current) {
+                let altUrl = altSc?.url || '';
+                if (altSc?.idbKey) {
+                  try { blobToConvert = await idb.get(altSc.idbKey); } catch (e) {}
+                }
+                if (!blobToConvert && altUrl.startsWith('idb://')) {
+                  try { blobToConvert = await idb.get(altUrl.replace('idb://', '')); } catch (e) {}
+                }
+                if (!blobToConvert && altUrl) {
+                  try {
+                    const fetchTarget = (altUrl.startsWith('http') || altUrl.startsWith('blob:'))
+                      ? altUrl 
+                      : (altUrl.startsWith('/') ? window.location.origin + altUrl : window.location.origin + '/' + altUrl);
+                    const vRes = await fetch(fetchTarget);
+                    if (vRes.ok) blobToConvert = await vRes.blob();
+                  } catch (e) {}
+                }
+                if (blobToConvert) break;
+              }
+            }
+
+            if (blobToConvert) {
+              formData.append(`clip_${i}`, blobToConvert, `clip_${i}.mp4`);
+            }
+
+            scenesList.push({
+              id: matchedScene?.id || `scene_${i}`,
+              role: meta.role,
+              url: clipUrl,
+              duration: segDuration
+            });
+          }
+        } else {
+          const firstScene = ffScenesRef.current[0];
+          let clipUrl = firstScene?.url || '';
+          let blobToConvert: Blob | null = null;
+          if (firstScene?.idbKey) {
+            try { blobToConvert = await idb.get(firstScene.idbKey); } catch (e) {}
+          }
+          if (!blobToConvert && clipUrl.startsWith('idb://')) {
+            try { blobToConvert = await idb.get(clipUrl.replace('idb://', '')); } catch (e) {}
+          }
+          if (!blobToConvert && clipUrl) {
+            try {
+              const fetchTarget = (clipUrl.startsWith('http') || clipUrl.startsWith('blob:'))
+                ? clipUrl 
+                : (clipUrl.startsWith('/') ? window.location.origin + clipUrl : window.location.origin + '/' + clipUrl);
+              const vRes = await fetch(fetchTarget);
+              if (vRes.ok) blobToConvert = await vRes.blob();
+            } catch (e) {}
+          }
+          if (blobToConvert) {
+            formData.append('clip_0', blobToConvert, 'clip_0.mp4');
+          }
+          scenesList.push({
+            id: firstScene?.id || 'scene_0',
+            role: firstScene?.role || 'lao',
+            url: clipUrl,
+            duration: totalDur
+          });
+        }
+
+        formData.append('metadata', JSON.stringify({
+          scenes: scenesList,
+          bgmVolume: bgmVolume !== undefined ? bgmVolume : 0.15,
+          resolution: videoResolution,
+          aspectRatio: videoAspectRatio,
+          format: videoExt || 'mp4'
+        }));
+
+        const res = await fetch('/api/export-video-ffmpeg', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (res.ok) {
+          const serverVideoUrlHeader = res.headers.get('X-Video-Url');
+          const serverFilenameHeader = res.headers.get('X-Video-Filename');
+          const exportedBlob = await res.blob();
+          const videoUrl = serverVideoUrlHeader 
+            ? serverVideoUrlHeader 
+            : URL.createObjectURL(exportedBlob);
+
+          setRenderedVideoBlob(exportedBlob);
+          setRenderedVideoUrl(videoUrl);
+          if (saveRenderHistoryItem) saveRenderHistoryItem(exportedBlob, videoUrl, serverFilenameHeader || undefined);
+          if (setExportTab) setExportTab('history');
+          setIsExportingVideo(false);
+          setIsPreparingVideoData(false);
+          releaseExportRAM();
+          showToastMsg('🎉 Đã render xong video bằng FFmpeg Engine! Video mượt 100% không giật!', 'success', 5000);
+          return;
+        } else {
+          console.warn('FFmpeg server returned non-ok status, falling back to frame-accurate canvas');
+        }
+      } catch (ffmpegErr: any) {
+        console.warn('FFmpeg Engine export error, falling back to canvas:', ffmpegErr);
+      }
+
       // Cấu hình tham số xuất video (Kích thước tùy thuộc vào độ phân giải đã chọn)
       let width = 1920;
       let height = 1080;
@@ -293,8 +500,9 @@ export const useVideoExporterEngine = ({
       canvas.width = width;
       canvas.height = height;
 
-      // Chuẩn bị luồng MediaStream ghi hình từ Canvas (60FPS để siêu mượt)
-      const canvasStream = canvas.captureStream(60);
+      // Chuẩn bị luồng MediaStream ghi hình từ Canvas (Ghi hình chuẩn xác từng khung hình để khử 100% giật lag)
+      const canvasStream = canvas.captureStream(0);
+      const videoTrack = canvasStream.getVideoTracks()[0] as any;
       
       // Tạo nút âm thanh phát file Audio gộp
       const audioSourceNode = exportAudioCtxRef.current.createBufferSource();
@@ -342,17 +550,17 @@ export const useVideoExporterEngine = ({
           audioDestinationNode.stream.getAudioTracks()[0]
       ]);
 
-      // Bắt đầu khởi tạo bộ mã hóa (Recorder) để đóng gói video
-      let options = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 8000000 }; // 8Mbps cho 1080p
-      if (videoResolution === '4k') options.videoBitsPerSecond = 35000000; // 35Mbps cho 4K
-      else if (videoResolution === '720') options.videoBitsPerSecond = 4000000; // 4Mbps cho 720p
+      // Bắt đầu khởi tạo bộ mã hóa (Recorder) để đóng gói video (Dùng VP8 phần cứng siêu mượt)
+      let options: any = { mimeType: 'video/webm;codecs=vp8,opus', videoBitsPerSecond: 12000000 };
+      if (videoResolution === '4k') options.videoBitsPerSecond = 35000000;
+      else if (videoResolution === '720') options.videoBitsPerSecond = 6000000;
 
-      if (videoExt === 'mp4') {
+      if (videoExt === 'mp4' && MediaRecorder.isTypeSupported('video/mp4;codecs=h264,aac')) {
           options.mimeType = 'video/mp4;codecs=h264,aac';
       }
 
       if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-          options.mimeType = 'video/webm;codecs=vp8,opus';
+          options.mimeType = 'video/webm;codecs=vp9,opus';
           if (!MediaRecorder.isTypeSupported(options.mimeType)) {
               options.mimeType = 'video/webm';
           }
@@ -371,9 +579,11 @@ export const useVideoExporterEngine = ({
           setRenderedVideoBlob(blob);
           const videoUrl = URL.createObjectURL(blob);
           setRenderedVideoUrl(videoUrl);
-          
+          if (saveRenderHistoryItem) saveRenderHistoryItem(blob, videoUrl);
+          if (setExportTab) setExportTab('history');
           setIsExportingVideo(false);
-          showToastMsg('Đã xuất video thành công!', 'success');
+          releaseExportRAM();
+          showToastMsg('🎉 Đã xuất video thành công!', 'success');
       };
 
       // TÂM AN PROFILER V2: Khởi tạo các biến đo đạc
@@ -463,8 +673,10 @@ export const useVideoExporterEngine = ({
       });
       
       ffScenesRef.current.forEach((scene: any) => { 
-          if(scene.role !== 'outro' && ffVidRefs.current[scene.id]) { 
-              ffVidRefs.current[scene.id].play().catch(()=>{}); 
+          if(ffVidRefs.current[scene.id]) { 
+              const v = ffVidRefs.current[scene.id];
+              v.loop = true;
+              v.play().catch(()=>{}); 
           }
       });
 
@@ -718,7 +930,7 @@ export const useVideoExporterEngine = ({
             if (currentActiveScene && ffVidRefs.current[currentActiveScene.id]) {
                 const activeV = ffVidRefs.current[currentActiveScene.id];
                 
-                // Tách nền video dựng sẵn
+                // Tách nền & vẽ video dựng sẵn
                 if (activeV.readyState >= 2) {
                     if (!activeV.chromaCanvas) {
                         activeV.chromaCanvas = document.createElement('canvas');
@@ -730,37 +942,37 @@ export const useVideoExporterEngine = ({
                     const cCanvas = activeV.chromaCanvas;
                     const cCtx = activeV.chromaCtx;
                     
-                    const currentDecoderTime = activeV.lastRvfFrameTime || activeV.currentTime;
-                    if (currentDecoderTime !== activeV.lastRenderedTime) {
-                        cCtx.clearRect(0, 0, cCanvas.width, cCanvas.height);
-                        cCtx.drawImage(activeV, 0, 0, cCanvas.width, cCanvas.height);
+                    if (activeV.paused) activeV.play().catch(()=>{});
+                    
+                    cCtx.clearRect(0, 0, cCanvas.width, cCanvas.height);
+                    cCtx.drawImage(activeV, 0, 0, cCanvas.width, cCanvas.height);
+                    
+                    if (laoChromaSettings?.enabled) {
                         const tChromaStart = performance.now();
                         processChromaKeyPixels(cCtx, cCanvas.width, cCanvas.height, laoChromaSettings);
                         profilerStats.chromaProcessingTimes.push(performance.now() - tChromaStart);
-                        activeV.lastRenderedTime = currentDecoderTime;
-                        
-                        // native loop
-                        if (activeV.duration && activeV.currentTime >= activeV.duration - 0.15) {
-                            activeV.currentTime = 0.05;
-                        }
                     }
                     
-                    if (activeV.paused) activeV.play().catch(()=>{});
+                    // Tính toán tỉ lệ Object-Fit chuẩn mượt 60FPS
+                    const canvasAspect = width / height;
+                    const videoAspect = (cCanvas.width && cCanvas.height) ? (cCanvas.width / cCanvas.height) : canvasAspect;
+                    let drawW = width;
+                    let drawH = height;
+                    let drawX = 0;
+                    let drawY = 0;
                     
-                    // Vẽ video bối cảnh đã tách nền lên canvas tổng
-                    ctx.drawImage(cCanvas, 0, 0, width, height);
+                    if (videoAspect > canvasAspect) {
+                        drawH = height;
+                        drawW = height * videoAspect;
+                        drawX = (width - drawW) / 2;
+                    } else {
+                        drawW = width;
+                        drawH = width / videoAspect;
+                        drawY = (height - drawH) / 2;
+                    }
+                    
+                    ctx.drawImage(cCanvas, drawX, drawY, drawW, drawH);
                 }
-
-                // Dừng tất cả video của các cảnh quay không hoạt động để trả RAM
-                ffScenesRef.current.forEach((scene: any) => {
-                    if (scene.id !== currentActiveScene.id) {
-                        const inactiveV = ffVidRefs.current[scene.id];
-                        if (inactiveV && !inactiveV.paused) {
-                            inactiveV.pause();
-                            inactiveV.currentTime = 0.05;
-                        }
-                    }
-                });
             } else {
                 // FALLBACK: VẼ KHUNG HÌNH 2.5D CỦA LÃO/USER NẾU THIẾU VIDEO DỰNG SẴN
                 let activeFullFrameImg = null;
@@ -984,12 +1196,16 @@ export const useVideoExporterEngine = ({
 
         // 4. Vẽ Logo đóng dấu thương hiệu
         if (logoData && logoSettings.visible !== false) {
-            const logoSize = Math.round(Math.min(width, height) * 0.15 * logoSettings.scale);
+            const logoSize = Math.round(Math.min(width, height) * 0.15 * (logoSettings.scale || 1.0));
             const padding = Math.round(Math.min(width, height) * 0.03);
             
             let logoX = padding;
             let logoY = padding;
-            if (logoSettings.position === 'top-right') { logoX = width - logoSize - padding; }
+            
+            if (logoSettings.x !== undefined && logoSettings.y !== undefined && logoSettings.position === 'custom') {
+                logoX = Math.round(width * (logoSettings.x / 100));
+                logoY = Math.round(height * (logoSettings.y / 100));
+            } else if (logoSettings.position === 'top-right' || (!logoSettings.position)) { logoX = width - logoSize - padding; }
             else if (logoSettings.position === 'bottom-left') { logoY = height - logoSize - padding; }
             else if (logoSettings.position === 'bottom-right') {
                 logoX = width - logoSize - padding;
@@ -997,7 +1213,7 @@ export const useVideoExporterEngine = ({
             }
 
             ctx.save();
-            ctx.globalAlpha = logoSettings.opacity || 0.8;
+            ctx.globalAlpha = logoSettings.opacity !== undefined ? logoSettings.opacity : 0.8;
             if (logoSettings.isCircular) {
                 ctx.beginPath();
                 ctx.arc(logoX + logoSize/2, logoY + logoSize/2, logoSize/2, 0, Math.PI*2);
@@ -1092,6 +1308,10 @@ export const useVideoExporterEngine = ({
             }
         }
 
+        if (videoTrack && typeof videoTrack.requestFrame === 'function') {
+            videoTrack.requestFrame();
+        }
+
         exportAnimFrameRef.current = requestAnimationFrame(drawFrame);
       };
 
@@ -1119,6 +1339,7 @@ export const useVideoExporterEngine = ({
     exportAudioCtxRef.current = null; // Dọn rác
     
     resetVideoExport();
+    releaseExportRAM();
     setIsExportingVideo(false);
     setIsPreviewFullscreen(false); // Reset trạng thái fullscreen khi thoát
     setShowVideoExportModal(false);
