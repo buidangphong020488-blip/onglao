@@ -928,7 +928,7 @@ const VideoCreatorModal = () => {
                           <h2 className="font-bold text-amber-400 tracking-wider flex items-center gap-2">
                              <LayoutTemplate size={16}/> {presetFormData.id ? 'Sửa thông tin Bối cảnh' : 'Lưu Bối cảnh mới'}
                           </h2>
-                          <button  className="text-slate-400 hover:text-white"><X size={18}/></button>
+                          <button onClick={() => setShowPresetModal(false)} className="text-slate-400 hover:text-white"><X size={18}/></button>
                       </div>
                       <div className="p-5 flex flex-col gap-4">
                           <div className="flex flex-col gap-1.5">
@@ -960,7 +960,7 @@ const VideoCreatorModal = () => {
                           </div>
 
                           <div className="flex justify-end gap-3 mt-2">
-                              <button  className="px-4 py-2 rounded-lg font-bold text-slate-400 hover:text-white text-xs transition-colors">Hủy</button>
+                              <button onClick={() => setShowPresetModal(false)} className="px-4 py-2 rounded-lg font-bold text-slate-400 hover:text-white text-xs transition-colors">Hủy</button>
                               <button onClick={handleConfirmPreset} disabled={!presetFormData.name.trim()} className="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-lg disabled:opacity-50 transition-all flex items-center gap-2">
                                  <Check size={14}/> {presetFormData.id ? 'Cập nhật' : 'Lưu bối cảnh'}
                               </button>
@@ -978,7 +978,7 @@ const VideoCreatorModal = () => {
                           <h2 className="font-bold text-indigo-400 tracking-wider flex items-center gap-2">
                              <Sliders size={18}/> Báo Cáo Nội Soi Kỹ Thuật
                           </h2>
-                          <button  className="text-slate-400 hover:text-white"><X size={20}/></button>
+                          <button onClick={() => setShowDiagnostics(false)} className="text-slate-400 hover:text-white"><X size={20}/></button>
                       </div>
                       <div className="p-5 flex flex-col gap-4 overflow-hidden h-full">
                           <p className="text-[12px] text-slate-300 leading-relaxed shrink-0">
@@ -990,7 +990,7 @@ const VideoCreatorModal = () => {
                               className="w-full h-full min-h-[40vh] bg-slate-950 border border-white/10 rounded-lg p-4 text-[11px] text-emerald-400 font-mono outline-none resize-none scrollbar-hide"
                           />
                           <div className="flex justify-end gap-3 mt-2 shrink-0">
-                              <button  className="px-5 py-2.5 rounded-lg font-bold text-slate-400 hover:text-white text-xs transition-colors">Đóng</button>
+                              <button onClick={() => setShowDiagnostics(false)} className="px-5 py-2.5 rounded-lg font-bold text-slate-400 hover:text-white text-xs transition-colors">Đóng</button>
                               <button 
                                   onClick={() => {
                                       copyToClipboard(diagnosticReport);
@@ -1013,7 +1013,7 @@ const VideoCreatorModal = () => {
                   <div className="bg-slate-900 border border-orange-500/30 rounded-2xl w-full max-w-sm shadow-2xl flex flex-col animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
                       <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-800 rounded-t-2xl">
                           <h2 className="font-bold text-orange-400 tracking-wider flex items-center gap-2"><Save size={16}/> Lưu Hình Tướng Mới</h2>
-                          <button  className="text-slate-400 hover:text-white"><X size={18}/></button>
+                           <button onClick={() => setShowSaveCharModal(false)} className="text-slate-400 hover:text-white"><X size={18}/></button>
                       </div>
                       <div className="p-5 flex flex-col gap-4">
                           <div className="flex flex-col gap-1.5">
@@ -1052,7 +1052,7 @@ const VideoCreatorModal = () => {
                               </div>
                           )}
                           <div className="flex justify-end gap-3 mt-2">
-                              <button  className="px-4 py-2 rounded-lg font-bold text-slate-400 hover:text-white text-xs transition-colors">Hủy</button>
+                              <button onClick={() => setShowSaveCharModal(false)} className="px-4 py-2 rounded-lg font-bold text-slate-400 hover:text-white text-xs transition-colors">Hủy</button>
                               <button onClick={executeSaveCharacter} disabled={!saveCharData.name.trim()} className="px-5 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-bold shadow-lg disabled:opacity-50 transition-all flex items-center gap-2">
                                   <Check size={14}/> Xác nhận lưu
                               </button>
@@ -1068,7 +1068,7 @@ const VideoCreatorModal = () => {
                    <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl w-full max-w-sm shadow-2xl flex flex-col animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
                        <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-800 rounded-t-2xl">
                            <h2 className="font-bold text-emerald-400 tracking-wider flex items-center gap-2"><Save size={16}/> Lưu Video Lẻ</h2>
-                           <button  className="text-slate-400 hover:text-white"><X size={18}/></button>
+                           <button onClick={() => setShowFfSaveModal(false)} className="text-slate-400 hover:text-white"><X size={18}/></button>
                        </div>
                        <div className="p-5 flex flex-col gap-4">
                            <div className="flex flex-col gap-1.5">
@@ -1083,7 +1083,7 @@ const VideoCreatorModal = () => {
                                />
                            </div>
                            <div className="flex justify-end gap-3 mt-2">
-                               <button  className="px-4 py-2 rounded-lg font-bold text-slate-400 hover:text-white text-xs transition-colors">Hủy</button>
+                               <button onClick={() => setShowFfSaveModal(false)}  className="px-4 py-2 rounded-lg font-bold text-slate-400 hover:text-white text-xs transition-colors">Hủy</button>
                                <button onClick={executeSaveFfClipV2} disabled={!ffSaveData.name.trim()} className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-lg disabled:opacity-50 transition-all flex items-center gap-2">
                                    <Check size={14}/> Xác nhận lưu
                                </button>
@@ -1099,7 +1099,7 @@ const VideoCreatorModal = () => {
                    <div className="bg-slate-900 border border-amber-500/30 rounded-2xl w-full max-w-sm shadow-2xl flex flex-col animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
                        <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-800 rounded-t-2xl">
                            <h2 className="font-bold text-amber-400 tracking-wider flex items-center gap-2"><Archive size={16}/> Lưu Bộ Cảnh Cá Nhân</h2>
-                           <button  className="text-slate-400 hover:text-white"><X size={18}/></button>
+                           <button onClick={() => setShowSavePackModal(false)} className="text-slate-400 hover:text-white"><X size={18}/></button>
                        </div>
                        <div className="p-5 flex flex-col gap-4">
                            <p className="text-[11px] text-slate-300 italic bg-amber-900/10 border border-amber-500/20 p-3 rounded-lg">
@@ -1131,7 +1131,7 @@ const VideoCreatorModal = () => {
                            </div>
 
                            <div className="flex justify-end gap-3 mt-2">
-                               <button  className="px-4 py-2 rounded-lg font-bold text-slate-400 hover:text-white text-xs transition-colors">Hủy</button>
+                               <button onClick={() => setShowSavePackModal(false)}  className="px-4 py-2 rounded-lg font-bold text-slate-400 hover:text-white text-xs transition-colors">Hủy</button>
                                <button onClick={executeSaveFfPack} disabled={!savePackData.name.trim()} className="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-lg disabled:opacity-50 transition-all flex items-center gap-2">
                                    <Check size={14}/> Xác nhận lưu
                                </button>
