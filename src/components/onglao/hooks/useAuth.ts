@@ -331,7 +331,7 @@ export const useAuth = ({
       
       if (res.success && res.data && res.data.length > 0) {
         const dbSessions = res.data.map((s: any) => ({
-          id: s.id, title: s.title, isPinned: false, messages: [], messagesLoaded: false, type: s.type || 'chat'
+          id: s.id, title: s.title, isPinned: false, messages: new Array(s._count?.messages || 0).fill(null), messagesLoaded: false, type: s.type || 'chat'
         }));
         setSessions(dbSessions);
         setCurrentSessionId(dbSessions[0].id);

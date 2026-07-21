@@ -13,6 +13,11 @@ export async function GET(request: Request) {
     const sessions = await prisma.chatSession.findMany({
       where: { userId: userId },
       orderBy: { updatedAt: "desc" },
+      include: {
+        _count: {
+          select: { messages: true }
+        }
+      }
     });
     return NextResponse.json({ success: true, data: sessions });
   } catch (error: any) {
