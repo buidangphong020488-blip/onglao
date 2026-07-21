@@ -417,6 +417,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
 
     // Save editing messages
     const handleSaveScript = async (transitionToList: boolean | any = true) => {
+        if (saving) return;
         const shouldTransition = transitionToList === true || typeof transitionToList !== 'boolean';
         setSaving(true);
         try {

@@ -45,6 +45,7 @@ const VOICES_FEMALE = ['Aoede','Kore','Leda','Zephyr','Callirrhoe','Autonoe'];
 
 const AiDirectorModal = (p: AiDirectorModalProps) => {
     const [showVoiceSettings, setShowVoiceSettings] = React.useState(true);
+    const [isSaving, setIsSaving] = React.useState(false);
     const generatedSectionRef = React.useRef<HTMLDivElement>(null);
 
     // ── LOCAL STATE cho tất cả text inputs ──────────────────────────────────
@@ -118,12 +119,22 @@ const AiDirectorModal = (p: AiDirectorModalProps) => {
     };
 
     // Flush local values trực tiếp vào save function (tránh stale closure)
-    const handleSave = () => {
-        p.onSaveGeneratedScript?.({
-            scriptText: localGenScript,
-            laoName:    localLaoName,
-            userName:   localUserName,
-        });
+    const handleSave = async () => {
+        if (isSaving) return;
+        setIsSaving(true);
+        try {
+            if (p.onSaveGeneratedScript) {
+                await p.onSaveGeneratedScript({
+                    scriptText: localGenScript,
+                    laoName:    localLaoName,
+                    userName:   localUserName,
+                });
+            }
+        } catch (e) {
+            console.error("Lỗi khi lưu:", e);
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     if (!p.show && !p.asTab) return null;
@@ -330,8 +341,9 @@ const AiDirectorModal = (p: AiDirectorModalProps) => {
 
                 <div className="pt-2 flex justify-end gap-3 border-t border-white/5 mt-auto">
                     {localGenScript && (
-                        <button onClick={handleSave} disabled={p.isGenerating} className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-950/20 transition-all flex items-center gap-2 disabled:opacity-50">
-                            Lưu kịch bản đàm đạo
+                        <button onClick={handleSave} disabled={p.isGenerating || isSaving} className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-950/20 transition-all flex items-center gap-2 disabled:opacity-50">
+                            {isSaving ? <Loader2 size={14} className="animate-spin" /> : null}
+                            {isSaving ? 'Đang lưu...' : 'Lưu kịch bản đàm đạo'}
                         </button>
                     )}
                     <button onClick={handleGenerate} disabled={!localTopic.trim() || p.isGenerating} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-900/20 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -462,8 +474,9 @@ const AiDirectorModal = (p: AiDirectorModalProps) => {
                     <div className="flex justify-end gap-3 mt-2 border-t border-white/5 pt-4">
                         <button disabled={p.isGenerating} onClick={p.onClose} className="px-5 py-2.5 rounded-xl font-bold text-slate-400 hover:text-white transition-colors disabled:opacity-50">Hủy</button>
                         {localGenScript && (
-                            <button onClick={handleSave} disabled={p.isGenerating} className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg disabled:opacity-50 transition-all">
-                                Lưu kịch bản đàm đạo
+                            <button onClick={handleSave} disabled={p.isGenerating || isSaving} className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg disabled:opacity-50 transition-all flex items-center gap-1.5">
+                                {isSaving ? <Loader2 size={14} className="animate-spin" /> : null}
+                                {isSaving ? 'Đang lưu...' : 'Lưu kịch bản đàm đạo'}
                             </button>
                         )}
                         <button onClick={handleGenerate} disabled={!localTopic.trim() || p.isGenerating} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold shadow-lg disabled:opacity-50 transition-all flex items-center gap-2">
