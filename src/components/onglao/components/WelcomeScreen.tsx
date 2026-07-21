@@ -85,20 +85,19 @@ const WelcomeScreen = (p: any) => {
                <span className="truncate">{allCharacters.find(c => c.id === currentLaoPresetId)?.name || 'Lão Chat'}</span>
                <ChevronDown size={14} className="shrink-0 text-slate-500" />
             </button>
-            
             {openDropdown === 'welcome_lao' && (
-               <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-amber-500/30 rounded-xl shadow-2xl z-[100] max-h-48 overflow-y-auto overflow-x-hidden">
-                  {allCharacters.filter((c: any) => c.role === 'lao' || (c.isLocal && c.role === 'lao')).map((char: any) => (
-                      <div 
-                          key={char.id} 
-                          onClick={() => { handleChangeChatLao(char.id); setOpenDropdown(null); }}
-                          className="p-3 text-[11px] md:text-xs text-white hover:bg-amber-600/50 cursor-pointer border-b border-white/5 last:border-0 truncate"
-                      >
-                          {char.name}
-                      </div>
-                  ))}
-               </div>
-            )}
+                <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-amber-500/30 rounded-xl shadow-2xl z-[100] max-h-48 overflow-y-auto overflow-x-hidden">
+                   {allCharacters.filter((c: any) => c.role === 'lao' || c.name.toLowerCase().includes('lão') || c.name.toLowerCase().includes('lao') || (c.isLocal && c.role === 'lao')).map((char: any) => (
+                       <div 
+                           key={char.id} 
+                           onClick={() => { handleChangeChatLao(char.id); setOpenDropdown(null); }}
+                           className="p-3 text-[11px] md:text-xs text-white hover:bg-amber-600/50 cursor-pointer border-b border-white/5 last:border-0 truncate"
+                       >
+                           {char.name}
+                       </div>
+                   ))}
+                </div>
+             )}
           </div>
         </div>
 
@@ -124,11 +123,11 @@ const WelcomeScreen = (p: any) => {
           <div className="flex w-full items-center bg-slate-950 p-1 md:p-1.5 rounded-xl border border-white/5 focus-within:border-orange-500/30 transition-all mt-0.5">
             <span className="pl-2 pr-2 text-slate-500 text-[9px] md:text-[10px] font-bold tracking-wider whitespace-nowrap">Ngôn ngữ:</span>
             <select value={appLanguage} onChange={e => setAppLanguage(e.target.value)} className="w-full bg-transparent py-0.5 pr-2 outline-none text-white font-bold text-[11px] md:text-xs cursor-pointer">
-               <option value="Tiếng Việt">Tiếng Việt</option>
-               <option value="English">English</option>
-               <option value="中文 (Chinese)">中文 (Chinese)</option>
-               <option value="한국어 (Korean)">한국어 (Korean)</option>
-               <option value="日本语 (Japanese)">日本语 (Japanese)</option>
+               <option value="Tiếng Việt" className="bg-slate-900 text-white">Tiếng Việt</option>
+               <option value="English" className="bg-slate-900 text-white">English</option>
+               <option value="中文 (Chinese)" className="bg-slate-900 text-white">中文 (Chinese)</option>
+               <option value="한국어 (Korean)" className="bg-slate-900 text-white">한국어 (Korean)</option>
+               <option value="日本语 (Japanese)" className="bg-slate-900 text-white">日本语 (Japanese)</option>
             </select>
           </div>
 
@@ -139,21 +138,21 @@ const WelcomeScreen = (p: any) => {
               <div className="flex w-full items-center bg-slate-950 p-1 md:p-1.5 rounded-xl border border-white/5 focus-within:border-emerald-500/30 transition-all">
                  <span className="pl-2 pr-2 text-slate-500 text-[9px] md:text-[10px] font-bold tracking-wider">Diễn viên:</span>
                  <select value={userVoice} onChange={e => setUserVoice(e.target.value)} className="w-full bg-transparent py-0.5 pr-2 outline-none text-white font-bold text-[10px] md:text-xs">
-                    <optgroup label="🎙️ Giọng Nữ">
-                       <option value="Aoede">Aoede (Chuẩn Nữ)</option>
-                       <option value="Kore">Kore (Nữ thanh / Trẻ em)</option>
-                       <option value="Leda">Leda (Nữ nhẹ nhàng)</option>
-                       <option value="Zephyr">Zephyr (Nữ trầm)</option>
-                       <option value="Callirrhoe">Callirrhoe (Nữ ấm áp)</option>
-                       <option value="Autonoe">Autonoe (Nữ kể chuyện)</option>
+                    <optgroup label="🎙️ Giọng Nữ" className="bg-slate-900 text-emerald-400">
+                       <option value="Aoede" className="bg-slate-900 text-white">Aoede (Chuẩn Nữ)</option>
+                       <option value="Kore" className="bg-slate-900 text-white">Kore (Nữ thanh / Trẻ em)</option>
+                       <option value="Leda" className="bg-slate-900 text-white">Leda (Nữ nhẹ nhàng)</option>
+                       <option value="Zephyr" className="bg-slate-900 text-white">Zephyr (Nữ trầm)</option>
+                       <option value="Callirrhoe" className="bg-slate-900 text-white">Callirrhoe (Nữ ấm áp)</option>
+                       <option value="Autonoe" className="bg-slate-900 text-white">Autonoe (Nữ kể chuyện)</option>
                     </optgroup>
-                    <optgroup label="🎙️ Giọng Nam">
-                       <option value="Puck">Puck (Chuẩn Nam)</option>
-                       <option value="Charon">Charon (Nam đầm thấm)</option>
-                       <option value="Fenrir">Fenrir (Nam mạnh mẽ)</option>
-                       <option value="Orus">Orus (Nam điềm đạm)</option>
-                       <option value="Enceladus">Enceladus (Nam trung niên)</option>
-                       <option value="Iapetus">Iapetus (Nam thanh niên)</option>
+                    <optgroup label="🎙️ Giọng Nam" className="bg-slate-900 text-emerald-400">
+                       <option value="Puck" className="bg-slate-900 text-white">Puck (Chuẩn Nam)</option>
+                       <option value="Charon" className="bg-slate-900 text-white">Charon (Nam đầm thấm)</option>
+                       <option value="Fenrir" className="bg-slate-900 text-white">Fenrir (Nam mạnh mẽ)</option>
+                       <option value="Orus" className="bg-slate-900 text-white">Orus (Nam điềm đạm)</option>
+                       <option value="Enceladus" className="bg-slate-900 text-white">Enceladus (Nam trung niên)</option>
+                       <option value="Iapetus" className="bg-slate-900 text-white">Iapetus (Nam thanh niên)</option>
                     </optgroup>
                  </select>
               </div>
@@ -163,8 +162,8 @@ const WelcomeScreen = (p: any) => {
                      onChange={(e: any) => { if(e.target.value) setUserVoiceStyle(e.target.value) }}
                      className="w-full bg-slate-900 py-1.5 px-2 rounded-lg outline-none text-emerald-400 font-bold text-[9px] md:text-[10px] border border-white/5 cursor-pointer"
                   >
-                     <option value="">-- Chọn 21+ Phong cách có sẵn --</option>
-                     {VOICE_STYLES.map((s: any) => <option key={s.id} value={s.text}>{s.label}</option>)}
+                     <option value="" className="bg-slate-900 text-slate-400">-- Chọn 21+ Phong cách có sẵn --</option>
+                     {VOICE_STYLES.map((s: any) => <option key={s.id} value={s.text} className="bg-slate-900 text-white">{s.label}</option>)}
                   </select>
                   <textarea
                       value={userVoiceStyle}
