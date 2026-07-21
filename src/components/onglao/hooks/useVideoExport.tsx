@@ -1926,7 +1926,8 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
         title: res.data.title,
         isPinned: false,
         messages: [],
-        messagesLoaded: true
+        messagesLoaded: true,
+        createdAt: res.data.createdAt
       };
       setSessions([newSession, ...sessions]);
       setCurrentSessionId(res.data.id);
@@ -2389,7 +2390,8 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
             title: createRes.data.title,
             isPinned: false,
             messages: [],
-            messagesLoaded: true
+            messagesLoaded: true,
+            createdAt: createRes.data.createdAt
           };
           setSessions([newSession]);
           setCurrentSessionId(createRes.data.id);

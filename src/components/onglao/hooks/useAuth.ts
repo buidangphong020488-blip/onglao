@@ -332,7 +332,7 @@ export const useAuth = ({
       if (res.success && res.data && res.data.length > 0) {
         const pinnedIds = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('onglao_pinned_sessions') || '[]') : [];
         const dbSessions = res.data.map((s: any) => ({
-          id: s.id, title: s.title, isPinned: pinnedIds.includes(s.id), messages: [], messageCount: s._count?.messages || 0, messagesLoaded: false, type: s.type || 'chat'
+          id: s.id, title: s.title, isPinned: pinnedIds.includes(s.id), messages: [], messageCount: s._count?.messages || 0, messagesLoaded: false, type: s.type || 'chat', createdAt: s.createdAt
         }));
         setSessions(dbSessions);
         setCurrentSessionId(dbSessions[0].id);
@@ -340,7 +340,7 @@ export const useAuth = ({
         const createRes = await createChatSessionAction(targetUserId, 'Cuoc dam dao 1');
         if (createRes.success && createRes.data) {
           const pinnedIds = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('onglao_pinned_sessions') || '[]') : [];
-          setSessions([{ id: createRes.data.id, title: createRes.data.title, isPinned: pinnedIds.includes(createRes.data.id), messages: [], messageCount: 0, messagesLoaded: true }]);
+          setSessions([{ id: createRes.data.id, title: createRes.data.title, isPinned: pinnedIds.includes(createRes.data.id), messages: [], messageCount: 0, messagesLoaded: true, createdAt: createRes.data.createdAt }]);
           setCurrentSessionId(createRes.data.id);
         }
       }
