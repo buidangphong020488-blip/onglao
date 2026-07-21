@@ -331,14 +331,14 @@ export const useAuth = ({
       
       if (res.success && res.data && res.data.length > 0) {
         const dbSessions = res.data.map((s: any) => ({
-          id: s.id, title: s.title, isPinned: false, messages: new Array(s._count?.messages || 0).fill(null), messagesLoaded: false, type: s.type || 'chat'
+          id: s.id, title: s.title, isPinned: false, messages: [], messageCount: s._count?.messages || 0, messagesLoaded: false, type: s.type || 'chat'
         }));
         setSessions(dbSessions);
         setCurrentSessionId(dbSessions[0].id);
       } else {
         const createRes = await createChatSessionAction(targetUserId, 'Cuoc dam dao 1');
         if (createRes.success && createRes.data) {
-          setSessions([{ id: createRes.data.id, title: createRes.data.title, isPinned: false, messages: [], messagesLoaded: true }]);
+          setSessions([{ id: createRes.data.id, title: createRes.data.title, isPinned: false, messages: [], messageCount: 0, messagesLoaded: true }]);
           setCurrentSessionId(createRes.data.id);
         }
       }

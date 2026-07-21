@@ -298,9 +298,9 @@ export const SessionsSidebar = () => {
                             })}
                           </p>
                         )}
-                        {session.messages && session.messages.length > 0 && (
+                        {((session.messagesLoaded && session.messages && session.messages.length > 0) || (!session.messagesLoaded && session.messageCount > 0)) && (
                           <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${session.id === currentSessionId ? 'bg-orange-500/20 text-orange-400' : 'bg-slate-700 text-slate-400'}`}>
-                            {session.messages.length} tin
+                            {session.messagesLoaded ? session.messages.length : session.messageCount} tin
                           </span>
                         )}
                       </div>
