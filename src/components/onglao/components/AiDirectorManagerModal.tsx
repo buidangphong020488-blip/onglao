@@ -845,14 +845,10 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     };
 
     // Xóa nhiều kịch bản cùng lúc
-    const handleBulkDelete = async () => {
+    const handleBulkDelete = () => {
         const ids = Array.from(selectedIds);
         if (ids.length === 0) return;
-        if (!confirm(`Bạn có chắc muốn xóa ${ids.length} kịch bản không?`)) return;
-        for (const id of ids) {
-            await handleDeleteScript(id);
-        }
-        setSelectedIds(new Set());
+        setDeleteConfirm({ ids, count: ids.length });
     };
 
     const handleGenerateAllAudio = async () => {
@@ -1193,6 +1189,30 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                     className="flex-1 w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:border-indigo-500 outline-none"
                                 />
                             </div>
+
+                            {scripts.length > 0 && (
+                                <div className="flex items-center gap-3 px-4 py-1.5 select-none animate-in fade-in duration-200">
+                                    <input
+                                        type="checkbox"
+                                        checked={scripts.length > 0 && selectedIds.size === scripts.length}
+                                        onChange={(e) => {
+                                            if (e.target.checked) {
+                                                setSelectedIds(new Set(scripts.map(s => s.id)));
+                                            } else {
+                                                setSelectedIds(new Set());
+                                            }
+                                        }}
+                                        className="w-4 h-4 accent-indigo-500 cursor-pointer shrink-0"
+                                        id="selectAllScriptsCheckbox"
+                                    />
+                                    <label
+                                        htmlFor="selectAllScriptsCheckbox"
+                                        className="text-xs font-bold text-slate-400 cursor-pointer hover:text-slate-200 transition-colors"
+                                    >
+                                        Chọn tất cả ({scripts.length})
+                                    </label>
+                                </div>
+                            )}
 
                             {scripts.length === 0 ? (
                                 <div className="flex-1 flex flex-col items-center justify-center p-12 text-slate-500 border border-dashed border-white/5 rounded-2xl">
