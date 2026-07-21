@@ -330,15 +330,17 @@ export const useAuth = ({
         const res = await fetchRes.json();
       
       if (res.success && res.data && res.data.length > 0) {
+        const pinnedIds = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('onglao_pinned_sessions') || '[]') : [];
         const dbSessions = res.data.map((s: any) => ({
-          id: s.id, title: s.title, isPinned: false, messages: [], messageCount: s._count?.messages || 0, messagesLoaded: false, type: s.type || 'chat'
+          id: s.id, title: s.title, isPinned: pinnedIds.includes(s.id), messages: [], messageCount: s._count?.messages || 0, messagesLoaded: false, type: s.type || 'chat'
         }));
         setSessions(dbSessions);
         setCurrentSessionId(dbSessions[0].id);
       } else {
         const createRes = await createChatSessionAction(targetUserId, 'Cuoc dam dao 1');
         if (createRes.success && createRes.data) {
-          setSessions([{ id: createRes.data.id, title: createRes.data.title, isPinned: false, messages: [], messageCount: 0, messagesLoaded: true }]);
+          const pinnedIds = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('onglao_pinned_sessions') || '[]') : [];
+          setSessions([{ id: createRes.data.id, title: createRes.data.title, isPinned: pinnedIds.includes(createRes.data.id), messages: [], messageCount: 0, messagesLoaded: true }]);
           setCurrentSessionId(createRes.data.id);
         }
       }

@@ -2366,7 +2366,14 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
   };
 
   const togglePin = (id: any) => {
-    setSessions((prev: any) => prev.map((s: any) => s.id === id ? { ...s, isPinned: !s.isPinned } : s));
+    setSessions((prev: any) => {
+      const updated = prev.map((s: any) => s.id === id ? { ...s, isPinned: !s.isPinned } : s);
+      if (typeof window !== 'undefined') {
+        const pinnedIds = updated.filter((s: any) => s.isPinned).map((s: any) => s.id);
+        localStorage.setItem('onglao_pinned_sessions', JSON.stringify(pinnedIds));
+      }
+      return updated;
+    });
   };
 
   const handleDeleteSession = async (id: any, e: any) => {
@@ -4140,6 +4147,7 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
     handleImportScript,
     startAutoPilot,
     stopAutoPilot,
+    togglePin,
     isGeneratingAITopic,
     setIsGeneratingAITopic,
     videoExportSource,
