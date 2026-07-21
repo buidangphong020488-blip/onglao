@@ -2111,14 +2111,14 @@ ${movieInstruction}${knowledgeInstruction}${liveContext}`;
       showChatLaoControls: videoExportState.showChatLaoControls, showDownloadMenu: videoExportState.showDownloadMenu, showHistory: showHistory, showImportPoemModal: poemDbState.showImportPoemModal, showLaoAura: false, showOldLinkModal: poemDbState.showOldLinkModal, showPaymentModal: authState.showPaymentModal, showPoemModal: poemDbState.showPoemModal,
       showSavePackModal: videoExportState.showSavePackModal, showScriptModal: poemDbState.showScriptModal, showSessions, showShareMenu: videoExportState.showShareMenu, showToastMsg, showTutorial, showUserGuide, showVideoExportModal: videoExportState.showVideoExportModal,
       startAutoPilot: videoExportState.startAutoPilot, startVideoExport: videoExportState.startVideoExport, stopAutoPilot: videoExportState.stopAutoPilot, targetRect, tempEditText, toast, toggleCamera: () => {}, toggleFullscreen: videoExportState.toggleFullscreen,
-      toggleGlobalPlay: () => {}, toggleMic, togglePin: () => {}, toggleReaction: () => {}, tutorialStep, txtPoemFileInputRef: poemDbState.txtPoemFileInputRef, updateCurrentMessages, uploadAudioProgress: poemDbState.uploadAudioProgress,
+      toggleGlobalPlay: () => {}, toggleMic, togglePin: videoExportState.togglePin, toggleReaction: () => {}, tutorialStep, txtPoemFileInputRef: poemDbState.txtPoemFileInputRef, updateCurrentMessages, uploadAudioProgress: poemDbState.uploadAudioProgress,
       user: authState.user, userAge: authState.userAge, userCallLao: authState.userCallLao, userGender: authState.userGender, userSelfCall: authState.userSelfCall, userVoice: authState.userVoice, userVoiceStyle: authState.userVoiceStyle, videoResolution: videoExportState.videoResolution,
       aiLaoStyle, aiScriptLength, aiTopicText, aiUserEmotionArc,
       apTopics: videoExportState.apTopics, apSettings: videoExportState.apSettings, apState: videoExportState.apState,
       setCustomBgs: videoExportState.setCustomBgs, presetBackgrounds: videoExportState.presetBackgrounds, setBgmVolume: videoExportState.setBgmVolume,
       setBgmAudioData: videoExportState.setBgmAudioData, removeBgm: videoExportState.removeBgm, handleUploadBgm: videoExportState.handleUploadBgm,
       DEFAULT_BGM_LIST: videoExportState.DEFAULT_BGM_LIST,
-      toggleGlobalPlay: () => {}, toggleMic, togglePin: () => {}, toggleReaction: () => {}, tutorialStep, txtPoemFileInputRef: poemDbState.txtPoemFileInputRef, updateCurrentMessages, uploadAudioProgress: poemDbState.uploadAudioProgress,
+      toggleGlobalPlay: () => {}, toggleMic, togglePin: videoExportState.togglePin, toggleReaction: () => {}, tutorialStep, txtPoemFileInputRef: poemDbState.txtPoemFileInputRef, updateCurrentMessages, uploadAudioProgress: poemDbState.uploadAudioProgress,
       user: authState.user, userAge: authState.userAge, userCallLao: authState.userCallLao, userGender: authState.userGender, userSelfCall: authState.userSelfCall, userVoice: authState.userVoice, userVoiceStyle: authState.userVoiceStyle, videoResolution: videoExportState.videoResolution
   };
 
