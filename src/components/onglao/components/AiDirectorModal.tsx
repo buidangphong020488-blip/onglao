@@ -33,6 +33,7 @@ interface AiDirectorModalProps {
     onGenerate: (overrides?: {
         topic?: string; laoName?: string; laoSelf?: string; laoCallU?: string;
         userName?: string; userSelf?: string; userCallL?: string;
+        includePoem?: boolean;
     }) => void;
     asTab?: boolean;
     generatedScriptText?: string;
@@ -45,6 +46,7 @@ const VOICES_FEMALE = ['Aoede','Kore','Leda','Zephyr','Callirrhoe','Autonoe'];
 
 const AiDirectorModal = (p: AiDirectorModalProps) => {
     const [showVoiceSettings, setShowVoiceSettings] = React.useState(true);
+    const [includePoemQuote, setIncludePoemQuote] = React.useState(true);
     const [isSaving, setIsSaving] = React.useState(false);
     const generatedSectionRef = React.useRef<HTMLDivElement>(null);
 
@@ -115,6 +117,7 @@ const AiDirectorModal = (p: AiDirectorModalProps) => {
             userName: localUserName,
             userSelf: localUserSelf,
             userCallL: localUserCallL,
+            includePoem: includePoemQuote,
         });
     };
 
@@ -339,17 +342,29 @@ const AiDirectorModal = (p: AiDirectorModalProps) => {
                     </div>
                 )}
 
-                <div className="pt-2 flex justify-end gap-3 border-t border-white/5 mt-auto">
-                    {localGenScript && (
-                        <button onClick={handleSave} disabled={p.isGenerating || isSaving} className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-950/20 transition-all flex items-center gap-2 disabled:opacity-50">
-                            {isSaving ? <Loader2 size={14} className="animate-spin" /> : null}
-                            {isSaving ? 'Đang lưu...' : 'Lưu kịch bản đàm đạo'}
+                <div className="pt-2 flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-white/5 mt-auto">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-300 hover:text-white transition-colors select-none">
+                        <input 
+                            type="checkbox" 
+                            checked={includePoemQuote} 
+                            onChange={e => setIncludePoemQuote(e.target.checked)} 
+                            className="w-4 h-4 accent-indigo-500 rounded cursor-pointer" 
+                        />
+                        <span>📜 Tích hợp kệ Sư Cha Tam Vô</span>
+                    </label>
+
+                    <div className="flex gap-3 w-full sm:w-auto justify-end">
+                        {localGenScript && (
+                            <button onClick={handleSave} disabled={p.isGenerating || isSaving} className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-950/20 transition-all flex items-center gap-2 disabled:opacity-50">
+                                {isSaving ? <Loader2 size={14} className="animate-spin" /> : null}
+                                {isSaving ? 'Đang lưu...' : 'Lưu kịch bản đàm đạo'}
+                            </button>
+                        )}
+                        <button onClick={handleGenerate} disabled={!localTopic.trim() || p.isGenerating} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-900/20 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                            {p.isGenerating ? <Loader2 size={16} className="animate-spin"/> : <Sparkles size={16}/>}
+                            {p.isGenerating ? 'Đang viết kịch bản...' : 'Tạo đàm đạo'}
                         </button>
-                    )}
-                    <button onClick={handleGenerate} disabled={!localTopic.trim() || p.isGenerating} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-900/20 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                        {p.isGenerating ? <Loader2 size={16} className="animate-spin"/> : <Sparkles size={16}/>}
-                        {p.isGenerating ? 'Đang viết kịch bản...' : 'Tạo đàm đạo'}
-                    </button>
+                    </div>
                 </div>
             </div>
         );

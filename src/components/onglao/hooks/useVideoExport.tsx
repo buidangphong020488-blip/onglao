@@ -2059,6 +2059,7 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
   const handleGenerateAITopic = async (overrides?: {
       topic?: string; laoName?: string; laoSelf?: string; laoCallU?: string;
       userName?: string; userSelf?: string; userCallL?: string;
+      includePoem?: boolean;
   }) => {
       const _topic    = overrides?.topic    ?? aiTopicText;
       const _laoName  = overrides?.laoName  ?? customLaoName;
@@ -2067,13 +2068,16 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
       const _userName = overrides?.userName ?? customUserName;
       const _userSelf = overrides?.userSelf ?? userSelfCall;
       const _userCallL = overrides?.userCallL ?? userCallLao;
+      const _includePoem = overrides?.includePoem !== false;
       if (!_topic.trim()) return;
       setIsGeneratingAITopic(true);
       try {
         // TÂM AN FIX: Ép AI xuống dòng từng câu kệ
-        const quoteRule = (appLanguage === 'Tiếng Việt' || appLanguage === 'vi') 
-            ? '- Tắt hoàn toàn chức năng tự làm thơ. Chọn đúng 4 câu kệ (không kèm ngày tháng) phù hợp nhất từ kho dữ liệu. Giữ nguyên văn. BẮT BUỘC: Mỗi câu kệ phải nằm trên một dòng riêng biệt (Enter xuống dòng). Trước khi trích dẫn, bắt buộc nói: "Sư Cha Tam Vô đã khai thị như sau:".'
-            : `- Tắt hoàn toàn chức năng tự làm thơ. Chọn đúng 4 câu kệ (không kèm ngày tháng) phù hợp nhất từ kho. BẮT BUỘC DỊCH 4 câu kệ đó sang ${appLanguage}. MANDATORY: Each line of the poem MUST be separated by a new line (Enter). Trước khi trích dẫn, nói câu (bằng ${appLanguage}) có nghĩa là: "Sư Cha Tam Vô đã khai thị như sau:".`;
+        const quoteRule = _includePoem ? (
+            (appLanguage === 'Tiếng Việt' || appLanguage === 'vi') 
+                ? '- Tắt hoàn toàn chức năng tự làm thơ. Chọn đúng 4 câu kệ (không kèm ngày tháng) phù hợp nhất từ kho dữ liệu. Giữ nguyên văn. BẮT BUỘC: Mỗi câu kệ phải nằm trên một dòng riêng biệt (Enter xuống dòng). Trước khi trích dẫn, bắt buộc nói: "Sư Cha Tam Vô đã khai thị như sau:".'
+                : `- Tắt hoàn toàn chức năng tự làm thơ. Chọn đúng 4 câu kệ (không kèm ngày tháng) phù hợp nhất từ kho. BẮT BUỘC DỊCH 4 câu kệ đó sang ${appLanguage}. MANDATORY: Each line of the poem MUST be separated by a new line (Enter). Trước khi trích dẫn, nói câu (bằng ${appLanguage}) có nghĩa là: "Sư Cha Tam Vô đã khai thị như sau:".`
+        ) : '- TUYỆT ĐỐI KHÔNG trích dẫn bất kỳ bài kệ hay thơ nào của Sư Cha Tam Vô. Chỉ hội thoại đàm đạo trực tiếp giữa Minh Sư và Người hỏi.';
 
         // TÂM AN FIX: Ép buộc độ dài kịch bản tuyệt đối cho Đạo diễn AI
         const lengthInstruction = `
@@ -2123,7 +2127,7 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
         ${_userName || 'Con'} [cảm_xúc]: [Lời thoại]
         ${_laoName || 'Lão'} [cảm_xúc]: [Lời thoại]
         
-        KHO TÀNG KỆ CỦA SƯ CHA TAM VÔ:
+        ${_includePoem ? `KHO TÀNG KỆ CỦA SƯ CHA TAM VÔ:
         ${(() => {
           const topicWords = _topic.toLowerCase().split(/\s+/).filter(w => w.length > 2);
           let filtered = poemDatabase;
@@ -2146,7 +2150,7 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
             filtered = filtered.slice(0, 20);
           }
           return filtered.map((po: any) => `Tên bài: ${po.title}\n` + po.stanzas.map((s: any) => `Tags: ${s.tags.join(', ')}\nNội dung Kệ:\n${s.content}${s.meaning ? '\nÝ nghĩa diễn giải:\n' + s.meaning : ''}`).join('\n\n')).join('\n\n---\n\n');
-        })()}`;
+        })()}` : ''}`;
 
 
         const data = await fetchWithRetry(`/api/giacngo/chat`, {

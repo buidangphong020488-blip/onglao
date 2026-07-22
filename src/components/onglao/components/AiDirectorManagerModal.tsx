@@ -111,6 +111,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     const [editingLaoStyle, setEditingLaoStyle] = useState('Từ bi, ôn hòa, dắt dụ từng bước');
     const [editingUserEmotionArc, setEditingUserEmotionArc] = useState('Từ đau khổ/bế tắc chuyển dần sang an lạc/bừng sáng');
     const [editingLanguage, setEditingLanguage] = useState('vi');
+    const [editingIncludePoem, setEditingIncludePoem] = useState<boolean>(true);
     const [isRegenerating, setIsRegenerating] = useState(false);
 
     // Đồng bộ hoá action (insert/update), type (manual/ai) và id lên URL slug khi tạo mới hoặc sửa kịch bản
@@ -372,9 +373,11 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         setIsRegenerating(true);
         p.showToastMsg('Đang nhờ AI soạn lại kịch bản...', 'loading');
         try {
-            const quoteRule = (editingLanguage === 'Tiếng Việt' || editingLanguage === 'vi') 
-                ? '- Tắt hoàn toàn chức năng tự làm thơ. Chọn đúng 4 câu kệ (không kèm ngày tháng) phù hợp nhất từ kho dữ liệu. Giữ nguyên văn. BẮT BUỘC: Mỗi câu kệ phải nằm trên một dòng riêng biệt (Enter xuống dòng). Trước khi trích dẫn, bắt buộc nói: "Sư Cha Tam Vô đã khai thị như sau:".'
-                : `- Tắt hoàn toàn chức năng tự làm thơ. Chọn đúng 4 câu kệ (không kèm ngày tháng) phù hợp nhất từ kho. BẮT BUỘC DỊCH 4 câu kệ đó sang ${editingLanguage}. MANDATORY: Each line of the poem MUST be separated by a new line (Enter). Trước khi trích dẫn, nói câu (bằng ${editingLanguage}) có nghĩa là: "Sư Cha Tam Vô đã khai thị như sau:".`;
+            const quoteRule = editingIncludePoem ? (
+                (editingLanguage === 'Tiếng Việt' || editingLanguage === 'vi') 
+                    ? '- Tắt hoàn toàn chức năng tự làm thơ. Chọn đúng 4 câu kệ (không kèm ngày tháng) phù hợp nhất từ kho dữ liệu. Giữ nguyên văn. BẮT BUỘC: Mỗi câu kệ phải nằm trên một dòng riêng biệt (Enter xuống dòng). Trước khi trích dẫn, bắt buộc nói: "Sư Cha Tam Vô đã khai thị như sau:".'
+                    : `- Tắt hoàn toàn chức năng tự làm thơ. Chọn đúng 4 câu kệ (không kèm ngày tháng) phù hợp nhất từ kho. BẮT BUỘC DỊCH 4 câu kệ đó sang ${editingLanguage}. MANDATORY: Each line of the poem MUST be separated by a new line (Enter). Trước khi trích dẫn, nói câu (bằng ${editingLanguage}) có nghĩa là: "Sư Cha Tam Vô đã khai thị như sau:".`
+            ) : '- TUYỆT ĐỐI KHÔNG trích dẫn bất kỳ bài kệ hay thơ nào của Sư Cha Tam Vô. Chỉ hội thoại đàm đạo trực tiếp giữa Minh Sư và Người hỏi.';
     
             const prompt = `Viết một kịch bản đàm đạo tâm linh sâu sắc giữa hai nhân vật.
             
@@ -411,7 +414,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
             - CHÈN THẺ CẢM XÚC: Phân tích nội tâm nhân vật ở câu đó và chèn 1 trong 4 thẻ: [hook], [calm], [sad], [joy] ngay sau tên.
             ${quoteRule}
             
-            KHO TÀNG KỆ CỦA SƯ CHA TAM VÔ:
+            ${editingIncludePoem ? `KHO TÀNG KỆ CỦA SƯ CHA TAM VÔ:
             ${(() => {
               const topicWords = editingTopic.toLowerCase().split(/\s+/).filter(w => w.length > 2);
               let filtered = p.poemDatabase;
@@ -434,7 +437,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                 filtered = filtered.slice(0, 20);
               }
               return filtered.map((po: any) => `Tên bài: ${po.title}\n` + po.stanzas.map((s: any) => `Tags: ${s.tags.join(', ')}\nNội dung Kệ:\n${s.content}`).join('\n\n')).join('\n\n---\n\n');
-            })()}`;
+            })()}` : ''}`;
     
             const res = await fetch('/api/giacngo/chat', {
                 method: 'POST',
@@ -1798,6 +1801,27 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                            </div>
                                         </div>
 
+                                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-2 bg-slate-900/40 p-3 rounded-xl border border-white/5">
+                                             <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-300 hover:text-white transition-colors select-none">
+                                                 <input 
+                                                     type="checkbox" 
+                                                     checked={editingIncludePoem} 
+                                                     onChange={e => setEditingIncludePoem(e.target.checked)} 
+                                                     className="w-4 h-4 accent-indigo-500 rounded cursor-pointer" 
+                                                 />
+                                                 <span>📜 Tích hợp kệ Sư Cha Tam Vô</span>
+                                             </label>
+
+                                             <button 
+                                                 onClick={handleRegenerateAIScript} 
+                                                 disabled={isRegenerating || !editingTopic.trim()} 
+                                                 className="w-full sm:w-auto px-5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md"
+                                             >
+                                                 {isRegenerating ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                                                 {isRegenerating ? 'Đang viết kịch bản...' : 'Tạo lại bằng AI'}
+                                             </button>
+                                         </div>
+
                                         <div className="flex flex-col gap-1.5">
                                            <label className="text-xs font-bold text-slate-400">Hành trình biến đổi cảm xúc của Con:</label>
                                            <select value={editingUserEmotionArc} onChange={e => setEditingUserEmotionArc(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-xl outline-none text-sm focus:border-indigo-500">
@@ -1808,16 +1832,6 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                            </select>
                                         </div>
 
-                                        <div className="flex justify-end mt-1">
-                                            <button 
-                                                onClick={handleRegenerateAIScript} 
-                                                disabled={isRegenerating || !editingTopic.trim()} 
-                                                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-md"
-                                            >
-                                                {isRegenerating ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                                                {isRegenerating ? 'Đang viết kịch bản...' : 'Tạo lại bằng AI'}
-                                            </button>
-                                        </div>
                                     </div>
                                 )}
 
