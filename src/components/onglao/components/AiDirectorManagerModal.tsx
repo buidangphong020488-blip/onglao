@@ -800,7 +800,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     };
 
     // Tạo audio cho 1 script cụ thể từ list view, hiển thị progress inline
-    const handleGenerateScriptAudio = async (script: any) => {
+    const handleGenerateScriptAudio = async (script: any, forceAll: boolean = false) => {
         const sessionId = script.id;
         setScriptAudioProgress(prev => ({ ...prev, [sessionId]: { current: 0, total: 0, percent: 0 } }));
         try {
@@ -819,7 +819,9 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
             // Cập nhật session messages
             p.setSessions((prev: any[]) => prev.map((x: any) => x.id === sessionId ? { ...x, messages: msgs, messagesLoaded: true } : x));
 
-            const toGenerate = msgs.filter((m: any) => !m.audioUrl && m.text.trim().length > 0);
+            const toGenerate = forceAll
+                ? msgs.filter((m: any) => m.text.trim().length > 0)
+                : msgs.filter((m: any) => !m.audioUrl && m.text.trim().length > 0);
             const total = toGenerate.length;
             if (total === 0) {
                 p.showToastMsg('Tất cả thoại đã có audio!', 'success');
@@ -830,7 +832,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
             let successCount = 0;
             for (let i = 0; i < toGenerate.length; i++) {
                 const msg = toGenerate[i];
-                const success = await p.generateVoice(msg.id, msg.text, msg.role === 'ai' ? 'ai' : 'user', sessionId, false);
+                const success = await p.generateVoice(msg.id, msg.text, msg.role === 'ai' ? 'ai' : 'user', sessionId, forceAll);
                 if (success) {
                     successCount++;
                     setScriptAudioProgress(prev => ({ ...prev, [sessionId]: { current: i + 1, total, percent: Math.round(((i + 1) / total) * 100) } }));
@@ -1348,6 +1350,13 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                                                                 Dừng
                                                                             </button>
                                                                         )}
+                                                                        <button 
+                                                                            onClick={() => handleGenerateScriptAudio(script, true)} 
+                                                                            className="bg-amber-600/20 hover:bg-amber-600/40 border border-amber-500/30 text-amber-400 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors"
+                                                                            title="Tạo lại toàn bộ âm thanh cho kịch bản này"
+                                                                        >
+                                                                            <RefreshCw size={12} /> Tạo lại audio
+                                                                        </button>
                                                                     </>
                                                                 ) : (
                                                                     <button onClick={handleGenerate} className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors animate-pulse">
@@ -1785,7 +1794,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                                 title="Ép buộc tạo mới lại tất cả audio cho kịch bản này"
                                             >
                                                 {generatingAudio ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={13} />}
-                                                Tạo lại tất cả Audio
+                                                Tạo lại audio
                                             </button>
                                             <button onClick={() => handleSaveScript()} disabled={saving || isRegenerating || generatingAudio} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all shadow-lg flex items-center gap-1.5 disabled:opacity-40">
                                                 {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Lưu kịch bản
