@@ -1,7 +1,6 @@
 "use client";
-import React from 'react';
-import { FileText, X, Info, Check, Plus, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { FileText, X, Check, Plus, Trash2 } from 'lucide-react';
 
 interface ScriptModalProps {
     show: boolean;
@@ -25,11 +24,69 @@ interface ScriptBlock {
     text: string;
 }
 
+// Memoized row component for 60fps typing performance without parent re-renders
+const ScriptBlockRow = React.memo(({ block, onUpdate, onRemove, EMOTIONS }: {
+    block: ScriptBlock;
+    onUpdate: (id: string, field: keyof ScriptBlock, value: string) => void;
+    onRemove: (id: string) => void;
+    EMOTIONS: Record<string, string>;
+}) => {
+    const [localText, setLocalText] = useState(block.text);
+
+    useEffect(() => {
+        setLocalText(block.text);
+    }, [block.text]);
+
+    const handleChangeText = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const val = e.target.value;
+        setLocalText(val);
+        onUpdate(block.id, 'text', val);
+    };
+
+    return (
+        <div className={`flex gap-3 items-start p-3 rounded-xl border ${block.role === 'ai' ? 'bg-orange-500/5 border-orange-500/20' : 'bg-sky-500/5 border-sky-500/20'}`}>
+            <div className="flex flex-col gap-2 w-32 shrink-0">
+                <select 
+                    value={block.role}
+                    onChange={e => onUpdate(block.id, 'role', e.target.value)}
+                    className="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none focus:border-emerald-500"
+                >
+                    <option value="user">Con (Hỏi)</option>
+                    <option value="ai">Lão (Đáp)</option>
+                </select>
+                <select 
+                    value={block.emotion}
+                    onChange={e => onUpdate(block.id, 'emotion', e.target.value)}
+                    className="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none focus:border-emerald-500"
+                >
+                    {Object.entries(EMOTIONS).map(([k, v]) => (
+                        <option key={k} value={k}>{v}</option>
+                    ))}
+                </select>
+            </div>
+            
+            <textarea 
+                value={localText}
+                onChange={handleChangeText}
+                placeholder="Nhập nội dung thoại..."
+                className="flex-1 bg-black/40 border border-white/10 rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50 resize-none font-medium leading-relaxed custom-scrollbar h-[72px]"
+            />
+            
+            <button onClick={() => onRemove(block.id)} className="text-slate-500 hover:text-red-400 p-2 shrink-0">
+                <Trash2 size={16}/>
+            </button>
+        </div>
+    );
+});
+
+ScriptBlockRow.displayName = 'ScriptBlockRow';
+
 const ScriptModal = ({ show, onClose, scriptText, setScriptText, importMode, setImportMode, onImport, asTab, publicSettings, hideOptions, customLaoName, customUserName }: ScriptModalProps) => {
     const [blocks, setBlocks] = useState<ScriptBlock[]>([]);
-    const lastSerializedTextRef = React.useRef('');
+    const lastSerializedTextRef = useRef('');
+    const serializeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    const EMOTIONS: Record<string, string> = React.useMemo(() => {
+    const EMOTIONS: Record<string, string> = useMemo(() => {
         try {
             if (publicSettings?.characterStates) {
                 const parsed = JSON.parse(publicSettings.characterStates);
@@ -91,74 +148,75 @@ const ScriptModal = ({ show, onClose, scriptText, setScriptText, importMode, set
         });
         setBlocks(newBlocks);
         lastSerializedTextRef.current = scriptText;
-    }, [scriptText, show]);
+    }, [scriptText, show, customLaoName, customUserName]);
 
-    const serializeAndSave = (currentBlocks: ScriptBlock[]) => {
+    const serializeAndSave = useCallback((currentBlocks: ScriptBlock[], immediate: boolean = false) => {
         const text = currentBlocks.map(b => {
-            const roleStr = b.role === 'ai' ? (customLaoName || 'Lo') : (customUserName || 'Con');
+            const roleStr = b.role === 'ai' ? (customLaoName || 'Lão') : (customUserName || 'Con');
             return `${roleStr} [${b.emotion}]: ${b.text}`;
         }).join('\n');
+        
         lastSerializedTextRef.current = text;
-        setScriptText(text);
-    };
 
-    const updateBlock = (id: string, field: keyof ScriptBlock, value: string) => {
-        const newBlocks = blocks.map(b => b.id === id ? { ...b, [field]: value } : b);
-        setBlocks(newBlocks);
-        serializeAndSave(newBlocks);
-    };
+        if (serializeTimeoutRef.current) {
+            clearTimeout(serializeTimeoutRef.current);
+        }
 
-    const removeBlock = (id: string) => {
-        const newBlocks = blocks.filter(b => b.id !== id);
-        setBlocks(newBlocks);
-        serializeAndSave(newBlocks);
-    };
+        if (immediate) {
+            setScriptText(text);
+        } else {
+            serializeTimeoutRef.current = setTimeout(() => {
+                setScriptText(text);
+            }, 300);
+        }
+    }, [customLaoName, customUserName, setScriptText]);
 
-    const addBlock = () => {
-        const lastRole = blocks.length > 0 ? blocks[blocks.length - 1].role : 'ai';
-        const newRole = lastRole === 'ai' ? 'user' : 'ai';
-        const newBlocks = [...blocks, { id: Date.now().toString(), role: newRole, emotion: 'calm', text: '' }];
-        setBlocks(newBlocks);
-        serializeAndSave(newBlocks);
-    };
+    const updateBlock = useCallback((id: string, field: keyof ScriptBlock, value: string) => {
+        setBlocks(prev => {
+            const newBlocks = prev.map(b => b.id === id ? { ...b, [field]: value } : b);
+            serializeAndSave(newBlocks, field !== 'text');
+            return newBlocks;
+        });
+    }, [serializeAndSave]);
+
+    const removeBlock = useCallback((id: string) => {
+        setBlocks(prev => {
+            const newBlocks = prev.filter(b => b.id !== id);
+            serializeAndSave(newBlocks, true);
+            return newBlocks;
+        });
+    }, [serializeAndSave]);
+
+    const addBlock = useCallback(() => {
+        setBlocks(prev => {
+            const lastRole = prev.length > 0 ? prev[prev.length - 1].role : 'ai';
+            const newRole = lastRole === 'ai' ? 'user' : 'ai';
+            const newBlocks = [...prev, { id: Date.now().toString(), role: newRole, emotion: 'calm', text: '' }];
+            serializeAndSave(newBlocks, true);
+            return newBlocks;
+        });
+    }, [serializeAndSave]);
+
+    useEffect(() => {
+        return () => {
+            if (serializeTimeoutRef.current) {
+                clearTimeout(serializeTimeoutRef.current);
+            }
+        };
+    }, []);
 
     if (!show) return null;
 
     const renderEditor = () => (
         <div className="flex flex-col gap-3 flex-1 min-h-[300px] max-h-[50vh] overflow-y-auto custom-scrollbar pr-2">
-            {blocks.map((block, idx) => (
-                <div key={block.id} className={`flex gap-3 items-start p-3 rounded-xl border ${block.role === 'ai' ? 'bg-orange-500/5 border-orange-500/20' : 'bg-sky-500/5 border-sky-500/20'}`}>
-                    <div className="flex flex-col gap-2 w-32 shrink-0">
-                        <select 
-                            value={block.role}
-                            onChange={e => updateBlock(block.id, 'role', e.target.value)}
-                            className="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none focus:border-emerald-500"
-                        >
-                            <option value="user">Con (Hỏi)</option>
-                            <option value="ai">Lão (Đáp)</option>
-                        </select>
-                        <select 
-                            value={block.emotion}
-                            onChange={e => updateBlock(block.id, 'emotion', e.target.value)}
-                            className="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none focus:border-emerald-500"
-                        >
-                            {Object.entries(EMOTIONS).map(([k, v]) => (
-                                <option key={k} value={k}>{v}</option>
-                            ))}
-                        </select>
-                    </div>
-                    
-                    <textarea 
-                        value={block.text}
-                        onChange={e => updateBlock(block.id, 'text', e.target.value)}
-                        placeholder="Nhập nội dung thoại..."
-                        className="flex-1 bg-black/40 border border-white/10 rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50 resize-none font-medium leading-relaxed custom-scrollbar h-[72px]"
-                    />
-                    
-                    <button onClick={() => removeBlock(block.id)} className="text-slate-500 hover:text-red-400 p-2 shrink-0">
-                        <Trash2 size={16}/>
-                    </button>
-                </div>
+            {blocks.map((block) => (
+                <ScriptBlockRow 
+                    key={block.id} 
+                    block={block} 
+                    onUpdate={updateBlock} 
+                    onRemove={removeBlock} 
+                    EMOTIONS={EMOTIONS} 
+                />
             ))}
             
             <button onClick={addBlock} className="w-full py-3 border border-dashed border-white/20 rounded-xl text-slate-400 hover:text-emerald-400 hover:border-emerald-400/50 hover:bg-emerald-500/5 flex justify-center items-center gap-2 transition-all text-sm font-bold mt-2">
@@ -197,6 +255,7 @@ const ScriptModal = ({ show, onClose, scriptText, setScriptText, importMode, set
             </div>
         );
     }
+
     return (
         <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" onClick={onClose}>
             <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 max-h-[90vh]" onClick={e => e.stopPropagation()}>
