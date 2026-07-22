@@ -56,6 +56,7 @@ interface AiDirectorManagerModalProps {
     user: any;
     currentUser?: any;
     saveUserProfile: (userId?: string) => void;
+    showScriptModal?: boolean;
     setShowScriptModal?: (v: boolean) => void;
     setShowVideoExportModal?: (v: boolean) => void;
     setVideoExportSource?: (v: string | null) => void;
@@ -117,7 +118,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
             const url = new URL(window.location.href);
             let updated = false;
 
-            if (showCreator) {
+            if (showCreator || p.showScriptModal) {
                 if (url.searchParams.get('action') !== 'insert' || url.searchParams.get('type') !== 'ai') {
                     url.searchParams.set('modal', 'ai-director');
                     url.searchParams.set('action', 'insert');
@@ -128,7 +129,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
             } else if (view === 'edit' && selectedScript) {
                 const isNew = selectedScript.id?.startsWith('temp_');
                 const targetAction = isNew ? 'insert' : 'update';
-                const targetType = selectedScript.title?.startsWith('[AI]') ? 'ai' : 'manual';
+                const targetType = selectedScript.title?.toLowerCase().includes('[thủ công]') ? 'manual' : 'ai';
 
                 if (url.searchParams.get('action') !== targetAction || url.searchParams.get('type') !== targetType || url.searchParams.get('id') !== selectedScript.id) {
                     url.searchParams.set('modal', 'ai-director');
@@ -137,7 +138,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                     url.searchParams.set('id', selectedScript.id);
                     updated = true;
                 }
-            } else if (view === 'list' && !showCreator) {
+            } else if (view === 'list' && !showCreator && !p.showScriptModal) {
                 if (url.searchParams.has('action') || url.searchParams.has('id') || url.searchParams.has('type')) {
                     url.searchParams.set('modal', 'ai-director');
                     url.searchParams.delete('action');
@@ -151,7 +152,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                 window.history.replaceState(null, '', url.toString());
             }
         }
-    }, [view, selectedScript?.id, showCreator, p.show]);
+    }, [view, selectedScript?.id, showCreator, p.showScriptModal, p.show]);
 
     // Tự động khôi phục đúng Form (Tạo mới thủ công / Tạo mới AI / Chỉnh sửa) khi mở modal hoặc ấn F5
     const restoredFromUrlRef = useRef(false);
@@ -166,6 +167,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
             if (modalParam === 'ai-director' && !restoredFromUrlRef.current) {
                 if (actionParam === 'insert' && typeParam === 'ai') {
                     if (!showCreator) setShowCreator(true);
+                    if (p.setShowScriptModal) p.setShowScriptModal(true);
                     restoredFromUrlRef.current = true;
                 } else if (actionParam === 'insert' && typeParam === 'manual') {
                     if (!selectedScript) handleCreateManualScript();
@@ -1272,7 +1274,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                     <button onClick={handleCreateManualScript} disabled={saving} className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all border border-white/10 hover:border-white/20 hover:text-white disabled:opacity-50">
                                         <Pencil size={14} /> Nhập thủ công
                                     </button>
-                                    <button onClick={() => { if(p.setShowScriptModal) p.setShowScriptModal(true); }} disabled={saving} className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg border border-indigo-500/50 hover:scale-105 disabled:opacity-50">
+                                    <button onClick={() => { setShowCreator(true); if(p.setShowScriptModal) p.setShowScriptModal(true); }} disabled={saving} className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg border border-indigo-500/50 hover:scale-105 disabled:opacity-50">
                                         <Plus size={14} /> Tạo kịch bản AI
                                     </button>
                                 </div>
