@@ -398,8 +398,10 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
             - Chủ đề vướng mắc của Người hỏi: "${editingTopic}"
             
             YÊU CẦU ÉP BUỘC VỀ SỐ LƯỢNG LƯỢT THOẠI (RẤT QUAN TRỌNG):
-            - Kịch bản BẮT BUỘC phải kéo dài ${editingLength}.
-            - Nếu yêu cầu kịch bản dài, bạn PHẢI để nhân vật Người hỏi phản biện, thắc mắc nhiều lần, Minh Sư giải thích từ từ.
+            - TỔNG SỐ DÒNG THOẠI CỦA CẢ 2 NHÂN VẬT CỘNG LẠI: BẮT BUỘC ĐÚNG ${editingLength}.
+            - QUY ĐỊNH ĐẾM: Mỗi lần 1 nhân vật cất tiếng nói được tính là 1 dòng thoại.
+            - NẾU CHỌN "Khoảng 6-10 câu": TỔNG SỐ LƯỢT THOẠI (CẢ LÃO + CON CỘNG LẠI) TỐI ĐA CHỈ TỪ 6 ĐẾN 10 DÒNG. TUYỆT ĐỐI KHÔNG ĐƯỢC VIẾT VƯỢT QUÁ 10 DÒNG THOẠI.
+            - TUYỆT ĐỐI KHÔNG đếm riêng từng người (không được viết 6-10 câu cho Lão và 6-10 câu cho Con). Đếm tổng toàn bộ kịch bản!
             
             HÀNH TRÌNH BIẾN ĐỔI CẢM XÚC:
             - ${editingUserEmotionArc}

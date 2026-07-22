@@ -2078,9 +2078,10 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
         // TÂM AN FIX: Ép buộc độ dài kịch bản tuyệt đối cho Đạo diễn AI
         const lengthInstruction = `
         YÊU CẦU ÉP BUỘC VỀ SỐ LƯỢNG LƯỢT THOẠI (RẤT QUAN TRỌNG):
-        - Kịch bản BẮT BUỘC phải kéo dài ${aiScriptLength} (Mỗi lần một người cất tiếng nói được tính là 1 câu/lượt).
-        - Nếu yêu cầu kịch bản dài (10-21 câu), bạn PHẢI để nhân vật Người hỏi phản biện, thắc mắc, vòng vo nhiều lần, Minh Sư giải thích từ từ, đào sâu từng lớp vấn đề.
-        - TUYỆT ĐỐI KHÔNG cho nhân vật ngộ đạo quá nhanh ở câu thứ 3 hay thứ 4. Phải duy trì cuộc trò chuyện hỏi - đáp liên tục đạt đúng số lượng câu đã yêu cầu mới được kết thúc. Bắt buộc đếm số lượt thoại trước khi trả về kết quả!`;
+        - TỔNG SỐ DÒNG THOẠI CỦA CẢ 2 NHÂN VẬT CỘNG LẠI: BẮT BUỘC ĐÚNG ${aiScriptLength}.
+        - QUY ĐỊNH ĐẾM: Mỗi lần 1 nhân vật cất tiếng nói được tính là 1 dòng thoại.
+        - NẾU CHỌN "Khoảng 6-10 câu": TỔNG SỐ LƯỢT THOẠI (CẢ LÃO + CON CỘNG LẠI) TỐI ĐA CHỈ TỪ 6 ĐẾN 10 DÒNG. TUYỆT ĐỐI KHÔNG ĐƯỢC VIẾT VƯỢT QUÁ 10 DÒNG THOẠI.
+        - TUYỆT ĐỐI KHÔNG đếm riêng từng người (không được viết 6-10 câu cho Lão và 6-10 câu cho Con). Đếm tổng toàn bộ kịch bản!`;
 
         const prompt = `Viết một kịch bản đàm đạo tâm linh sâu sắc giữa hai nhân vật.
         
