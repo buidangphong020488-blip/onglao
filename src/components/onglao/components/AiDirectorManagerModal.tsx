@@ -888,6 +888,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                         emotion: m.emotion || 'calm'
                     }));
                     setEditingMessages(mapped);
+                    p.setSessions((prev: any[]) => prev.map((x: any) => x.id === selectedScript.id ? { ...x, messages: mapped, messagesLoaded: true } : x));
                 }
                 p.showToastMsg(`Hoàn tất! Đã tạo ${successCount}/${total} audio.`, 'success');
             }

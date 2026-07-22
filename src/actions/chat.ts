@@ -68,11 +68,24 @@ export async function saveChatMessageAction(
   }
 }
 
-// 3. Lấy toàn bộ danh sách phiên chat (Chat Sessions)
+// 3. Lấy toàn bộ danh sách phiên chat (Chat Sessions) cùng tin nhắn
 export async function getChatSessionsAction(userId?: string) {
   try {
     const sessions = await prisma.chatSession.findMany({
       where: userId ? { userId: userId } : {},
+      include: {
+        messages: {
+          select: {
+            id: true,
+            role: true,
+            content: true,
+            audioUrl: true,
+            emotion: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: "asc" },
+        },
+      },
       orderBy: { updatedAt: "desc" }, // Sắp xếp theo thứ tự hoạt động mới nhất
     });
     return { success: true, data: sessions };
