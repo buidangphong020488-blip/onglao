@@ -109,6 +109,9 @@ const NormalModePanel = () => {
         changed = true;
       } else if (!showAiManager && currentModal === 'ai-director') {
         params.delete('modal');
+        params.delete('action');
+        params.delete('type');
+        params.delete('id');
         changed = true;
       }
       

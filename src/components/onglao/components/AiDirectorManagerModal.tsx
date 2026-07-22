@@ -89,41 +89,81 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     const [editingLanguage, setEditingLanguage] = useState('vi');
     const [isRegenerating, setIsRegenerating] = useState(false);
 
-    // Đồng bộ hoá ID kịch bản lên thanh địa chỉ (URL slug) khi mở chế độ Sửa kịch bản
+    // Đồng bộ hoá action (insert/update), type (manual/ai) và id lên URL slug khi tạo mới hoặc sửa kịch bản
     useEffect(() => {
-        if (typeof window !== 'undefined') {
+        if (typeof window !== 'undefined' && p.show) {
             const url = new URL(window.location.href);
-            const currentId = url.searchParams.get('id');
-            const currentModal = url.searchParams.get('modal');
-            
-            if (p.show && view === 'edit' && selectedScript?.id) {
-                if (currentId !== selectedScript.id) {
-                    url.searchParams.set('id', selectedScript.id);
-                    window.history.pushState(null, '', url.toString());
-                }
-            } else if (p.show && currentModal === 'ai-director') {
-                if (currentId) {
-                    url.searchParams.delete('id');
-                    window.history.pushState(null, '', url.toString());
-                }
-            }
-        }
-    }, [view, selectedScript?.id, p.show]);
+            let updated = false;
 
-    // Tự động nhảy vào kịch bản chỉnh sửa nếu URL có sẵn id kịch bản khi mở modal
+            if (showCreator) {
+                if (url.searchParams.get('action') !== 'insert' || url.searchParams.get('type') !== 'ai') {
+                    url.searchParams.set('modal', 'ai-director');
+                    url.searchParams.set('action', 'insert');
+                    url.searchParams.set('type', 'ai');
+                    url.searchParams.delete('id');
+                    updated = true;
+                }
+            } else if (view === 'edit' && selectedScript) {
+                const isNew = selectedScript.id?.startsWith('temp_');
+                const targetAction = isNew ? 'insert' : 'update';
+                const targetType = selectedScript.title?.startsWith('[AI]') ? 'ai' : 'manual';
+
+                if (url.searchParams.get('action') !== targetAction || url.searchParams.get('type') !== targetType || url.searchParams.get('id') !== selectedScript.id) {
+                    url.searchParams.set('modal', 'ai-director');
+                    url.searchParams.set('action', targetAction);
+                    url.searchParams.set('type', targetType);
+                    url.searchParams.set('id', selectedScript.id);
+                    updated = true;
+                }
+            } else if (view === 'list') {
+                if (url.searchParams.has('action') || url.searchParams.has('id') || url.searchParams.has('type')) {
+                    url.searchParams.set('modal', 'ai-director');
+                    url.searchParams.delete('action');
+                    url.searchParams.delete('id');
+                    url.searchParams.delete('type');
+                    updated = true;
+                }
+            }
+
+            if (updated) {
+                window.history.replaceState(null, '', url.toString());
+            }
+        }
+    }, [view, selectedScript?.id, showCreator, p.show]);
+
+    // Tự động khôi phục đúng Form (Tạo mới thủ công / Tạo mới AI / Chỉnh sửa) khi mở modal hoặc ấn F5
+    const restoredFromUrlRef = useRef(false);
     useEffect(() => {
-        if (typeof window !== 'undefined' && p.show && p.sessions.length > 0) {
+        if (typeof window !== 'undefined' && p.show) {
             const url = new URL(window.location.href);
-            const idParam = url.searchParams.get('id');
             const modalParam = url.searchParams.get('modal');
-            if (modalParam === 'ai-director' && idParam && view === 'list') {
-                const script = p.sessions.find(s => s.id === idParam);
-                if (script) {
-                    handleStartEdit(script);
+            const actionParam = url.searchParams.get('action');
+            const typeParam = url.searchParams.get('type');
+            const idParam = url.searchParams.get('id');
+
+            if (modalParam === 'ai-director' && !restoredFromUrlRef.current) {
+                if (actionParam === 'insert' && typeParam === 'ai' && !showCreator) {
+                    restoredFromUrlRef.current = true;
+                    setShowCreator(true);
+                } else if (actionParam === 'insert' && typeParam === 'manual' && view === 'list') {
+                    restoredFromUrlRef.current = true;
+                    handleCreateManualScript();
+                } else if (idParam && view === 'list') {
+                    const script = p.sessions.find(s => s.id === idParam);
+                    if (script) {
+                        restoredFromUrlRef.current = true;
+                        handleStartEdit(script);
+                    } else if (actionParam === 'insert') {
+                        restoredFromUrlRef.current = true;
+                        handleCreateManualScript();
+                    }
                 }
             }
         }
-    }, [p.show, p.sessions, view]);
+        if (!p.show) {
+            restoredFromUrlRef.current = false;
+        }
+    }, [p.show, p.sessions, view, showCreator]);
 
     const preloadedRef = useRef(false);
     // Tự động tải tin nhắn cho tất cả kịch bản khi mở modal để tránh race condition khi nghe thử/tạo video
