@@ -723,7 +723,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     };
 
     // Tạo audio trực tiếp trong edit view, tự động lưu trước
-    const handleGenerateAudioInEditView = async () => {
+    const handleGenerateAudioInEditView = async (forceAll: boolean = false) => {
         setGeneratingAudio(true);
         setAudioProgress({ current: 0, total: 0, percent: 0 });
         try {
@@ -747,8 +747,10 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                 currentMsgs = mapped;
             }
 
-            // 3. Lọc ra những thoại chưa có audio
-            const toGenerate = currentMsgs.filter(m => !m.audioUrl && m.text.trim().length > 0);
+            // 3. Lọc ra những thoại cần tạo (forceAll=true thì tạo toàn bộ, false thì chỉ tạo thoại chưa có audio)
+            const toGenerate = forceAll
+                ? currentMsgs.filter(m => m.text.trim().length > 0)
+                : currentMsgs.filter(m => !m.audioUrl && m.text.trim().length > 0);
             const total = toGenerate.length;
 
             if (total === 0) {
@@ -764,7 +766,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                 const msg = toGenerate[i];
                 setAudioProgress({ current: i + 1, total, percent: Math.round(((i) / total) * 100) });
                 const targetRole = msg.role === 'ai' ? 'ai' : 'user';
-                const success = await p.generateVoice(msg.id, msg.text, targetRole, selectedScript.id, false);
+                const success = await p.generateVoice(msg.id, msg.text, targetRole, selectedScript.id, forceAll);
                 if (success) {
                     successCount++;
                     setAudioProgress({ current: i + 1, total, percent: Math.round(((i + 1) / total) * 100) });
@@ -1768,13 +1770,22 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                         <button onClick={() => setView('list')} disabled={saving || isRegenerating || generatingAudio} className="px-5 py-2 rounded-xl text-slate-400 hover:text-white font-bold transition-colors disabled:opacity-40">Hủy</button>
                                         <div className="flex gap-2">
                                             <button
-                                                onClick={handleGenerateAudioInEditView}
+                                                onClick={() => handleGenerateAudioInEditView(false)}
                                                 disabled={saving || isRegenerating || generatingAudio}
                                                 className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl font-bold transition-all shadow-lg flex items-center gap-1.5 disabled:opacity-40"
                                                 title="Tự động lưu rồi tạo audio cho từng câu thoại"
                                             >
                                                 {generatingAudio ? <Loader2 size={14} className="animate-spin" /> : <Mic size={14} />}
                                                 {generatingAudio ? `${audioProgress?.percent ?? 0}%` : 'Tạo Audio'}
+                                            </button>
+                                            <button
+                                                onClick={() => handleGenerateAudioInEditView(true)}
+                                                disabled={saving || isRegenerating || generatingAudio}
+                                                className="px-3.5 py-2 bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 border border-amber-500/30 rounded-xl font-bold transition-all flex items-center gap-1.5 text-xs disabled:opacity-40"
+                                                title="Ép buộc tạo mới lại tất cả audio cho kịch bản này"
+                                            >
+                                                {generatingAudio ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={13} />}
+                                                Tạo lại tất cả Audio
                                             </button>
                                             <button onClick={() => handleSaveScript()} disabled={saving || isRegenerating || generatingAudio} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all shadow-lg flex items-center gap-1.5 disabled:opacity-40">
                                                 {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Lưu kịch bản
