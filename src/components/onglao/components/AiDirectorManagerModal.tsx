@@ -64,7 +64,20 @@ interface AiDirectorManagerModalProps {
 }
 
 const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
-    const [view, setView] = useState<'list' | 'edit'>('list');
+    const [view, setView] = useState<'list' | 'edit'>(() => {
+        if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            const modal = url.searchParams.get('modal');
+            const action = url.searchParams.get('action');
+            const id = url.searchParams.get('id');
+            const type = url.searchParams.get('type');
+            if (modal === 'ai-director' && (action || id)) {
+                if (action === 'insert' && type === 'ai') return 'list';
+                return 'edit';
+            }
+        }
+        return 'list';
+    });
     const [selectedScript, setSelectedScript] = useState<any>(null);
     const [editingMessages, setEditingMessages] = useState<any[]>([]);
     const [editingRawText, setEditingRawText] = useState<string>("");
@@ -77,7 +90,16 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     const [deleteConfirm, setDeleteConfirm] = useState<{ids: string[], count: number} | null>(null);
     // Per-script audio progress: scriptId -> { current, total, percent }
     const [scriptAudioProgress, setScriptAudioProgress] = useState<Record<string, { current: number; total: number; percent: number }>>({});
-    const [showCreator, setShowCreator] = useState(false);
+    const [showCreator, setShowCreator] = useState<boolean>(() => {
+        if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            const modal = url.searchParams.get('modal');
+            const action = url.searchParams.get('action');
+            const type = url.searchParams.get('type');
+            if (modal === 'ai-director' && action === 'insert' && type === 'ai') return true;
+        }
+        return false;
+    });
     const [searchTerm, setSearchTerm] = useState('');
     const [filterType, setFilterType] = useState('all');
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -115,7 +137,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                     url.searchParams.set('id', selectedScript.id);
                     updated = true;
                 }
-            } else if (view === 'list') {
+            } else if (view === 'list' && !showCreator) {
                 if (url.searchParams.has('action') || url.searchParams.has('id') || url.searchParams.has('type')) {
                     url.searchParams.set('modal', 'ai-director');
                     url.searchParams.delete('action');
@@ -142,20 +164,22 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
             const idParam = url.searchParams.get('id');
 
             if (modalParam === 'ai-director' && !restoredFromUrlRef.current) {
-                if (actionParam === 'insert' && typeParam === 'ai' && !showCreator) {
+                if (actionParam === 'insert' && typeParam === 'ai') {
+                    if (!showCreator) setShowCreator(true);
                     restoredFromUrlRef.current = true;
-                    setShowCreator(true);
-                } else if (actionParam === 'insert' && typeParam === 'manual' && view === 'list') {
+                } else if (actionParam === 'insert' && typeParam === 'manual') {
+                    if (!selectedScript) handleCreateManualScript();
                     restoredFromUrlRef.current = true;
-                    handleCreateManualScript();
-                } else if (idParam && view === 'list') {
-                    const script = p.sessions.find(s => s.id === idParam);
-                    if (script) {
-                        restoredFromUrlRef.current = true;
-                        handleStartEdit(script);
-                    } else if (actionParam === 'insert') {
-                        restoredFromUrlRef.current = true;
-                        handleCreateManualScript();
+                } else if (idParam) {
+                    if (p.sessions.length > 0) {
+                        const script = p.sessions.find(s => s.id === idParam);
+                        if (script) {
+                            if (selectedScript?.id !== idParam) handleStartEdit(script);
+                            restoredFromUrlRef.current = true;
+                        } else if (actionParam === 'insert') {
+                            if (!selectedScript) handleCreateManualScript();
+                            restoredFromUrlRef.current = true;
+                        }
                     }
                 }
             }
@@ -163,7 +187,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         if (!p.show) {
             restoredFromUrlRef.current = false;
         }
-    }, [p.show, p.sessions, view, showCreator]);
+    }, [p.show, p.sessions, view, showCreator, selectedScript?.id]);
 
     const preloadedRef = useRef(false);
     // Tự động tải tin nhắn cho tất cả kịch bản khi mở modal để tránh race condition khi nghe thử/tạo video
