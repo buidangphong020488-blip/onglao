@@ -128,7 +128,7 @@ const NormalModePanel = () => {
   }, [showAiManager]);
 
   return (
-    <div className="flex h-screen w-full bg-[#020617] text-slate-100 overflow-hidden font-sans select-none relative animate-in fade-in duration-700">
+    <div className="flex h-[100dvh] min-h-[100dvh] w-full bg-[#020617] text-slate-100 overflow-hidden font-sans select-none relative animate-in fade-in duration-700">
       
       {/* MÀN HÌNH TOAST THÔNG BÁO */}
       {toast.show && (
@@ -337,13 +337,13 @@ const NormalModePanel = () => {
 
       <SessionsSidebar />
 
-      <div className="flex-1 flex flex-col relative w-full overflow-hidden">
+      <div className="flex-1 flex flex-col relative w-full h-[100dvh] overflow-hidden">
         <div className="absolute inset-0 pointer-events-none opacity-20">
           <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-orange-500/5 rounded-full blur-[120px]"></div>
           <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-indigo-500/5 rounded-full blur-[100px]"></div>
         </div>
 
-        <header className="p-4 md:p-6 flex justify-between items-center z-30">
+        <header className="p-3 md:p-6 flex justify-between items-center z-30 shrink-0 w-full">
           <div className="flex items-center gap-3">
             <button data-tutorial="tut-menu" onClick={() => setShowSessions(true)} className="p-2 md:p-3 bg-slate-900/50 border border-white/5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all mr-2"><Menu size={20} /></button>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-b from-slate-800 to-slate-950 rounded-full flex items-center justify-center shadow-xl shadow-orange-500/20 border border-white/10 animate-pulse overflow-hidden">
