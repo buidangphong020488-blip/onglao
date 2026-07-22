@@ -123,24 +123,31 @@ export async function loginWithGiacNgoAction(email: string, password: string) {
 
 export async function updateUserProfileAction(userId: string, profileData: any) {
   try {
-    await prisma.user.update({
+    const dataToSet = {
+      profileCompleted: true,
+      name: profileData.userName || undefined,
+      userGender: profileData.userGender || null,
+      userAge: profileData.userAge ? Number(profileData.userAge) : null,
+      appLanguage: profileData.appLanguage || null,
+      userVoice: profileData.userVoice || null,
+      userVoiceStyle: profileData.userVoiceStyle || null,
+      laoVoice: profileData.laoVoice || null,
+      laoVoiceStyle: profileData.laoVoiceStyle || null,
+      customLaoName: profileData.customLaoName || null,
+      laoSelfCall: profileData.laoSelfCall || null,
+      laoCallUser: profileData.laoCallUser || null,
+      customUserName: profileData.customUserName || null,
+      userSelfCall: profileData.userSelfCall || null,
+      userCallLao: profileData.userCallLao || null,
+    };
+
+    await prisma.user.upsert({
       where: { id: userId },
-      data: {
-        profileCompleted: true,
-        name: profileData.userName || undefined,
-        userGender: profileData.userGender || null,
-        userAge: profileData.userAge ? Number(profileData.userAge) : null,
-        appLanguage: profileData.appLanguage || null,
-        userVoice: profileData.userVoice || null,
-        userVoiceStyle: profileData.userVoiceStyle || null,
-        laoVoice: profileData.laoVoice || null,
-        laoVoiceStyle: profileData.laoVoiceStyle || null,
-        customLaoName: profileData.customLaoName || null,
-        laoSelfCall: profileData.laoSelfCall || null,
-        laoCallUser: profileData.laoCallUser || null,
-        customUserName: profileData.customUserName || null,
-        userSelfCall: profileData.userSelfCall || null,
-        userCallLao: profileData.userCallLao || null,
+      update: dataToSet,
+      create: {
+        id: userId,
+        email: profileData.email || `${userId}@giac.ngo`,
+        ...dataToSet,
       },
     });
     return { success: true };
