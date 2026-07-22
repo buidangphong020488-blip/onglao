@@ -727,14 +727,13 @@ const OngLaoPlatform = ({ initialPoems = [], autoOpenVideoModal = false }: { ini
       const currentModal = url.searchParams.get('modal');
       const currentId = url.searchParams.get('id');
       
-      console.log("URL Sync useEffect - isExportModalOpen:", isExportModalOpen, "currentSessionId:", currentSessionId, "currentId:", currentId, "currentModal:", currentModal);
-      
       let targetModal = null;
       if (isExportModalOpen) targetModal = 'create-video';
       else if (isLibraryModalOpen) targetModal = 'library';
+      else if (showAiManager || currentModal === 'ai-director') targetModal = 'ai-director';
       
       let hasChanged = false;
-      if (targetModal) {
+      if (targetModal && targetModal !== 'ai-director') {
         if (currentModal !== targetModal) {
           url.searchParams.set('modal', targetModal);
           hasChanged = true;
@@ -743,7 +742,6 @@ const OngLaoPlatform = ({ initialPoems = [], autoOpenVideoModal = false }: { ini
           if (currentId !== currentSessionId) {
             url.searchParams.set('id', currentSessionId);
             hasChanged = true;
-            console.log("URL Sync - setting id parameter to:", currentSessionId);
           }
         } else {
           if (currentId) {
@@ -751,7 +749,7 @@ const OngLaoPlatform = ({ initialPoems = [], autoOpenVideoModal = false }: { ini
             hasChanged = true;
           }
         }
-      } else if (currentModal) {
+      } else if (!targetModal && currentModal && currentModal !== 'ai-director') {
         url.searchParams.delete('modal');
         if (currentId) url.searchParams.delete('id');
         hasChanged = true;
@@ -759,11 +757,10 @@ const OngLaoPlatform = ({ initialPoems = [], autoOpenVideoModal = false }: { ini
       
       if (hasChanged) {
         const newUrl = url.searchParams.toString() ? `${url.pathname}?${url.searchParams.toString()}` : url.pathname;
-        console.log("URL Sync - pushing state to URL:", newUrl);
         window.history.pushState(null, '', newUrl);
       }
     }
-  }, [videoExportState.showVideoExportModal, poemDbState.showPoemModal, currentSessionId]);
+  }, [videoExportState.showVideoExportModal, poemDbState.showPoemModal, currentSessionId, showAiManager]);
 
   // Tải tin nhắn cho session hiện tại khi chuyển session
   useEffect(() => {
