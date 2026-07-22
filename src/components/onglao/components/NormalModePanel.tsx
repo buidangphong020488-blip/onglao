@@ -380,23 +380,25 @@ const NormalModePanel = () => {
                     <span className="text-xs font-black text-indigo-300">{currentUser.name?.charAt(0)?.toUpperCase()}</span>
                   )}
                 </button>
-                {/* Dropdown Menu on Hover */}
-                <div className="absolute right-0 top-full mt-2 hidden group-hover:flex flex-col bg-slate-900/95 border border-white/10 rounded-xl p-1.5 shadow-2xl z-[200] min-w-[130px] backdrop-blur-md">
-                  <div className="px-2.5 py-1 text-[9px] text-slate-400 font-bold border-b border-white/5 pb-1.5 mb-1 truncate max-w-[150px]">
-                    {currentUser.name}
+                {/* Dropdown Menu on Hover with Invisible Bridge */}
+                <div className="absolute right-0 top-full pt-1.5 hidden group-hover:flex flex-col z-[200]">
+                  <div className="bg-slate-900/95 border border-white/10 rounded-xl p-1.5 shadow-2xl min-w-[140px] backdrop-blur-md flex flex-col">
+                    <div className="px-2.5 py-1 text-[9px] text-slate-400 font-bold border-b border-white/5 pb-1.5 mb-1 truncate max-w-[150px]">
+                      {currentUser.name}
+                    </div>
+                    <button
+                      onClick={() => setHasEntered(false)}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all"
+                    >
+                      Sửa Profile
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rose-400 hover:text-rose-300 hover:bg-rose-950/20 transition-all"
+                    >
+                      Đăng xuất
+                    </button>
                   </div>
-                  <button
-                    onClick={() => setHasEntered(false)}
-                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all"
-                  >
-                    Sửa Profile
-                  </button>
-                  <button
-                    onClick={handleLogout}
-                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rose-400 hover:text-rose-300 hover:bg-rose-950/20 transition-all"
-                  >
-                    Đăng xuất
-                  </button>
                 </div>
               </div>
             ) : (
