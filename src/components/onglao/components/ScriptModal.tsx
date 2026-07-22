@@ -162,19 +162,18 @@ const ScriptModal = ({ show, onClose, scriptText, setScriptText, importMode, set
             clearTimeout(serializeTimeoutRef.current);
         }
 
-        if (immediate) {
+        // Defer setScriptText to next tick to avoid updating parent AiDirectorManagerModal during child ScriptModal render phase
+        serializeTimeoutRef.current = setTimeout(() => {
             setScriptText(text);
-        } else {
-            serializeTimeoutRef.current = setTimeout(() => {
-                setScriptText(text);
-            }, 300);
-        }
+        }, immediate ? 0 : 300);
     }, [customLaoName, customUserName, setScriptText]);
 
     const updateBlock = useCallback((id: string, field: keyof ScriptBlock, value: string) => {
         setBlocks(prev => {
             const newBlocks = prev.map(b => b.id === id ? { ...b, [field]: value } : b);
-            serializeAndSave(newBlocks, field !== 'text');
+            setTimeout(() => {
+                serializeAndSave(newBlocks, field !== 'text');
+            }, 0);
             return newBlocks;
         });
     }, [serializeAndSave]);
@@ -182,7 +181,9 @@ const ScriptModal = ({ show, onClose, scriptText, setScriptText, importMode, set
     const removeBlock = useCallback((id: string) => {
         setBlocks(prev => {
             const newBlocks = prev.filter(b => b.id !== id);
-            serializeAndSave(newBlocks, true);
+            setTimeout(() => {
+                serializeAndSave(newBlocks, true);
+            }, 0);
             return newBlocks;
         });
     }, [serializeAndSave]);
@@ -192,7 +193,9 @@ const ScriptModal = ({ show, onClose, scriptText, setScriptText, importMode, set
             const lastRole = prev.length > 0 ? prev[prev.length - 1].role : 'ai';
             const newRole = lastRole === 'ai' ? 'user' : 'ai';
             const newBlocks = [...prev, { id: Date.now().toString(), role: newRole, emotion: 'calm', text: '' }];
-            serializeAndSave(newBlocks, true);
+            setTimeout(() => {
+                serializeAndSave(newBlocks, true);
+            }, 0);
             return newBlocks;
         });
     }, [serializeAndSave]);
