@@ -41,17 +41,41 @@ interface CombinedScriptModalProps {
 const CombinedScriptModal = (p: CombinedScriptModalProps) => {
     const [activeTab, setActiveTab] = useState<'manual' | 'ai'>('ai');
 
+    React.useEffect(() => {
+        if (typeof window !== 'undefined' && p.show) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('modal', 'ai-director');
+            url.searchParams.set('action', 'insert');
+            url.searchParams.set('type', 'ai');
+            url.searchParams.delete('id');
+            window.history.replaceState(null, '', url.toString());
+        }
+    }, [p.show]);
+
+    const handleClose = () => {
+        if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            if (url.searchParams.get('modal') === 'ai-director') {
+                url.searchParams.delete('action');
+                url.searchParams.delete('type');
+                url.searchParams.delete('id');
+                window.history.replaceState(null, '', url.toString());
+            }
+        }
+        p.onClose();
+    };
+
     if (!p.show) return null;
 
     return (
-        <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" onClick={p.onClose}>
+        <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" onClick={handleClose}>
             <div className="bg-slate-900 border border-slate-600/50 rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl flex flex-col animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-white/5 flex flex-col gap-4 bg-slate-800 shrink-0">
                     <div className="flex justify-between items-center">
                         <h2 className="font-black text-slate-100 tracking-widest flex items-center gap-2">
                             <FileText size={18}/> Kịch bản Đàm đạo
                         </h2>
-                        <button onClick={p.onClose} className="p-2 bg-white/5 hover:bg-red-500/80 hover:text-white rounded-full transition-colors"><X size={16} /></button>
+                        <button onClick={handleClose} className="p-2 bg-white/5 hover:bg-red-500/80 hover:text-white rounded-full transition-colors"><X size={16} /></button>
                     </div>
                     
                     {/* Hide tab selector per user request: manual script is hidden */}
