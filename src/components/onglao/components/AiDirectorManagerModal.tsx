@@ -754,6 +754,40 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         }
     };
 
+    const handleCreateAIScript = () => {
+        const tempId = 'temp_' + Date.now();
+        const newSession = {
+            id: tempId,
+            title: "Kịch bản mới",
+            type: 'script',
+            isPinned: false,
+            messages: [],
+            messagesLoaded: true
+        };
+        setSelectedScript(newSession);
+        setEditingMessages([]);
+        setEditingRawText('');
+        setEditingTitle('Kịch bản mới');
+        setEditingLaoVoice(p.laoVoice || 'Algieba');
+        setEditingLaoVoiceStyle('');
+        setEditingUserVoice(p.userVoice || 'Aoede');
+        setEditingUserVoiceStyle('');
+        p.setCustomUserName?.('Con');
+        p.setCustomLaoName?.('Lão');
+        p.setUserSelfCall?.('Con');
+        p.setUserCallLao?.('Lão');
+        p.setLaoSelfCall?.('Lão');
+        p.setLaoCallUser?.('Con');
+        
+        const validDate = new Date();
+        const tzOffset = validDate.getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(validDate.getTime() - tzOffset)).toISOString().slice(0, 16);
+        setEditingDate(localISOTime);
+
+        setView('edit');
+        p.showToastMsg('Đã khởi tạo kịch bản AI mới. Vui lòng nhập chủ đề và bấm "Lưu kịch bản"!', 'info');
+    };
+
     const handleCreateManualScript = () => {
         const tempId = 'temp_' + Date.now();
         const newSession = {
@@ -1274,7 +1308,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                     <button onClick={handleCreateManualScript} disabled={saving} className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all border border-white/10 hover:border-white/20 hover:text-white disabled:opacity-50">
                                         <Pencil size={14} /> Nhập thủ công
                                     </button>
-                                    <button onClick={() => { setShowCreator(true); if(p.setShowScriptModal) p.setShowScriptModal(true); }} disabled={saving} className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg border border-indigo-500/50 hover:scale-105 disabled:opacity-50">
+                                    <button onClick={handleCreateAIScript} disabled={saving} className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg border border-indigo-500/50 hover:scale-105 disabled:opacity-50">
                                         <Plus size={14} /> Tạo kịch bản AI
                                     </button>
                                 </div>

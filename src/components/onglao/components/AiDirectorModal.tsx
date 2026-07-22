@@ -48,18 +48,6 @@ const AiDirectorModal = (p: AiDirectorModalProps) => {
     const [isSaving, setIsSaving] = React.useState(false);
     const generatedSectionRef = React.useRef<HTMLDivElement>(null);
 
-    // Đồng bộ URL slug: action=insert&type=ai khi mở Form Tạo Kịch Bản AI
-    React.useEffect(() => {
-        if (typeof window !== 'undefined' && p.show) {
-            const url = new URL(window.location.href);
-            url.searchParams.set('modal', 'ai-director');
-            url.searchParams.set('action', 'insert');
-            url.searchParams.set('type', 'ai');
-            url.searchParams.delete('id');
-            window.history.replaceState(null, '', url.toString());
-        }
-    }, [p.show]);
-
     // ── LOCAL STATE cho tất cả text inputs ──────────────────────────────────
     // onChange chỉ cập nhật local state (không re-render toàn bộ app)
     // onBlur mới sync lên parent context
