@@ -83,12 +83,11 @@ const ScriptModal = ({ show, onClose, scriptText, setScriptText, importMode, set
                 text = text.replace(new RegExp(`^(${aiNamePattern})(?:\\s*\\[.*?\\]|\\s*\\(.*?\\))?\\s*:\\s*`, 'i'), '').trim();
                 currentRole = 'ai';
             }
-            // Append to previous if same role and emotion, or create new block
-            if (newBlocks.length > 0 && newBlocks[newBlocks.length - 1].role === role && newBlocks[newBlocks.length - 1].emotion === emotion && !userMatch && !aiMatch) {
-                newBlocks[newBlocks.length - 1].text += '\n' + text;
-            } else {
-                newBlocks.push({ id: `${role}_${idx}_${Date.now().toString().substring(8)}`, role, emotion: ['calm', 'sad', 'joy', 'hook'].includes(emotion) ? emotion : 'calm', text });
+            if (!userMatch && !aiMatch && newBlocks.length > 0) {
+                currentRole = currentRole === 'ai' ? 'user' : 'ai';
+                role = currentRole;
             }
+            newBlocks.push({ id: `${role}_${idx}_${Date.now().toString().substring(8)}`, role, emotion: ['calm', 'sad', 'joy', 'hook'].includes(emotion) ? emotion : 'calm', text });
         });
         setBlocks(newBlocks);
         lastSerializedTextRef.current = scriptText;

@@ -466,11 +466,10 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                     cleanText = text.replace(outroMatch[0], '').trim();
                     currentRole = 'outro';
                  } else {
+                    currentRole = currentRole === 'ai' ? 'user' : 'ai';
                     role = currentRole;
                     cleanText = text;
-                    emotion = newMsgs.length > 0 && newMsgs[newMsgs.length - 1].role === role 
-                        ? newMsgs[newMsgs.length - 1].emotion 
-                        : 'calm';
+                    emotion = 'calm';
                  }
 
                  // Chuẩn hóa emotion
@@ -480,11 +479,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                  }
 
                  if (role && cleanText) {
-                     if (newMsgs.length > 0 && newMsgs[newMsgs.length - 1].role === role) {
-                         newMsgs[newMsgs.length - 1].text += '\n' + cleanText;
-                     } else {
-                         newMsgs.push({ role, text: cleanText, emotion });
-                     }
+                     newMsgs.push({ role, text: cleanText, emotion });
                  }
             });
 
@@ -978,8 +973,18 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                 setPlaylist(msgs);
                 setCurrentPlayIndex(0);
                 
-                // Calculate durations (mocking default 3 seconds if not loaded yet)
-                const dList = msgs.map(() => 4.0);
+                // Calculate actual durations using HTMLAudioElement
+                const dList = await Promise.all(msgs.map((m: any) => new Promise<number>((resolve) => {
+                    if (!m.audioUrl) return resolve(4.0);
+                    const tempAudio = new Audio();
+                    tempAudio.src = m.audioUrl;
+                    tempAudio.onloadedmetadata = () => {
+                        resolve(tempAudio.duration && !isNaN(tempAudio.duration) ? tempAudio.duration : 4.0);
+                    };
+                    tempAudio.onerror = () => resolve(4.0);
+                    setTimeout(() => resolve(4.0), 1200);
+                })));
+
                 setDurations(dList);
                 setTotalDuration(dList.reduce((a: number, b: number) => a + b, 0));
                 setCurrentElapsedTime(0);
@@ -1004,6 +1009,15 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         setCurrentPlayIndex(index);
         setIsPlaying(true);
         audioRef.current.src = tracks[index].audioUrl;
+
+        audioRef.current.onloadedmetadata = () => {
+            if (audioRef.current && audioRef.current.duration && !isNaN(audioRef.current.duration)) {
+                dList[index] = audioRef.current.duration;
+                setDurations([...dList]);
+                setTotalDuration(dList.reduce((a: number, b: number) => a + b, 0));
+            }
+        };
+
         audioRef.current.play().catch(() => {
             // Auto skip if audio error
             playTrack(tracks, index + 1, dList);
