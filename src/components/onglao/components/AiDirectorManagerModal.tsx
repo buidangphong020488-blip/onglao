@@ -1546,7 +1546,8 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                             </div>
                         </div>
                     ) : (() => {
-                        const isAiScript = selectedScript && !selectedScript.title.toLowerCase().includes('[thủ công]');
+                        const isAiScript = selectedScript?.title ? !selectedScript.title.toLowerCase().includes('[thủ công]') : false;
+                        const scriptTitle = selectedScript?.title || 'Kịch bản mới';
                         return (
                             <div className="flex-1 flex flex-col gap-4">
                                 <div className="flex justify-between items-center border-b border-white/5 pb-3">
@@ -1556,7 +1557,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                         </button>
                                         <div className="flex items-center space-x-3">
                                             <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest">
-                                                Biên tập kịch bản {isAiScript ? 'AI' : 'Thủ công'}: {selectedScript.title}
+                                                Biên tập kịch bản {isAiScript ? 'AI' : 'Thủ công'}: {scriptTitle}
                                             </span>
                                         </div>
                                     </div>
