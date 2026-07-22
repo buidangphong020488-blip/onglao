@@ -98,7 +98,12 @@ const NormalModePanel = () => {
     }
   }, []);
 
+  const isInitialMount = React.useRef(true);
   React.useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const currentModal = params.get('modal');

@@ -271,7 +271,13 @@ const OngLaoPlatform = ({ initialPoems = [], autoOpenVideoModal = false }: { ini
   const [targetRect, setTargetRect] = useState<any>(null);
   const [showUserGuide, setShowUserGuide] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [showAiManager, setShowAiManager] = useState(false);
+  const [showAiManager, setShowAiManager] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('modal') === 'ai-director';
+    }
+    return false;
+  });
   const [showAITopicModal, setShowAITopicModal] = useState(false);
   const [importMode, setImportMode] = useState<'new' | 'append'>('new');
   const [aiLaoStyle, setAiLaoStyle] = useState('Từ bi');
