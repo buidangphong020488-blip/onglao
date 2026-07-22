@@ -1775,30 +1775,101 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                             </div>
                                         </div>
                                     )}
-                                    <div className="flex justify-between items-center">
+                                    <div className="flex justify-between items-center flex-wrap gap-3">
                                         <button onClick={() => setView('list')} disabled={saving || isRegenerating || generatingAudio} className="px-5 py-2 rounded-xl text-slate-400 hover:text-white font-bold transition-colors disabled:opacity-40">Hủy</button>
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => handleGenerateAudioInEditView(false)}
-                                                disabled={saving || isRegenerating || generatingAudio}
-                                                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl font-bold transition-all shadow-lg flex items-center gap-1.5 disabled:opacity-40"
-                                                title="Tự động lưu rồi tạo audio cho từng câu thoại"
-                                            >
-                                                {generatingAudio ? <Loader2 size={14} className="animate-spin" /> : <Mic size={14} />}
-                                                {generatingAudio ? `${audioProgress?.percent ?? 0}%` : 'Tạo Audio'}
-                                            </button>
-                                            <button
-                                                onClick={() => handleGenerateAudioInEditView(true)}
-                                                disabled={saving || isRegenerating || generatingAudio}
-                                                className="px-3.5 py-2 bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 border border-amber-500/30 rounded-xl font-bold transition-all flex items-center gap-1.5 text-xs disabled:opacity-40"
-                                                title="Ép buộc tạo mới lại tất cả audio cho kịch bản này"
-                                            >
-                                                {generatingAudio ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={13} />}
-                                                Tạo lại audio
-                                            </button>
-                                            <button onClick={() => handleSaveScript()} disabled={saving || isRegenerating || generatingAudio} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all shadow-lg flex items-center gap-1.5 disabled:opacity-40">
-                                                {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Lưu kịch bản
-                                            </button>
+
+                                        {/* Trình phát audio nhỏ nếu đang phát kịch bản này ở chế độ sửa */}
+                                        {playingScriptId === selectedScript?.id && (
+                                            <div className="flex items-center gap-3 bg-slate-900 px-4 py-2 rounded-xl border border-white/5">
+                                                <button onClick={isPlaying ? pausePlaylist : resumePlaylist} className="text-indigo-400 hover:text-indigo-300">
+                                                    {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+                                                </button>
+                                                <input 
+                                                    type="range" min="0" max={totalDuration} 
+                                                    value={currentElapsedTime} onChange={handleSeek}
+                                                    className="w-32 h-1 bg-slate-850 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                                                />
+                                                <span className="text-[10px] text-slate-400 font-mono">
+                                                    {Math.floor(currentElapsedTime)}s / {Math.floor(totalDuration)}s
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        <div className="flex gap-2 items-center flex-wrap">
+                                            {(() => {
+                                                const hasAudioCount = editingMessages ? editingMessages.filter((m: any) => m.audioUrl && m.text.trim().length > 0).length : 0;
+                                                const totalCount = editingMessages ? editingMessages.filter((m: any) => m.text.trim().length > 0).length : 0;
+                                                const missingAudioCount = totalCount - hasAudioCount;
+
+                                                return (
+                                                    <>
+                                                        {hasAudioCount > 0 ? (
+                                                            <>
+                                                                {/* Nút Nghe thử */}
+                                                                {playingScriptId === selectedScript?.id && isPlaying ? (
+                                                                    <button 
+                                                                        onClick={stopPlaylist} 
+                                                                        className="px-4 py-2 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-500/30 rounded-xl font-bold transition-all text-xs flex items-center gap-1.5 shadow-md"
+                                                                    >
+                                                                        <Pause size={13} /> Dừng phát
+                                                                    </button>
+                                                                ) : (
+                                                                    <button 
+                                                                        onClick={() => handlePlayPlaylist(selectedScript)} 
+                                                                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl font-bold transition-all text-xs flex items-center gap-1.5 shadow-md"
+                                                                    >
+                                                                        <Play size={13} /> Nghe thử
+                                                                    </button>
+                                                                )}
+
+                                                                {/* Nút Tạo lại audio */}
+                                                                <button
+                                                                    onClick={() => handleGenerateAudioInEditView(true)}
+                                                                    disabled={saving || isRegenerating || generatingAudio}
+                                                                    className="px-3.5 py-2 bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 border border-amber-500/30 rounded-xl font-bold transition-all flex items-center gap-1.5 text-xs disabled:opacity-40"
+                                                                    title="Ép buộc tạo mới lại tất cả audio cho kịch bản này"
+                                                                >
+                                                                    {generatingAudio ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                                                                    Tạo lại audio
+                                                                </button>
+
+                                                                {/* Nút Tạo tiếp nếu có thoại chưa có audio */}
+                                                                {missingAudioCount > 0 && (
+                                                                    <button
+                                                                        onClick={() => handleGenerateAudioInEditView(false)}
+                                                                        disabled={saving || isRegenerating || generatingAudio}
+                                                                        className="px-3.5 py-2 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/30 rounded-xl font-bold transition-all flex items-center gap-1.5 text-xs disabled:opacity-40"
+                                                                        title="Tạo audio cho những câu thoại chưa có audio"
+                                                                    >
+                                                                        {generatingAudio ? <Loader2 size={13} className="animate-spin" /> : <Mic size={13} />}
+                                                                        Tạo tiếp ({missingAudioCount})
+                                                                    </button>
+                                                                )}
+                                                            </>
+                                                        ) : (
+                                                            /* Chưa có audio nào -> Hiển thị nút Tạo Audio */
+                                                            <button
+                                                                onClick={() => handleGenerateAudioInEditView(false)}
+                                                                disabled={saving || isRegenerating || generatingAudio}
+                                                                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl font-bold transition-all shadow-lg flex items-center gap-1.5 text-xs disabled:opacity-40"
+                                                                title="Tự động lưu rồi tạo audio cho từng câu thoại"
+                                                            >
+                                                                {generatingAudio ? <Loader2 size={13} className="animate-spin" /> : <Mic size={13} />}
+                                                                {generatingAudio ? `${audioProgress?.percent ?? 0}%` : 'Tạo Audio'}
+                                                            </button>
+                                                        )}
+
+                                                        {/* Nút Lưu kịch bản */}
+                                                        <button 
+                                                            onClick={() => handleSaveScript()} 
+                                                            disabled={saving || isRegenerating || generatingAudio} 
+                                                            className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all shadow-lg flex items-center gap-1.5 text-xs disabled:opacity-40"
+                                                        >
+                                                            {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Lưu kịch bản
+                                                        </button>
+                                                    </>
+                                                );
+                                            })()}
                                         </div>
                                     </div>
                                 </div>
