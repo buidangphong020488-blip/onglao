@@ -5,6 +5,7 @@ import AiDirectorModal from './AiDirectorModal';
 import ScriptModal from './ScriptModal';
 import {
     getChatMessagesAction,
+    getScriptSessionsAction,
     deleteChatSessionAction,
     saveChatMessageAction,
     createChatSessionAction,
@@ -202,12 +203,12 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         preloadedRef.current = true;
 
         const preloadScriptsMessages = async () => {
-            const scriptsToLoad = p.sessions.filter(s => (s.type === 'script' || s.type === 'chat|script') && !s.messagesLoaded);
-            for (const script of scriptsToLoad) {
-                try {
-                    const res = await getChatMessagesAction(script.id);
-                    if (res.success && res.data) {
-                        const mapped = res.data.map((m: any) => ({
+            try {
+                const res = await getScriptSessionsAction(p.user?.id);
+                if (res.success && res.data) {
+                    const loadedScriptMap = new Map();
+                    res.data.forEach((s: any) => {
+                        const mappedMsgs = (s.messages || []).map((m: any) => ({
                             id: m.id || m.msgId || Date.now(),
                             role: m.role === 'ASSISTANT' ? 'ai' : (m.role === 'OUTRO' ? 'outro' : 'user'),
                             text: m.content,
@@ -215,11 +216,17 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                             audioUrl: m.audioUrl || null,
                             emotion: m.emotion || 'calm'
                         }));
-                        p.setSessions((prev: any[]) => prev.map((x: any) => x.id === script.id ? { ...x, messages: mapped, messagesLoaded: true } : x));
-                    }
-                } catch (e) {
-                    console.error("Failed to preload messages for script:", script.id, e);
+                        loadedScriptMap.set(s.id, mappedMsgs);
+                    });
+                    p.setSessions((prev: any[]) => prev.map((x: any) => {
+                        if (loadedScriptMap.has(x.id)) {
+                            return { ...x, messages: loadedScriptMap.get(x.id), messagesLoaded: true };
+                        }
+                        return x;
+                    }));
                 }
+            } catch (e) {
+                console.error("Failed to load script sessions:", e);
             }
         };
         preloadScriptsMessages();

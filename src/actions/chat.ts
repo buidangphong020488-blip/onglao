@@ -68,11 +68,28 @@ export async function saveChatMessageAction(
   }
 }
 
-// 3. Lấy toàn bộ danh sách phiên chat (Chat Sessions) cùng tin nhắn
+// 3. Lấy toàn bộ danh sách phiên chat (Chat Sessions - Nhẹ cho Khung Chat)
 export async function getChatSessionsAction(userId?: string) {
   try {
     const sessions = await prisma.chatSession.findMany({
       where: userId ? { userId: userId } : {},
+      orderBy: { updatedAt: "desc" }, // Sắp xếp theo thứ tự hoạt động mới nhất
+    });
+    return { success: true, data: sessions };
+  } catch (error: any) {
+    console.error("Error getting chat sessions:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+// 3b. Lấy riêng danh sách Kịch Bản Đạo Diễn (Script Sessions - Kèm thông tin âm thanh để hiển thị Nghe thử)
+export async function getScriptSessionsAction(userId?: string) {
+  try {
+    const sessions = await prisma.chatSession.findMany({
+      where: {
+        ...(userId ? { userId } : {}),
+        type: { in: ['script', 'chat|script'] },
+      },
       include: {
         messages: {
           select: {
@@ -86,11 +103,11 @@ export async function getChatSessionsAction(userId?: string) {
           orderBy: { createdAt: "asc" },
         },
       },
-      orderBy: { updatedAt: "desc" }, // Sắp xếp theo thứ tự hoạt động mới nhất
+      orderBy: { updatedAt: "desc" },
     });
     return { success: true, data: sessions };
   } catch (error: any) {
-    console.error("Error getting chat sessions:", error);
+    console.error("Error getting script sessions:", error);
     return { success: false, error: error.message };
   }
 }
