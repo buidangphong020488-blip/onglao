@@ -26,18 +26,48 @@ export default function AuthModal({ onClose, showCloseButton = true, onLogin }: 
     setLoading(true);
     setError("");
     try {
-      const res = await loginWithGiacNgoAction(email.trim(), password);
-      if (res.success && res.data) {
-        // Lưu token + user vào localStorage
-        localStorage.setItem("onglao_token", res.data.token || "");
-        localStorage.setItem("onglao_user", JSON.stringify(res.data.user));
-        if (res.data.refreshToken) {
-          localStorage.setItem("onglao_refresh_token", res.data.refreshToken);
+      let res = await loginWithGiacNgoAction(email.trim(), password);
+      let userData: any = res?.success ? res.data : null;
+
+      // Nếu Server Action bị chặn do truy cập qua IP trên mobile, gọi API route trực tiếp
+      if (!userData) {
+        const apiRes = await fetch("/api/giacngo/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email.trim(), password }),
+        });
+        const apiData = await apiRes.json().catch(() => ({}));
+        if (apiRes.ok && apiData.apiToken) {
+          const giacNgoBase = "https://giac.ngo";
+          let avatarUrl = apiData.avatarUrl || null;
+          if (avatarUrl && avatarUrl.startsWith("/")) avatarUrl = `${giacNgoBase}${avatarUrl}`;
+          userData = {
+            token: apiData.apiToken,
+            refreshToken: apiData.refreshToken || null,
+            user: {
+              id: `gn_${apiData.id}`,
+              giacNgoId: apiData.id,
+              name: apiData.name || apiData.email,
+              email: apiData.email,
+              avatar: avatarUrl,
+              space: apiData.space || null,
+            },
+          };
+        } else {
+          setError(apiData.message || res?.error || "Email hoặc mật khẩu không chính xác.");
+          return;
         }
-        onLogin(res.data.user, res.data.token || "");
+      }
+
+      if (userData) {
+        // Lưu token + user vào localStorage
+        localStorage.setItem("onglao_token", userData.token || "");
+        localStorage.setItem("onglao_user", JSON.stringify(userData.user));
+        if (userData.refreshToken) {
+          localStorage.setItem("onglao_refresh_token", userData.refreshToken);
+        }
+        onLogin(userData.user as any, userData.token || "");
         onClose?.();
-      } else {
-        setError(res.error || "Đăng nhập thất bại.");
       }
     } catch (err: any) {
       setError("Không thể kết nối máy chủ. Vui lòng thử lại.");
