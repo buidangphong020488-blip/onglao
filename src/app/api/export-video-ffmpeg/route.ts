@@ -28,15 +28,30 @@ export async function POST(req: NextRequest) {
     }
 
     let ffmpegBin = ffmpegPath;
-    if (!ffmpegBin || ffmpegBin.includes('\\ROOT\\') || !fs.existsSync(ffmpegBin)) {
-      const localFfmpeg = path.join(process.cwd(), 'node_modules', 'ffmpeg-static', 'ffmpeg.exe');
-      if (fs.existsSync(localFfmpeg)) {
-        ffmpegBin = localFfmpeg;
+
+    // 1. Kiểm tra xem VPS / Server đã cài sẵn FFmpeg toàn hệ thống hay chưa (/usr/bin/ffmpeg)
+    try {
+      const { stdout } = await execAsync('ffmpeg -version');
+      if (stdout && stdout.includes('ffmpeg version')) {
+        ffmpegBin = 'ffmpeg';
+      }
+    } catch (e) {}
+
+    // 2. Nếu chưa có system ffmpeg, tự động dò đường dẫn binary từ ffmpeg-static
+    if (ffmpegBin !== 'ffmpeg') {
+      if (!ffmpegBin || !fs.existsSync(ffmpegBin)) {
+        const isWin = process.platform === 'win32';
+        const candidate = path.join(process.cwd(), 'node_modules', 'ffmpeg-static', isWin ? 'ffmpeg.exe' : 'ffmpeg');
+        if (fs.existsSync(candidate)) {
+          ffmpegBin = candidate;
+        }
       }
     }
 
-    if (!ffmpegBin || !fs.existsSync(ffmpegBin)) {
-      return NextResponse.json({ message: `FFmpeg binary không tồn tại trên hệ thống: ${ffmpegBin}` }, { status: 500 });
+    if (!ffmpegBin || (ffmpegBin !== 'ffmpeg' && !fs.existsSync(ffmpegBin))) {
+      return NextResponse.json({ 
+        message: `Chưa tìm thấy FFmpeg trên VPS. Lão hãy dán lệnh này vào Terminal VPS để cài đặt: sudo apt update && sudo apt install -y ffmpeg` 
+      }, { status: 500 });
     }
 
     tmpDir = path.join(process.cwd(), '.temp_export', `export_${Date.now()}`);
