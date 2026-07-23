@@ -6,24 +6,26 @@ import { useOngLaoContext } from "../context/OngLaoContext";
 import { idb } from "../constants";
 import { updateChatMessageContentAction, getChatMessagesAction } from "@/actions/chat";
 // Hàm tự động chụp 1 khung ảnh tĩnh JPEG (Poster Snapshot 160x160) từ video mà KHÔNG giữ thẻ video HTML5 trong bộ nhớ
-const generateVideoPoster = (url: string): Promise<string> => {
+const generateVideoPoster = (videoUrl: string): Promise<string> => {
+    if (!videoUrl) return Promise.resolve('');
     return new Promise((resolve) => {
-        if (!url) { resolve(''); return; }
         const video = document.createElement('video');
-        video.src = url;
         video.crossOrigin = 'anonymous';
+        video.src = videoUrl;
         video.muted = true;
-        video.preload = 'metadata';
+        video.playsInline = true;
+        video.preload = 'auto';
+        let resolved = false;
+
         const cleanup = () => {
+            if (resolved) return;
+            resolved = true;
             video.removeAttribute('src');
             video.load();
         };
-        const timeout = setTimeout(() => { cleanup(); resolve(''); }, 3500);
-        video.onloadedmetadata = () => {
-            const seekTime = Math.min(0.2, (video.duration || 1) / 2);
-            video.currentTime = seekTime;
-        };
-        video.onseeked = () => {
+
+        const captureFrame = () => {
+            if (resolved) return;
             clearTimeout(timeout);
             try {
                 const canvas = document.createElement('canvas');
@@ -43,11 +45,30 @@ const generateVideoPoster = (url: string): Promise<string> => {
             cleanup();
             resolve('');
         };
+
+        const timeout = setTimeout(() => {
+            captureFrame();
+        }, 3000);
+
+        video.onloadeddata = () => {
+            if (video.duration && video.duration > 0.5) {
+                try { video.currentTime = 0.2; } catch(e) { captureFrame(); }
+            } else {
+                captureFrame();
+            }
+        };
+
+        video.onseeked = () => {
+            captureFrame();
+        };
+
         video.onerror = () => {
             clearTimeout(timeout);
             cleanup();
             resolve('');
         };
+
+        video.load();
     });
 };
 // SceneThumbnailItem: Component thumbnail chụp ảnh tĩnh poster, hiển thị ảnh xem trước sắc nét mà KHÔNG tốn RAM/GPU
@@ -94,29 +115,20 @@ const SceneThumbnailItem = React.memo(({ scene, setFfScenes }: { scene: any; set
                 }} 
             />
             {scene.url ? (
-                isHovered ? (
+                poster ? (
+                    <div className="w-full h-full relative group">
+                        <img src={poster} alt="thumbnail" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors flex items-center justify-center">
+                            <Film size={14} className="text-white/80 drop-shadow" />
+                        </div>
+                    </div>
+                ) : (
                     <video 
                         src={scene.url} 
-                        autoPlay 
                         muted 
-                        loop
                         playsInline 
                         className="w-full h-full object-cover" 
                     />
-                ) : (
-                    poster ? (
-                        <div className="w-full h-full relative group">
-                            <img src={poster} alt="thumbnail" className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors flex items-center justify-center">
-                                <Film size={14} className="text-white/80 drop-shadow" />
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950/90 p-1 relative">
-                            <Film size={18} className="text-emerald-400 group-hover:scale-110 transition-transform" />
-                            <span className="text-[8px] font-bold text-emerald-300 mt-1 truncate max-w-full px-1">Đã nạp</span>
-                        </div>
-                    )
                 )
             ) : (
                 <div className="flex flex-col items-center gap-0.5">

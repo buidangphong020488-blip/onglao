@@ -1634,7 +1634,11 @@ export const useVideoExporterEngine = ({
 
             else if (currentUserSpeaking) { isUserSpeaking = true; isLaoSpeaking = false; }
 
-            if (isOutro) { isUserBowing = true; isUserSpeaking = false; isLaoSpeaking = false; }
+            if (isOutro) {
+                isUserBowing = true;
+                if (currentLaoSpeaking) { isLaoSpeaking = true; isUserSpeaking = false; }
+                else if (currentUserSpeaking) { isUserSpeaking = true; isLaoSpeaking = false; }
+            }
 
             // Giới hạn chống race condition: không cho cả 2 nói đồng thời
 
