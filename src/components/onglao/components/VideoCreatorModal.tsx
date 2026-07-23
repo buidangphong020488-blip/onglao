@@ -1425,7 +1425,7 @@ const VideoCreatorModal = () => {
                            </p>
                            <div className="flex flex-col gap-1.5">
                                <label className="text-xs font-bold text-slate-400">Tên Bộ cảnh:</label>
-                               <DebouncedInput 
+                               <input 
                                    type="text" 
                                    value={savePackData.name} 
                                    onChange={(e: any) => setSavePackData({...savePackData, name: e.target.value})} 

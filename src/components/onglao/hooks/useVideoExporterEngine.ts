@@ -661,7 +661,7 @@ export const useVideoExporterEngine = ({
 
             const meta = combinedAudioMetadata[i];
 
-            const segDuration = (meta.durationMs || 3000) / 1000;
+            const segDuration = meta.duration || (meta.end && meta.start ? meta.end - meta.start : 0) || (meta.durationMs ? meta.durationMs / 1000 : 3.0);
 
             let matchedScene = ffScenesRef.current.find((s: any) => s.msgId === meta.msgId || s.id.endsWith(`_${meta.msgId}`));
 
