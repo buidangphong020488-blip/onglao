@@ -889,15 +889,11 @@ export const useVideoExporterEngine = ({
 
             const exportedBlob = await res.blob();
 
-            const videoUrl = serverVideoUrlHeader 
-
-              ? serverVideoUrlHeader 
-
-              : URL.createObjectURL(exportedBlob);
+            const localBlobUrl = URL.createObjectURL(exportedBlob);
+            const videoUrl = serverVideoUrlHeader || localBlobUrl;
 
             setRenderedVideoBlob(exportedBlob);
-
-            setRenderedVideoUrl(videoUrl);
+            setRenderedVideoUrl(localBlobUrl);
 
             if (saveRenderHistoryItem) {
 
