@@ -562,6 +562,23 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     };
 
     // Save editing messages
+    const handleBackToList = () => {
+        setView('list');
+        setShowCreator(false);
+        if (p.setShowScriptModal) p.setShowScriptModal(false);
+        setSelectedScript(null);
+        setEditingMessages([]);
+        setEditingRawText('');
+        if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            url.searchParams.set('modal', 'ai-director');
+            url.searchParams.delete('action');
+            url.searchParams.delete('id');
+            url.searchParams.delete('type');
+            window.history.replaceState(null, '', url.toString());
+        }
+    };
+
     const handleSaveScript = async (transitionToList: boolean | any = true) => {
         if (saving) return;
         const shouldTransition = transitionToList === true || typeof transitionToList !== 'boolean';
@@ -764,18 +781,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
 
             p.showToastMsg('Đã lưu kịch bản thành công!', 'success');
             if (shouldTransition) {
-                setView('list');
-                setSelectedScript(null);
-                setEditingMessages([]);
-                setEditingRawText('');
-                if (typeof window !== 'undefined') {
-                    const url = new URL(window.location.href);
-                    url.searchParams.set('modal', 'ai-director');
-                    url.searchParams.delete('action');
-                    url.searchParams.delete('id');
-                    url.searchParams.delete('type');
-                    window.history.replaceState(null, '', url.toString());
-                }
+                handleBackToList();
             } else {
                 if (typeof window !== 'undefined') {
                     const url = new URL(window.location.href);
@@ -1709,7 +1715,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                             {/* Header Modal Biên Tập */}
                             <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-slate-950 shrink-0">
                                 <div className="flex items-center gap-3">
-                                    <button onClick={() => setView('list')} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors border border-white/5 cursor-pointer">
+                                    <button onClick={handleBackToList} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors border border-white/5 cursor-pointer">
                                         <ChevronLeft size={16} /> Quay lại danh sách
                                     </button>
                                     <span className="text-xs sm:text-sm font-bold text-indigo-400 uppercase tracking-widest truncate max-w-md">
@@ -1720,7 +1726,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                     <button onClick={handleGenerateAllAudio} disabled={saving || downloadingAudio} className="bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 font-bold py-1.5 px-3.5 rounded-xl text-xs flex items-center gap-1.5 transition-colors border border-amber-500/20 disabled:opacity-50 cursor-pointer">
                                         <Music size={14} /> Tạo tất cả Audio
                                     </button>
-                                    <button onClick={() => setView('list')} className="text-slate-400 hover:text-white transition-colors p-2 rounded-xl hover:bg-slate-800 cursor-pointer" title="Đóng modal biên tập">
+                                    <button onClick={handleBackToList} className="text-slate-400 hover:text-white transition-colors p-2 rounded-xl hover:bg-slate-800 cursor-pointer" title="Đóng modal biên tập">
                                         <X size={20} />
                                     </button>
                                 </div>
@@ -2114,7 +2120,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
 
                                     {/* Nút Hủy / Quay lại */}
                                     <button 
-                                        onClick={() => setView('list')} 
+                                        onClick={handleBackToList} 
                                         disabled={saving || isRegenerating || generatingAudio} 
                                         className="w-8 h-8 bg-slate-800 hover:bg-slate-750 text-slate-400 hover:text-white border border-white/5 rounded-lg flex items-center justify-center transition-all disabled:opacity-40 cursor-pointer shrink-0 mt-2"
                                         title="Quay lại danh sách"
