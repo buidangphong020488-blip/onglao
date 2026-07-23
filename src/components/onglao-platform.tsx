@@ -706,10 +706,14 @@ const OngLaoPlatform = ({ initialPoems = [], autoOpenVideoModal = false }: { ini
       const urlParams = new URLSearchParams(window.location.search);
       const modalParam = urlParams.get('modal');
       const childModal = urlParams.get('childmodal');
-      const scriptIdParam = urlParams.get('scriptid') || urlParams.get('videoid') || urlParams.get('id');
+      const scriptIdParam = urlParams.get('scriptid') || urlParams.get('id');
+      const videoIdParam = urlParams.get('videoid');
 
       if (scriptIdParam) {
         setCurrentSessionId(scriptIdParam);
+      } else if (videoIdParam && !videoIdParam.startsWith('vid_')) {
+        // Fallback cho URL cũ dùng videoid làm kịch bản ID
+        setCurrentSessionId(videoIdParam);
       }
       
       // Mở video creator khi URL có modal=create-video hoặc childmodal=create-video (từ script form)

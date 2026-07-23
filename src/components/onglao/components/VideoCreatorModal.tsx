@@ -222,6 +222,49 @@ const VideoCreatorModal = () => {
       }
   };
 
+  // Tự động nạp video đã render gần nhất của kịch bản hiện tại (hoặc theo tham số videoid từ URL)
+  React.useEffect(() => {
+    if (!p.showVideoExportModal) return;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlVideoId = urlParams.get('videoid');
+    
+    if (urlVideoId && p.renderHistory?.length > 0) {
+      const matchedVideo = p.renderHistory.find((v: any) => v.id === urlVideoId);
+      if (matchedVideo) {
+        p.setRenderedVideoUrl(matchedVideo.url);
+        p.setRenderedVideoBlob?.(matchedVideo.blob || null);
+        return;
+      }
+    }
+    
+    if (p.currentSessionId && p.renderHistory?.length > 0) {
+      const sessionVideos = p.renderHistory.filter((v: any) => v.sessionId === p.currentSessionId);
+      if (sessionVideos.length > 0) {
+        const latestVideo = sessionVideos[0];
+        p.setRenderedVideoUrl(latestVideo.url);
+        p.setRenderedVideoBlob?.(latestVideo.blob || null);
+        
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.set('videoid', latestVideo.id);
+          window.history.replaceState(null, '', url.toString());
+        }
+      } else {
+        p.setRenderedVideoUrl(null);
+        p.setRenderedVideoBlob?.(null);
+        // Xóa videoid khỏi URL nếu không có video nào đã render cho kịch bản này
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          if (url.searchParams.has('videoid')) {
+            url.searchParams.delete('videoid');
+            window.history.replaceState(null, '', url.toString());
+          }
+        }
+      }
+    }
+  }, [p.showVideoExportModal, p.currentSessionId, p.renderHistory]);
+
   // Tự động chia cảnh theo từng câu thoại khi mở modal (nếu chưa có scene gán message cụ thể)
   React.useEffect(() => {
     if (!p.showVideoExportModal) return;

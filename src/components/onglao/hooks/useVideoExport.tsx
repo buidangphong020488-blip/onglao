@@ -248,7 +248,8 @@ export const useVideoExport = ({
         createdAt: Date.now(),
         resolution: videoResolution,
         aspectRatio: videoAspectRatio,
-        format: videoExt || 'mp4'
+        format: videoExt || 'mp4',
+        sessionId: currentSessionId
       };
 
       if (blob) {
@@ -266,7 +267,8 @@ export const useVideoExport = ({
           createdAt: newItem.createdAt,
           resolution: newItem.resolution,
           aspectRatio: newItem.aspectRatio,
-          format: newItem.format
+          format: newItem.format,
+          sessionId: newItem.sessionId
         })
       }).catch(err => console.warn('Lỗi lưu PostgreSQL:', err));
 
@@ -280,7 +282,8 @@ export const useVideoExport = ({
             createdAt: h.createdAt,
             resolution: h.resolution,
             aspectRatio: h.aspectRatio,
-            format: h.format
+            format: h.format,
+            sessionId: h.sessionId
           }));
           localStorage.setItem('onglao_video_render_history', JSON.stringify(jsonList));
         } catch (e) {}
