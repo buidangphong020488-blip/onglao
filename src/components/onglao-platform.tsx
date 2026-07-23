@@ -706,6 +706,11 @@ const OngLaoPlatform = ({ initialPoems = [], autoOpenVideoModal = false }: { ini
       const urlParams = new URLSearchParams(window.location.search);
       const modalParam = urlParams.get('modal');
       const childModal = urlParams.get('childmodal');
+      const videoIdParam = urlParams.get('videoid') || urlParams.get('id');
+
+      if (videoIdParam) {
+        setCurrentSessionId(videoIdParam);
+      }
       
       // Mở video creator khi URL có modal=create-video hoặc childmodal=create-video (từ script form)
       if (autoOpenVideoModal || modalParam === 'create-video' || childModal === 'create-video') {
@@ -771,14 +776,14 @@ const OngLaoPlatform = ({ initialPoems = [], autoOpenVideoModal = false }: { ini
     }
   }, [videoExportState.showVideoExportModal, poemDbState.showPoemModal, currentSessionId, showAiManager]);
 
-  // Tải tin nhắn cho session hiện tại khi chuyển session
+  // Tải tin nhắn cho session hiện tại khi chuyển session hoặc khôi phục từ URL
   useEffect(() => {
     if (!currentSessionId) return;
     const loadSessionMessages = async () => {
       const s = sessions.find(x => x.id === currentSessionId);
-      if (s && !s.messagesLoaded) {
+      if (!s || !s.messagesLoaded || !s.messages || s.messages.length === 0) {
         const res = await getChatMessagesAction(currentSessionId);
-        if (res.success && res.data) {
+        if (res.success && res.data && res.data.length > 0) {
           const mapped = res.data.map((m: any) => ({
             id: m.id || m.msgId || Date.now(),
             role: m.role === 'ASSISTANT' ? 'ai' : (m.role === 'OUTRO' ? 'outro' : 'user'),
@@ -788,7 +793,15 @@ const OngLaoPlatform = ({ initialPoems = [], autoOpenVideoModal = false }: { ini
             sessionId: currentSessionId,
             emotion: m.emotion || 'calm'
           }));
-          setSessions(prev => prev.map(x => x.id === currentSessionId ? { ...x, messages: mapped, messagesLoaded: true } : x));
+          setMessages(mapped);
+          setSessions(prev => {
+            const exists = prev.some(x => x.id === currentSessionId);
+            if (exists) {
+              return prev.map(x => x.id === currentSessionId ? { ...x, messages: mapped, messagesLoaded: true } : x);
+            } else {
+              return [{ id: currentSessionId, title: s?.title || 'Kịch bản', messages: mapped, messagesLoaded: true }, ...prev];
+            }
+          });
         }
       }
     };

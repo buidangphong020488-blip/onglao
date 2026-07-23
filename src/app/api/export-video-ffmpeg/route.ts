@@ -121,15 +121,15 @@ export async function POST(req: NextRequest) {
     let finalCmd = `"${ffmpegBin}" -y -i "${concatenatedVideoPath}" -i "${audioFilePath}"`;
 
     if (bgmFilePath) {
-      finalCmd += ` -i "${bgmFilePath}" -filter_complex "[1:a]volume=1.0[a1];[2:a]volume=${bgmVolume}[a2];[a1][a2]amix=inputs=2:duration=first[aout]" -map 0:v -map "[aout]"`;
+      finalCmd += ` -i "${bgmFilePath}" -filter_complex "[1:a]volume=1.0[a1];[2:a]volume=${bgmVolume}[a2];[a1][a2]amix=inputs=2:duration=first[aout]" -map 0:v:0 -map "[aout]" -shortest`;
     } else {
-      finalCmd += ` -c:v copy -c:a aac -shortest`;
+      finalCmd += ` -map 0:v:0 -map 1:a:0 -shortest`;
     }
 
     if (format === 'webm') {
       finalCmd += ` -c:v libvpx-vp9 -b:v 15M -c:a libopus "${finalOutputPath}"`;
     } else {
-      finalCmd += ` -c:v libx264 -preset fast -crf 18 -pix_fmt yuv420p -c:a aac -b:a 192k "${finalOutputPath}"`;
+      finalCmd += ` -c:v copy -c:a aac -b:a 192k "${finalOutputPath}"`;
     }
 
     console.log('Running FFmpeg Final Cmd:', finalCmd);

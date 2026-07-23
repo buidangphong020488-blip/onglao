@@ -172,6 +172,16 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
 
         // Set session ID và mở VideoExport modal chồng lên
         p.setCurrentSessionId(scriptId);
+        if (p.setSessions && selectedScript.messages) {
+            p.setSessions((prev: any[]) => {
+                const exists = prev?.some((x: any) => x.id === scriptId);
+                if (exists) {
+                    return prev.map((x: any) => x.id === scriptId ? { ...x, messages: selectedScript.messages, messagesLoaded: true } : x);
+                } else {
+                    return [{ ...selectedScript, messagesLoaded: true }, ...(prev || [])];
+                }
+            });
+        }
         if (p.setVideoExportSource) p.setVideoExportSource('ai_director_childmodal');
         if (p.setShowVideoExportModal) p.setShowVideoExportModal(true);
     };

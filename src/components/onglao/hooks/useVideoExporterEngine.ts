@@ -1258,7 +1258,8 @@ export const useVideoExporterEngine = ({
         }
 
         // introDuration is defined at the top of drawFrame 
-        if (enableIntro && ct <= introDuration) {
+        const hasValidIntro = enableIntro && Boolean(introTitle?.trim() || introSubtitle?.trim());
+        if (hasValidIntro && ct <= introDuration) {
             const opacity = ct <= 1.0 ? ct : (ct >= introDuration - 1.0 ? (introDuration - ct) : 1.0);
             
             ctx.fillStyle = `rgba(15, 23, 42, ${opacity * 0.95})`;
@@ -1268,16 +1269,16 @@ export const useVideoExporterEngine = ({
             ctx.font = `black ${titleSize}px sans-serif`;
             ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
             ctx.textAlign = 'center';
-            ctx.fillText(introTitle, width / 2, height / 2 - (titleSize * 0.6));
+            if (introTitle) ctx.fillText(introTitle, width / 2, height / 2 - (titleSize * 0.6));
 
             const subtitleSize = Math.max(16, Math.min(width, height) * 0.03);
             ctx.font = `500 ${subtitleSize}px sans-serif`;
             ctx.fillStyle = `rgba(249, 115, 22, ${opacity})`; 
-            ctx.fillText(introSubtitle, width / 2, height / 2 + (subtitleSize * 0.8));
+            if (introSubtitle) ctx.fillText(introSubtitle, width / 2, height / 2 + (subtitleSize * 0.8));
         }
 
         // 6. Vẽ Phụ đề lời thoại (Subtitles)
-        if (lines.length > 0 && ct > (enableIntro ? introDuration - 0.5 : 0)) {
+        if (lines.length > 0 && ct > (hasValidIntro ? introDuration - 0.5 : 0)) {
             const fontSizeText = Math.max(18, Math.min(width, height) * 0.035 * subtitleScale);
             ctx.font = `bold ${fontSizeText}px sans-serif`;
             ctx.textAlign = 'center';
