@@ -765,6 +765,26 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
             p.showToastMsg('Đã lưu kịch bản thành công!', 'success');
             if (shouldTransition) {
                 setView('list');
+                setSelectedScript(null);
+                setEditingMessages([]);
+                setEditingRawText('');
+                if (typeof window !== 'undefined') {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('modal', 'ai-director');
+                    url.searchParams.delete('action');
+                    url.searchParams.delete('id');
+                    url.searchParams.delete('type');
+                    window.history.replaceState(null, '', url.toString());
+                }
+            } else {
+                if (typeof window !== 'undefined') {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('modal', 'ai-director');
+                    url.searchParams.set('action', 'update');
+                    url.searchParams.set('type', finalTitle.toLowerCase().includes('[thủ công]') ? 'manual' : 'ai');
+                    url.searchParams.set('id', realSessionId);
+                    window.history.replaceState(null, '', url.toString());
+                }
             }
         } catch (err: any) {
             console.error("Lỗi khi lưu kịch bản:", err);
