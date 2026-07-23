@@ -366,12 +366,13 @@ const VideoCreatorModal = () => {
     allCharacters, currentLaoPresetId, setCurrentLaoPresetId, currentUserPresetId, setCurrentUserPresetId,
     renderHistory, setRenderHistory, deleteRenderHistoryItem
   } = p;
+
   const filteredHistory = React.useMemo(() => {
     if (!renderHistory) return [];
     if (!p.currentSessionId) return renderHistory;
     return renderHistory.filter((item: any) => item.sessionId === p.currentSessionId);
   }, [renderHistory, p.currentSessionId]);
-  if (!p.showVideoExportModal) return null;
+
   React.useEffect(() => {
     if (!p.showVideoExportModal) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -382,6 +383,8 @@ const VideoCreatorModal = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [p.showVideoExportModal]);
+
+  if (!p.showVideoExportModal) return null;
 
   return (
          <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-md flex justify-center items-center p-4 md:p-6">
