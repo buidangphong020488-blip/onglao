@@ -325,18 +325,12 @@ const AiDirectorModal = (p: AiDirectorModalProps) => {
                             Kịch bản đã tạo (Bạn có thể sửa trực tiếp):
                         </label>
                             <div className="bg-slate-950 border border-emerald-500/30 rounded-xl mt-2 overflow-hidden">
-                                <ScriptModal
-                                    hideOptions={true}
-                                    show={true}
-                                    scriptText={localGenScript}
-                                    setScriptText={setLocalGenScript}
-                                    publicSettings={p.publicSettings}
-                                    customLaoName={p.customLaoName}
-                                    customUserName={p.customUserName}
-                                    importMode="new"
-                                    setImportMode={() => {}}
-                                    onImport={() => {}}
-                                    onClose={() => {}}
+                                <textarea
+                                    value={localGenScript}
+                                    onChange={(e) => setLocalGenScript(e.target.value)}
+                                    placeholder="Nội dung kịch bản AI..."
+                                    rows={10}
+                                    className="w-full bg-slate-950 p-3.5 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono leading-relaxed resize-y custom-scrollbar outline-none border-none"
                                 />
                             </div>
                     </div>
@@ -470,18 +464,12 @@ const AiDirectorModal = (p: AiDirectorModalProps) => {
                                 Kịch bản đã tạo — kiểm tra rồi nhấn Lưu!
                             </label>
                             <div className="bg-slate-950 border border-emerald-500/30 rounded-xl mt-2 overflow-hidden">
-                                <ScriptModal
-                                    hideOptions={true}
-                                    show={true}
-                                    scriptText={localGenScript}
-                                    setScriptText={setLocalGenScript}
-                                    publicSettings={p.publicSettings}
-                                    customLaoName={p.customLaoName}
-                                    customUserName={p.customUserName}
-                                    importMode="new"
-                                    setImportMode={() => {}}
-                                    onImport={() => {}}
-                                    onClose={() => {}}
+                                <textarea
+                                    value={localGenScript}
+                                    onChange={(e) => setLocalGenScript(e.target.value)}
+                                    placeholder="Nội dung kịch bản AI..."
+                                    rows={10}
+                                    className="w-full bg-slate-950 p-3.5 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono leading-relaxed resize-y custom-scrollbar outline-none border-none"
                                 />
                             </div>
                         </div>
