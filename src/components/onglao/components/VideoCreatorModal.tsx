@@ -731,69 +731,34 @@ const VideoCreatorModal = () => {
                                             <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                                                 {/* Hiển thị tóm tắt câu thoại, sửa chữ và tạo/phát âm thanh trực tiếp */}
                                                 {(() => {
-                                                    // Tìm message tương ứng với scene qua msgId
                                                     const msg = scene.msgId ? messages?.find((m: any) => m.id === scene.msgId) : null;
-                                                    if (msg) {
-                                                        const isAudioPlaying = playingMsgId === scene.msgId;
+                                                    const currentText = msg ? msg.text : (scene.textSnippet || '');
+                                                    const isAudioPlaying = scene.msgId ? (playingMsgId === scene.msgId) : false;
 
-                                                        return (
-                                                            <div className="flex flex-col gap-1 w-full bg-slate-900/40 p-1.5 rounded-lg border border-white/5 relative">
-                                                                <textarea
-                                                                    defaultValue={msg.text}
-                                                                    onBlur={(e) => handleTextBlur(scene, e.target.value)}
-                                                                    placeholder="Nội dung câu thoại..."
-                                                                    rows={1}
-                                                                    className="w-full bg-slate-950 border border-white/10 focus:border-indigo-500/50 rounded px-1.5 py-0.5 text-[9px] text-slate-200 outline-none resize-none font-medium leading-normal min-h-[36px] scrollbar-hide"
-                                                                    title="Bấm vào đây để sửa câu thoại trực tiếp"
-                                                                />
-                                                                {/* Thanh thời gian chạy của audio khi play */}
-                                                                {isAudioPlaying && audioProgressMap[scene.msgId] && (
-                                                                    <div className="w-full bg-slate-950/80 rounded-full h-1 overflow-hidden mt-0.5">
-                                                                        <div 
-                                                                            className="bg-gradient-to-r from-indigo-500 to-violet-500 h-full rounded-full transition-all duration-100 ease-linear"
-                                                                            style={{
-                                                                                width: `${(audioProgressMap[scene.msgId].currentTime / audioProgressMap[scene.msgId].duration) * 100}%`
-                                                                            }}
-                                                                        />
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    }
-
-                                                    // --- Fallback cũ cho các scene không có msgId trực tiếp ---
-                                                    const targetRole = scene.role === 'lao' ? 'ai' : (scene.role === 'user' ? 'user' : 'outro');
-                                                    if (scene.textSnippet) return (
-                                                        <div className="w-full text-[10px] text-slate-300 italic truncate mb-0.5 bg-slate-900 px-1.5 py-0.5 rounded border border-white/5" title={scene.textSnippet}>
-                                                            "{scene.textSnippet}"
+                                                    return (
+                                                        <div className="flex flex-col gap-1 w-full bg-slate-900/40 p-1.5 rounded-lg border border-white/5 relative">
+                                                            <textarea
+                                                                defaultValue={currentText}
+                                                                onBlur={(e) => handleTextBlur(scene, e.target.value)}
+                                                                placeholder="Nội dung câu thoại..."
+                                                                rows={1}
+                                                                className="w-full bg-slate-950 border border-white/10 focus:border-indigo-500/50 rounded px-1.5 py-0.5 text-[9px] text-slate-200 outline-none resize-none font-medium leading-normal min-h-[36px] scrollbar-hide"
+                                                                title="Bấm vào đây để sửa câu thoại trực tiếp"
+                                                            />
+                                                            {/* Thanh thời gian chạy của audio khi play */}
+                                                            {isAudioPlaying && scene.msgId && audioProgressMap[scene.msgId] && (
+                                                                <div className="w-full bg-slate-950/80 rounded-full h-1 overflow-hidden mt-0.5">
+                                                                    <div 
+                                                                        className="bg-gradient-to-r from-indigo-500 to-violet-500 h-full rounded-full transition-all duration-100 ease-linear"
+                                                                        style={{
+                                                                            width: `${(audioProgressMap[scene.msgId].currentTime / audioProgressMap[scene.msgId].duration) * 100}%`
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     );
-                                                    if (targetRole === 'outro') return null;
-                                                    
-                                                    const matchedMsgs = messages.filter((m: any) => {
-                                                        const mRole = m.role === 'ASSISTANT' || m.role === 'ai' ? 'ai' : 'user';
-                                                        return mRole === targetRole;
-                                                    });
-
-                                                    if (matchedMsgs.length === 0) return (
-                                                        <div className="w-full text-[8px] text-amber-400 bg-amber-900/20 px-1.5 py-1 rounded border border-amber-500/20 mb-0.5">
-                                                            ⚠️ Chưa có thoại khớp vai này
-                                                        </div>
-                                                    );
-
-                                                    if (matchedMsgs.length === 1) {
-                                                        const m = matchedMsgs[0];
-                                                        return (
-                                                            <div className="w-full text-[10px] text-slate-300 italic mb-0.5 bg-slate-900 px-1.5 py-1 rounded border border-white/5" title={m.text}>
-                                                                <span className="text-indigo-400 font-bold not-italic mr-1">Thoại:</span>
-                                                                "{m.text}"
-                                                            </div>
-                                                        );
-                                                    }
-
-                                                    return null;
                                                 })()}
-                                                
                                                 {(() => {
                                                     const msg = scene.msgId ? messages?.find((m: any) => m.id === scene.msgId) : null;
                                                     const hasAudio = msg ? !!msg.audioUrl : false;
