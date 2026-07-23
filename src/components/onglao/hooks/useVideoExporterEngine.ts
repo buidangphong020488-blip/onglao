@@ -928,21 +928,29 @@ export const useVideoExporterEngine = ({
             return;
 
           } else {
-
-            console.warn('FFmpeg server returned non-ok status, falling back to frame-accurate canvas');
-
+            const errText = await res.text().catch(() => '');
+            let msg = `Lỗi từ Server FFmpeg (${res.status})`;
+            if (res.status === 413) {
+              msg = 'Lỗi HTTP 413 (Payload Too Large): Dung lượng upload quá lớn. Lão hãy mở aaPanel -> Nginx config và thêm "client_max_body_size 500M;".';
+            } else if (errText) {
+              msg += `: ${errText.slice(0, 150)}`;
+            }
+            showToastMsg(msg, 'error', 10000);
+            setIsExportingVideo(false);
+            setIsPreparingVideoData(false);
+            return;
           }
-
         } else {
-
-          console.warn('Không có video clip MP4 dựng sẵn (2D Character Mode). Tự động dùng Canvas Exporter Engine.');
-
+          showToastMsg('Không có đoạn video clip nào để render bằng FFmpeg. Lão hãy bấm chọn lại Kho Cảnh Quay.', 'error', 8000);
+          setIsExportingVideo(false);
+          setIsPreparingVideoData(false);
+          return;
         }
-
       } catch (ffmpegErr: any) {
-
-        console.warn('FFmpeg Engine export error, falling back to canvas:', ffmpegErr);
-
+        showToastMsg(`Lỗi kết nối Server FFmpeg: ${ffmpegErr?.message || ffmpegErr}`, 'error', 8000);
+        setIsExportingVideo(false);
+        setIsPreparingVideoData(false);
+        return;
       }
 
       // Cấu hình tham số xuất video (Kích thước tùy thuộc vào độ phân giải đã chọn)
