@@ -238,29 +238,41 @@ const VideoCreatorModal = () => {
       }
     }
     
-    if (p.currentSessionId && p.renderHistory?.length > 0) {
-      const sessionVideos = p.renderHistory.filter((v: any) => v.sessionId === p.currentSessionId);
+    if (p.renderHistory?.length > 0) {
+      // 1. Tìm video của kịch bản hiện tại
+      const sessionVideos = p.currentSessionId 
+        ? p.renderHistory.filter((v: any) => v.sessionId === p.currentSessionId)
+        : [];
+        
+      let targetVideo = null;
       if (sessionVideos.length > 0) {
-        const latestVideo = sessionVideos[0];
-        p.setRenderedVideoUrl(latestVideo.url);
-        p.setRenderedVideoBlob?.(latestVideo.blob || null);
+        targetVideo = sessionVideos[0];
+      } else {
+        // Fallback: Lấy video mới nhất trong lịch sử làm mặc định nếu không có video khớp sessionId
+        targetVideo = p.renderHistory[0];
+      }
+      
+      if (targetVideo) {
+        p.setRenderedVideoUrl(targetVideo.url);
+        p.setRenderedVideoBlob?.(targetVideo.blob || null);
         
         if (typeof window !== 'undefined') {
           const url = new URL(window.location.href);
-          url.searchParams.set('videoid', latestVideo.id);
+          url.searchParams.set('videoid', targetVideo.id);
           window.history.replaceState(null, '', url.toString());
         }
-      } else {
-        p.setRenderedVideoUrl(null);
-        p.setRenderedVideoBlob?.(null);
-        // Xóa videoid khỏi URL nếu không có video nào đã render cho kịch bản này
-        if (typeof window !== 'undefined') {
-          const url = new URL(window.location.href);
-          if (url.searchParams.has('videoid')) {
-            url.searchParams.delete('videoid');
-            window.history.replaceState(null, '', url.toString());
-          }
-        }
+        return;
+      }
+    }
+    
+    // Nếu hoàn toàn không có lịch sử video nào
+    p.setRenderedVideoUrl(null);
+    p.setRenderedVideoBlob?.(null);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('videoid')) {
+        url.searchParams.delete('videoid');
+        window.history.replaceState(null, '', url.toString());
       }
     }
   }, [p.showVideoExportModal, p.currentSessionId, p.renderHistory]);
