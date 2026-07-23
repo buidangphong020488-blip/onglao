@@ -204,6 +204,7 @@ const VideoCreatorModal = () => {
       if (p.showToastMsg) p.showToastMsg(`Đã ghép tự động ${validFiles.length} video!`, 'success');
   };
 
+  const [videoSubTab, setVideoSubTab] = React.useState<'clips' | 'logo_music' | 'history'>('clips');
   const [playingMsgId, setPlayingMsgId] = React.useState<string | null>(null);
   const [localAudio, setLocalAudio] = React.useState<HTMLAudioElement | null>(null);
   const [audioProgressMap, setAudioProgressMap] = React.useState<Record<string, { currentTime: number; duration: number }>>({});
@@ -475,7 +476,49 @@ const VideoCreatorModal = () => {
                                 </div>
                              </div>
 
-                         {/* Chế độ Cắt ghép Video Dựng sẵn Toàn Cảnh */}
+                         {/* THANH 3 SUB-TAB NẰM TRONG TAB CƠ BẢN (VIDEO) */}
+                          <div className="flex border-b border-white/10 my-1 bg-slate-950 p-1 rounded-xl border border-white/5 shrink-0 gap-1">
+                             <button 
+                                type="button" 
+                                onClick={() => setVideoSubTab('clips')} 
+                                className={`flex-1 py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                                   videoSubTab === 'clips' 
+                                      ? 'bg-emerald-600 text-white shadow-md' 
+                                      : 'text-slate-400 hover:text-white bg-slate-900/60'
+                                }`}
+                             >
+                                <Film size={13}/> Video Clips
+                             </button>
+
+                             <button 
+                                type="button" 
+                                onClick={() => setVideoSubTab('logo_music')} 
+                                className={`flex-1 py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                                   videoSubTab === 'logo_music' 
+                                      ? 'bg-amber-600 text-white shadow-md' 
+                                      : 'text-slate-400 hover:text-white bg-slate-900/60'
+                                }`}
+                             >
+                                <Music4 size={13}/> Logo & Chọn Nhạc
+                             </button>
+
+                             <button 
+                                type="button" 
+                                onClick={() => setVideoSubTab('history')} 
+                                className={`flex-1 py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                                   videoSubTab === 'history' 
+                                      ? 'bg-indigo-600 text-white shadow-md' 
+                                      : 'text-slate-400 hover:text-white bg-slate-900/60'
+                                }`}
+                             >
+                                <FileText size={13}/> Lịch Sử Render {filteredHistory?.length > 0 ? `(${filteredHistory.length})` : ''}
+                             </button>
+                          </div>
+
+                          {/* SUB-TAB 1: VIDEO CLIPS & DANH SÁCH CẢNH */}
+                          {videoSubTab === 'clips' && (
+                             <div className="flex flex-col gap-3 flex-1 overflow-y-auto animate-in fade-in pr-1">
+                                {/* Chế độ Cắt ghép Video Dựng sẵn Toàn Cảnh */}
                          <div className="flex flex-col gap-2 mt-1 mb-1 animate-in fade-in">
                             <label className="text-xs font-bold text-emerald-400 tracking-wider flex items-center gap-1.5"><Film size={14}/> Video Dựng Sẵn Toàn Cảnh</label>
                             <div className="flex items-center justify-between bg-slate-950 p-3 rounded-xl border border-emerald-500/30 shadow-inner">
@@ -895,8 +938,13 @@ const VideoCreatorModal = () => {
                                 </div>
                             )}
                          </div>
+                             </div>
+                          )}
 
-                         {/* Khu vực Tùy chỉnh Logo & Watermark */}
+                          {/* SUB-TAB 2: LOGO WATERMARK & CHỌN NHẠC BGM */}
+                          {videoSubTab === 'logo_music' && (
+                             <div className="flex flex-col gap-4 flex-1 overflow-y-auto animate-in fade-in pr-1">
+                                {/* Khu vực Tùy chỉnh Logo & Watermark */}
                          <div className="flex flex-col gap-2">
                             <label className="text-xs font-bold text-amber-400 tracking-wider flex items-center gap-1.5"><ImageIcon size={14}/> Logo & Đóng Dấu (Watermark)</label>
                             <div className="flex flex-col gap-3 bg-slate-950 p-3 rounded-xl border border-white/10">
@@ -1011,8 +1059,73 @@ const VideoCreatorModal = () => {
                                    </div>
                                 </div>
                              </div>
+                             </div>
+                          )}
 
-                             <div className="mt-3 pt-3 border-t border-white/5">
+                          {/* SUB-TAB 3: LỊCH SỬ RENDER */}
+                          {videoSubTab === 'history' && (
+                             <div className="flex flex-col gap-3 flex-1 overflow-y-auto animate-in fade-in pr-1">
+                                 <div className="flex items-center justify-between bg-slate-800/80 p-3 rounded-xl border border-white/10 shrink-0">
+                                    <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5"><Film size={14}/> Lịch Sử Video Đã Render</span>
+                                    <span className="text-[10px] text-slate-400 font-mono">{filteredHistory?.length || 0} video</span>
+                                 </div>
+
+                                 {!filteredHistory || filteredHistory.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center p-6 text-center bg-slate-950/50 rounded-xl border border-dashed border-white/10">
+                                       <Film size={28} className="text-slate-600 mb-2" />
+                                       <p className="text-xs text-slate-400 font-bold mb-1">Chưa có video nào trong lịch sử</p>
+                                       <p className="text-[10px] text-slate-500">Bấm nút "Bắt Đầu Render Video" bên dưới để xuất video mới.</p>
+                                    </div>
+                                 ) : (
+                                    <div className="flex flex-col gap-3 overflow-y-auto pr-1 max-h-[45vh]">
+                                       {filteredHistory.map((item: any, idx: number) => (
+                                          <div key={item.id || idx} className={`flex flex-col p-3 rounded-xl border transition-all ${renderedVideoUrl === item.url ? 'bg-emerald-950/40 border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.15)]' : 'bg-slate-950 border-white/10 hover:border-white/20'}`}>
+                                             <div className="flex items-center justify-between mb-1.5">
+                                                <div className="flex items-center gap-2">
+                                                   <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold flex items-center justify-center font-mono">#{filteredHistory.length - idx}</span>
+                                                   <span className="text-xs font-bold text-white truncate max-w-[180px]">{item.name || `Video #${filteredHistory.length - idx}`}</span>
+                                                </div>
+                                                <span className="text-[10px] text-slate-400 font-mono">{item.createdAt ? new Date(item.createdAt).toLocaleTimeString('vi-VN') : ''}</span>
+                                             </div>
+
+                                             <div className="flex items-center gap-2 text-[10px] text-slate-400 mb-2.5">
+                                                <span className="bg-slate-900 px-2 py-0.5 rounded font-mono text-amber-300 border border-white/5">{item.resolution || '1080'}p</span>
+                                                <span className="bg-slate-900 px-2 py-0.5 rounded font-mono text-cyan-300 border border-white/5">{item.aspectRatio || '16x9'}</span>
+                                                <span className="bg-slate-900 px-2 py-0.5 rounded font-mono uppercase text-emerald-300 border border-white/5">{item.format || 'mp4'}</span>
+                                             </div>
+
+                                             <div className="grid grid-cols-3 gap-2">
+                                                <button type="button" onClick={() => { 
+                                                   setRenderedVideoUrl(item.url); 
+                                                   setRenderedVideoBlob(item.blob || null); 
+                                                   if (typeof window !== 'undefined') {
+                                                      const url = new URL(window.location.href);
+                                                      url.searchParams.set('videoid', item.id);
+                                                      window.history.replaceState(null, '', url.toString());
+                                                   }
+                                                }} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1.5 rounded-lg text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer">
+                                                   <PlayCircle size={12}/> Xem
+                                                </button>
+                                                <button type="button" onClick={() => {
+                                                   const a = document.createElement('a');
+                                                   a.href = item.url;
+                                                   a.download = `${item.name || 'OngLao_Video'}.${item.format || 'mp4'}`;
+                                                   a.click();
+                                                }} className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-1.5 rounded-lg text-[10px] flex items-center justify-center gap-1 border border-white/10 transition-all cursor-pointer">
+                                                   <Save size={12}/> Tải Về
+                                                </button>
+                                                <button type="button" onClick={() => { if (deleteRenderHistoryItem) deleteRenderHistoryItem(item.id); }} className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold py-1.5 rounded-lg text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer">
+                                                   <X size={12}/> Xóa
+                                                </button>
+                                             </div>
+                                          </div>
+                                       ))}
+                                    </div>
+                                 )}
+                             </div>
+                          )}
+
+                          <div className="mt-auto pt-3 pb-1 border-t border-white/10 bg-slate-900 sticky bottom-0 z-20 shrink-0">
                                {!isExportingVideo ? (
                                   <div className="grid grid-cols-2 gap-2 w-full">
                                      <button 
@@ -1035,8 +1148,7 @@ const VideoCreatorModal = () => {
                                      <XCircle size={14}/> Dừng & Hủy Bỏ Render
                                   </button>
                                )}
-                             </div>
-                          </div>
+                             </div>                          </div>
                         )}
 
                         {/* TÂM AN THÊM TAB: THÔNG ĐIỆP (INTRO/OUTRO) */}
