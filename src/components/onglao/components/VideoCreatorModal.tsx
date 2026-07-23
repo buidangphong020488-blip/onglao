@@ -24,10 +24,11 @@ const generateVideoPoster = (url: string): Promise<string> => {
             video.load();
         };
 
-        const timeout = setTimeout(() => { cleanup(); resolve(''); }, 2000);
+        const timeout = setTimeout(() => { cleanup(); resolve(''); }, 3500);
 
-        video.onloadeddata = () => {
-            video.currentTime = 0.3;
+        video.onloadedmetadata = () => {
+            const seekTime = Math.min(0.2, (video.duration || 1) / 2);
+            video.currentTime = seekTime;
         };
 
         video.onseeked = () => {
@@ -60,12 +61,14 @@ const generateVideoPoster = (url: string): Promise<string> => {
 };
 
 // SceneThumbnailItem: Component thumbnail chụp ảnh tĩnh poster, hiển thị ảnh xem trước sắc nét mà KHÔNG tốn RAM/GPU
-const SceneThumbnailItem = ({ scene, setFfScenes }: { scene: any; setFfScenes: any }) => {
+const SceneThumbnailItem = React.memo(({ scene, setFfScenes }: { scene: any; setFfScenes: any }) => {
     const [isHovered, setIsHovered] = React.useState(false);
     const [poster, setPoster] = React.useState(scene.poster || '');
 
     React.useEffect(() => {
-        if (scene.url && !poster) {
+        if (scene.poster) {
+            setPoster(scene.poster);
+        } else if (scene.url && !poster) {
             generateVideoPoster(scene.url).then(p => {
                 if (p) {
                     setPoster(p);
@@ -73,7 +76,7 @@ const SceneThumbnailItem = ({ scene, setFfScenes }: { scene: any; setFfScenes: a
                 }
             });
         }
-    }, [scene.url]);
+    }, [scene.url, scene.poster]);
 
     const handleFile = async (file: File) => {
         if (!file) return;
@@ -135,7 +138,7 @@ const SceneThumbnailItem = ({ scene, setFfScenes }: { scene: any; setFfScenes: a
             )}
         </label>
     );
-};
+});
 
 
 // VideoCreatorModal: Modal xuất video pháp bảo
@@ -145,6 +148,62 @@ const VideoCreatorModal = () => {
   const [selectedFfPackId, setSelectedFfPackId] = React.useState('');
 
   // States and Handlers for inline text/audio editing within VideoCreatorModal
+  const processBatchUploadFiles = async (files: File[]) => {
+      const validFiles = Array.from(files).filter(f => f.type.startsWith('video/'));
+      if (!validFiles.length) return;
+
+      const fileData = await Promise.all(validFiles.map(async (f: any) => {
+          const name = f.name.toLowerCase();
+          let role = 'user';
+          if (name.includes('lao') || name.includes('lão') || name.includes('ai') || name.includes('đáp')) role = 'lao';
+          else if (name.includes('outro') || name.includes('kết') || name.includes('ket')) role = 'outro';
+          
+          let em = 'calm';
+          if (name.includes('buon') || name.includes('buồn') || name.includes('sad')) em = 'sad';
+          else if (name.includes('vui') || name.includes('joy') || name.includes('hạnh phúc') || name.includes('hanh phuc')) em = 'joy';
+          else if (name.includes('hook') || name.includes('nhan manh') || name.includes('nhấn mạnh')) em = 'hook';
+          
+          const url = URL.createObjectURL(f);
+          const poster = await generateVideoPoster(url);
+          const idbKey = `ff_clip_${role}_${em}_${Date.now()}_${Math.floor(Math.random()*10000)}`;
+          setTimeout(() => { idb.set(idbKey, f).catch(err => console.warn('Lỗi lưu IDB:', err)); }, 100);
+          return { name: f.name, url, poster, role, emotion: em, idbKey };
+      }));
+
+      setFfScenes((prev: any[]) => {
+          const newScenes = [...prev];
+          const updatedIndices = new Set<number>();
+          
+          fileData.forEach(fd => {
+              let matchIdx = newScenes.findIndex((s, idx) => 
+                  (s.msgId || s.role === 'outro') &&
+                  s.role === fd.role && 
+                  s.emotion === fd.emotion && 
+                  !updatedIndices.has(idx)
+              );
+              if (matchIdx === -1) {
+                  matchIdx = newScenes.findIndex((s, idx) => 
+                      (s.msgId || s.role === 'outro') &&
+                      s.role === fd.role && 
+                      !updatedIndices.has(idx)
+                  );
+              }
+              
+              if (matchIdx !== -1) {
+                  newScenes[matchIdx] = { ...newScenes[matchIdx], url: fd.url, poster: fd.poster, idbKey: fd.idbKey };
+                  updatedIndices.add(matchIdx);
+              } else if (fd.role === 'outro') {
+                  const hasOutro = newScenes.some(s => s.role === 'outro');
+                  if (!hasOutro) {
+                      newScenes.push({ id: `scene_batch_${Date.now()}_${Math.random()}`, role: fd.role, emotion: fd.emotion, url: fd.url, poster: fd.poster, idbKey: fd.idbKey });
+                  }
+              }
+          });
+          return newScenes;
+      });
+      if (p.showToastMsg) p.showToastMsg(`Đã ghép tự động ${validFiles.length} video!`, 'success');
+  };
+
   const [playingMsgId, setPlayingMsgId] = React.useState<string | null>(null);
   const [localAudio, setLocalAudio] = React.useState<HTMLAudioElement | null>(null);
   const [audioProgressMap, setAudioProgressMap] = React.useState<Record<string, { currentTime: number; duration: number }>>({});
@@ -353,7 +412,7 @@ const VideoCreatorModal = () => {
 
   return (
          <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-md flex justify-center items-center p-4 md:p-6">
-           <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-6xl shadow-2xl flex flex-col h-[90vh] md:h-[85vh] overflow-hidden">
+           <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-7xl shadow-2xl flex flex-col h-[92vh] md:h-[88vh] overflow-hidden">
               <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-800 shrink-0">
                 <h2 className="font-black text-orange-400 tracking-widest flex items-center gap-2"><Film size={18}/> Xuất video pháp bảo</h2>
                 {!isExportingVideo && <button onClick={cancelVideoExport} className="text-slate-400 hover:text-white"><X size={20}/></button>}
@@ -361,7 +420,7 @@ const VideoCreatorModal = () => {
               
               <div className="flex flex-col md:flex-row gap-6 p-4 md:p-6 flex-1 min-h-0">
                  {/* BÊN TRÁI: BẢNG ĐIỀU CHỈNH THÔNG SỐ & LỊCH SỬ RENDER */}
-                 <div className={`w-full md:w-5/12 flex flex-col gap-4 overflow-y-auto pb-4 pr-2 scrollbar-hide h-full ${isPreviewFullscreen ? 'hidden md:flex opacity-0 pointer-events-none' : ''}`}>
+                 <div className={`w-full md:w-1/2 flex flex-col gap-4 overflow-y-auto pb-4 pr-3 scrollbar-thin scrollbar-thumb-slate-700 h-full ${isPreviewFullscreen ? 'hidden md:flex opacity-0 pointer-events-none' : ''}`}>
                     <div className="flex border-b border-white/10 mb-2 shrink-0 overflow-x-auto scrollbar-hide">
                        <button onClick={() => setExportTab('basic')} className={`flex-1 py-2.5 px-2 text-[11px] md:text-xs font-bold tracking-wider transition-all border-b-2 whitespace-nowrap ${exportTab === 'basic' ? 'border-orange-500 text-orange-400 bg-orange-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Cơ bản</button>
                        <button onClick={() => setExportTab('text')} className={`flex-1 py-2.5 px-2 text-[11px] md:text-xs font-bold tracking-wider transition-all border-b-2 whitespace-nowrap ${exportTab === 'text' ? 'border-yellow-500 text-yellow-400 bg-yellow-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Thông điệp</button>
