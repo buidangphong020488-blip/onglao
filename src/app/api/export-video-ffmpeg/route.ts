@@ -88,10 +88,7 @@ export async function POST(req: NextRequest) {
         if (existingClips.length > 0) {
           clipSourcePath = path.join(tmpDir, existingClips[0]);
         } else {
-          // Fallback cuối cùng nếu không có bất kỳ clip nào
-          clipSourcePath = path.join(tmpDir, `color_clip_${i}.mp4`);
-          const genCmd = `"${ffmpegPath}" -y -f lavfi -i color=c=black:s=${renderW}x${renderH}:r=60 -t ${clipDuration} -c:v libx264 -pix_fmt yuv420p "${clipSourcePath}"`;
-          await execAsync(genCmd);
+          return NextResponse.json({ message: `Không tìm thấy clip video hợp lệ cho cảnh ${i}` }, { status: 400 });
         }
       }
 

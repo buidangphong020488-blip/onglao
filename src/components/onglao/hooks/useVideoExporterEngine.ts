@@ -365,6 +365,16 @@ export const useVideoExporterEngine = ({
             let clipUrl = matchedScene?.url || '';
             let blobToConvert: Blob | null = null;
 
+            if (!clipUrl) {
+              if (meta.role === 'ai') {
+                const vidEl = laoExportVidRefs.current?.talking || laoExportVidRefs.current?.idle;
+                clipUrl = vidEl?.src || laoAppearance?.videoUrl || laoAppearance?.customVideos?.talking || '';
+              } else {
+                const vidEl = userExportVidRefs.current?.talking || userExportVidRefs.current?.idle;
+                clipUrl = vidEl?.src || userAppearance?.videoUrl || userAppearance?.customVideos?.talking || '';
+              }
+            }
+
             if (matchedScene?.idbKey) {
               try { blobToConvert = await idb.get(matchedScene.idbKey); } catch (e) {}
             }
@@ -452,30 +462,42 @@ export const useVideoExporterEngine = ({
           format: videoExt || 'mp4'
         }));
 
-        const res = await fetch('/api/export-video-ffmpeg', {
-          method: 'POST',
-          body: formData
-        });
+        let hasAnyClips = false;
+        for (const pair of (formData as any).entries()) {
+          if (pair[0].startsWith('clip_')) {
+            hasAnyClips = true;
+            break;
+          }
+        }
 
-        if (res.ok) {
-          const serverVideoUrlHeader = res.headers.get('X-Video-Url');
-          const serverFilenameHeader = res.headers.get('X-Video-Filename');
-          const exportedBlob = await res.blob();
-          const videoUrl = serverVideoUrlHeader 
-            ? serverVideoUrlHeader 
-            : URL.createObjectURL(exportedBlob);
+        if (hasAnyClips) {
+          const res = await fetch('/api/export-video-ffmpeg', {
+            method: 'POST',
+            body: formData
+          });
 
-          setRenderedVideoBlob(exportedBlob);
-          setRenderedVideoUrl(videoUrl);
-          if (saveRenderHistoryItem) saveRenderHistoryItem(exportedBlob, videoUrl, serverFilenameHeader || undefined);
-          if (setExportTab) setExportTab('history');
-          setIsExportingVideo(false);
-          setIsPreparingVideoData(false);
-          releaseExportRAM();
-          showToastMsg('🎉 Đã render xong video bằng FFmpeg Engine! Video mượt 100% không giật!', 'success', 5000);
-          return;
+          if (res.ok) {
+            const serverVideoUrlHeader = res.headers.get('X-Video-Url');
+            const serverFilenameHeader = res.headers.get('X-Video-Filename');
+            const exportedBlob = await res.blob();
+            const videoUrl = serverVideoUrlHeader 
+              ? serverVideoUrlHeader 
+              : URL.createObjectURL(exportedBlob);
+
+            setRenderedVideoBlob(exportedBlob);
+            setRenderedVideoUrl(videoUrl);
+            if (saveRenderHistoryItem) saveRenderHistoryItem(exportedBlob, videoUrl, serverFilenameHeader || undefined);
+            if (setExportTab) setExportTab('history');
+            setIsExportingVideo(false);
+            setIsPreparingVideoData(false);
+            releaseExportRAM();
+            showToastMsg('🎉 Đã render xong video bằng FFmpeg Engine! Video mượt 100% không giật!', 'success', 5000);
+            return;
+          } else {
+            console.warn('FFmpeg server returned non-ok status, falling back to frame-accurate canvas');
+          }
         } else {
-          console.warn('FFmpeg server returned non-ok status, falling back to frame-accurate canvas');
+          console.warn('Không có video clip MP4 dựng sẵn (2D Character Mode). Tự động dùng Canvas Exporter Engine.');
         }
       } catch (ffmpegErr: any) {
         console.warn('FFmpeg Engine export error, falling back to canvas:', ffmpegErr);
@@ -500,8 +522,8 @@ export const useVideoExporterEngine = ({
       canvas.width = width;
       canvas.height = height;
 
-      // Chuẩn bị luồng MediaStream ghi hình từ Canvas (Ghi hình chuẩn xác từng khung hình để khử 100% giật lag)
-      const canvasStream = canvas.captureStream(0);
+      // Chuẩn bị luồng MediaStream ghi hình từ Canvas (60 FPS chuẩn xác để khử 100% giật lag)
+      const canvasStream = canvas.captureStream(60);
       const videoTrack = canvasStream.getVideoTracks()[0] as any;
       
       // Tạo nút âm thanh phát file Audio gộp
@@ -684,7 +706,8 @@ export const useVideoExporterEngine = ({
       if (exportAudioCtxRef.current && exportAudioCtxRef.current.state === 'suspended') {
           await exportAudioCtxRef.current.resume();
       }
-      mediaRecorder.start();
+      const audioStartCtxTime = exportAudioCtxRef.current.currentTime;
+      mediaRecorder.start(100);
       audioSourceNode.start();
       if (bgmSourceNode) {
           bgmSourceNode.start(0);
@@ -710,7 +733,7 @@ export const useVideoExporterEngine = ({
 
       const drawFrame = () => {
         const frameStart = performance.now();
-        const ct = exportAudioCtxRef.current.currentTime;
+        const ct = Math.max(0, exportAudioCtxRef.current.currentTime - audioStartCtxTime);
 
         let introDuration = 4.0;
         let outroStart = totalDuration - 2.5;
@@ -944,13 +967,17 @@ export const useVideoExporterEngine = ({
                     
                     if (activeV.paused) activeV.play().catch(()=>{});
                     
-                    cCtx.clearRect(0, 0, cCanvas.width, cCanvas.height);
-                    cCtx.drawImage(activeV, 0, 0, cCanvas.width, cCanvas.height);
-                    
-                    if (laoChromaSettings?.enabled) {
-                        const tChromaStart = performance.now();
-                        processChromaKeyPixels(cCtx, cCanvas.width, cCanvas.height, laoChromaSettings);
-                        profilerStats.chromaProcessingTimes.push(performance.now() - tChromaStart);
+                    const currentDecoderTime = activeV.lastRvfFrameTime || activeV.currentTime;
+                    if (currentDecoderTime !== activeV.lastRenderedTime) {
+                        cCtx.clearRect(0, 0, cCanvas.width, cCanvas.height);
+                        cCtx.drawImage(activeV, 0, 0, cCanvas.width, cCanvas.height);
+                        
+                        if (laoChromaSettings?.enabled) {
+                            const tChromaStart = performance.now();
+                            processChromaKeyPixels(cCtx, cCanvas.width, cCanvas.height, laoChromaSettings);
+                            profilerStats.chromaProcessingTimes.push(performance.now() - tChromaStart);
+                        }
+                        activeV.lastRenderedTime = currentDecoderTime;
                     }
                     
                     // Tính toán tỉ lệ Object-Fit chuẩn mượt 60FPS
