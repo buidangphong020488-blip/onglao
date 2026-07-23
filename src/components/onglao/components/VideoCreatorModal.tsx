@@ -238,34 +238,24 @@ const VideoCreatorModal = () => {
       }
     }
     
-    if (p.renderHistory?.length > 0) {
-      // 1. Tìm video của kịch bản hiện tại
-      const sessionVideos = p.currentSessionId 
-        ? p.renderHistory.filter((v: any) => v.sessionId === p.currentSessionId)
-        : [];
-        
-      let targetVideo = null;
+    if (p.currentSessionId && p.renderHistory?.length > 0) {
+      // Tìm video của kịch bản hiện tại
+      const sessionVideos = p.renderHistory.filter((v: any) => v.sessionId === p.currentSessionId);
       if (sessionVideos.length > 0) {
-        targetVideo = sessionVideos[0];
-      } else {
-        // Fallback: Lấy video mới nhất trong lịch sử làm mặc định nếu không có video khớp sessionId
-        targetVideo = p.renderHistory[0];
-      }
-      
-      if (targetVideo) {
-        p.setRenderedVideoUrl(targetVideo.url);
-        p.setRenderedVideoBlob?.(targetVideo.blob || null);
+        const latestVideo = sessionVideos[0];
+        p.setRenderedVideoUrl(latestVideo.url);
+        p.setRenderedVideoBlob?.(latestVideo.blob || null);
         
         if (typeof window !== 'undefined') {
           const url = new URL(window.location.href);
-          url.searchParams.set('videoid', targetVideo.id);
+          url.searchParams.set('videoid', latestVideo.id);
           window.history.replaceState(null, '', url.toString());
         }
         return;
       }
     }
     
-    // Nếu hoàn toàn không có lịch sử video nào
+    // Nếu không khớp videoid và không có video nào đã render cho kịch bản này
     p.setRenderedVideoUrl(null);
     p.setRenderedVideoBlob?.(null);
     if (typeof window !== 'undefined') {
