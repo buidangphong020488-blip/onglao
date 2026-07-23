@@ -358,9 +358,11 @@ const VideoCreatorModal = () => {
       const sceneId = `scene_msg_${m.id || idx}`;
       const existing = p.ffScenes?.find((s: any) => s.id === sceneId || s.msgId === m.id);
       if (existing) return existing;
+      const isOutroMsg = m.role === 'outro' || m.role === 'OUTRO' || (idx === p.messages.length - 1 && p.messages.length > 2 && (m.role === 'outro' || m.role === 'OUTRO'));
+      const targetRole = isOutroMsg ? 'outro' : (m.role === 'ai' || m.role === 'ASSISTANT' ? 'lao' : 'user');
       return {
           id: sceneId,
-          role: m.role === 'ai' || m.role === 'ASSISTANT' ? 'lao' : 'user',
+          role: targetRole,
           emotion: em,
           url: null,
           idbKey: null,

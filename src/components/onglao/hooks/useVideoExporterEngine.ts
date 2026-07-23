@@ -671,9 +671,15 @@ export const useVideoExporterEngine = ({
             let matchedScene = ffScenesRef.current.find((s: any) => s.msgId === meta.msgId || s.id.endsWith(`_${meta.msgId}`));
 
             if (!matchedScene) {
-
-              matchedScene = ffScenesRef.current.find((s: any) => s.role === meta.role) || ffScenesRef.current[i % ffScenesRef.current.length];
-
+              const isLastItem = (i === combinedAudioMetadata.length - 1);
+              if (meta.role === 'outro' || isLastItem) {
+                matchedScene = ffScenesRef.current.find((s: any) => s.role === 'outro' && (s.url || s.idbKey))
+                            || ffScenesRef.current.find((s: any) => s.role === 'outro')
+                            || ffScenesRef.current.find((s: any) => s.role === meta.role);
+              }
+              if (!matchedScene) {
+                matchedScene = ffScenesRef.current.find((s: any) => s.role === meta.role) || ffScenesRef.current[i % ffScenesRef.current.length];
+              }
             }
 
             let clipUrl = matchedScene?.url || '';
