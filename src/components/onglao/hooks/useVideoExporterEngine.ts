@@ -2470,21 +2470,15 @@ export const useVideoExporterEngine = ({
       const childModal = url.searchParams.get('childmodal');
 
       if (childModal === 'create-video') {
-
-        // Xóa childmodal, videoid và scriptid
-
+        // Xóa childmodal và videoid (GIỮ LẠI scriptid và modal=ai-director để quay lại đúng kịch bản!)
         url.searchParams.delete('childmodal');
-
         url.searchParams.delete('videoid');
-
-        url.searchParams.delete('scriptid');
-
         window.history.replaceState(null, '', url.toString());
 
-        // AiDirectorManagerModal vẫn đang mở (showAiManager không thay đổi)
-
+        if (setShowAiManager) {
+          setShowAiManager(true);
+        }
         return;
-
       }
 
     }
