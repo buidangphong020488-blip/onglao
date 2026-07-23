@@ -162,11 +162,11 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         if (!selectedScript) return;
         const scriptId = selectedScript.id;
 
-        // Cập nhật URL: thêm childmodal + videoid
+        // Cập nhật URL: thêm childmodal + scriptid
         if (typeof window !== 'undefined') {
             const url = new URL(window.location.href);
             url.searchParams.set('childmodal', 'create-video');
-            url.searchParams.set('videoid', scriptId);
+            url.searchParams.set('scriptid', scriptId);
             window.history.pushState(null, '', url.toString());
         }
 

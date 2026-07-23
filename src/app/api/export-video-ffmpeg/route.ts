@@ -27,8 +27,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Danh sách cảnh quay rỗng' }, { status: 400 });
     }
 
-    if (!ffmpegPath) {
-      return NextResponse.json({ message: 'FFmpeg binary không tồn tại trên hệ thống' }, { status: 500 });
+    let ffmpegBin = ffmpegPath;
+    if (!ffmpegBin || ffmpegBin.includes('\\ROOT\\') || !fs.existsSync(ffmpegBin)) {
+      const localFfmpeg = path.join(process.cwd(), 'node_modules', 'ffmpeg-static', 'ffmpeg.exe');
+      if (fs.existsSync(localFfmpeg)) {
+        ffmpegBin = localFfmpeg;
+      }
+    }
+
+    if (!ffmpegBin || !fs.existsSync(ffmpegBin)) {
+      return NextResponse.json({ message: `FFmpeg binary không tồn tại trên hệ thống: ${ffmpegBin}` }, { status: 500 });
     }
 
     tmpDir = path.join(process.cwd(), '.temp_export', `export_${Date.now()}`);
@@ -94,7 +102,7 @@ export async function POST(req: NextRequest) {
 
       // Cut / Loop clip mượt chuẩn 60FPS
       const trimmedClipPath = path.join(tmpDir, `trimmed_clip_${i}.mp4`);
-      const trimCmd = `"${ffmpegPath}" -y -stream_loop -1 -i "${clipSourcePath}" -t ${clipDuration} -vf "scale=${renderW}:${renderH}:force_original_aspect_ratio=increase,crop=${renderW}:${renderH},fps=60" -c:v libx264 -preset ultrafast -an "${trimmedClipPath}"`;
+      const trimCmd = `"${ffmpegBin}" -y -stream_loop -1 -i "${clipSourcePath}" -t ${clipDuration} -vf "scale=${renderW}:${renderH}:force_original_aspect_ratio=increase,crop=${renderW}:${renderH},fps=60" -c:v libx264 -preset ultrafast -an "${trimmedClipPath}"`;
       await execAsync(trimCmd);
 
       const normalizedPath = trimmedClipPath.replace(/\\/g, '/');
@@ -105,12 +113,12 @@ export async function POST(req: NextRequest) {
 
     // 4. Nối tất cả các clip video lại và TÁO TẠO KHUNG HÌNH CHUẨN (Re-encode Keyframes - Khử 100% giật khựng chuyển cảnh)
     const concatenatedVideoPath = path.join(tmpDir, 'combined_video.mp4');
-    const concatCmd = `"${ffmpegPath}" -y -f concat -safe 0 -i "${concatListPath}" -c:v libx264 -preset fast -r 60 -g 30 -keyint_min 30 -sc_threshold 0 -pix_fmt yuv420p "${concatenatedVideoPath}"`;
+    const concatCmd = `"${ffmpegBin}" -y -f concat -safe 0 -i "${concatListPath}" -c:v libx264 -preset fast -r 60 -g 30 -keyint_min 30 -sc_threshold 0 -pix_fmt yuv420p "${concatenatedVideoPath}"`;
     await execAsync(concatCmd);
 
     // 5. Ghép Video + Audio thuyết minh + Nhạc nền
     const finalOutputPath = path.join(tmpDir, `output.${format === 'webm' ? 'webm' : 'mp4'}`);
-    let finalCmd = `"${ffmpegPath}" -y -i "${concatenatedVideoPath}" -i "${audioFilePath}"`;
+    let finalCmd = `"${ffmpegBin}" -y -i "${concatenatedVideoPath}" -i "${audioFilePath}"`;
 
     if (bgmFilePath) {
       finalCmd += ` -i "${bgmFilePath}" -filter_complex "[1:a]volume=1.0[a1];[2:a]volume=${bgmVolume}[a2];[a1][a2]amix=inputs=2:duration=first[aout]" -map 0:v -map "[aout]"`;
