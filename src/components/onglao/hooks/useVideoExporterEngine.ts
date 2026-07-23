@@ -661,7 +661,12 @@ export const useVideoExporterEngine = ({
 
             const meta = combinedAudioMetadata[i];
 
-            const segDuration = meta.duration || (meta.end && meta.start ? meta.end - meta.start : 0) || (meta.durationMs ? meta.durationMs / 1000 : 3.0);
+            let segDuration = meta.duration || (meta.end && meta.start ? (meta.end - meta.start) : 0) || (meta.durationMs ? meta.durationMs / 1000 : 0);
+            if (!segDuration || segDuration <= 0) {
+              segDuration = 3.5;
+            }
+            // Thêm 0.2s padding an toàn vào cuối mỗi đoạn thoại để đảm bảo âm thanh nói xong trọn vẹn 100% rồi mới chuyển cảnh
+            segDuration = Math.round((segDuration + 0.2) * 100) / 100;
 
             let matchedScene = ffScenesRef.current.find((s: any) => s.msgId === meta.msgId || s.id.endsWith(`_${meta.msgId}`));
 

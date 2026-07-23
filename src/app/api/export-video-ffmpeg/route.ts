@@ -136,9 +136,9 @@ export async function POST(req: NextRequest) {
     let finalCmd = `"${ffmpegBin}" -y -i "${concatenatedVideoPath}" -i "${audioFilePath}"`;
 
     if (bgmFilePath) {
-      finalCmd += ` -i "${bgmFilePath}" -filter_complex "[1:a]volume=1.0[a1];[2:a]volume=${bgmVolume}[a2];[a1][a2]amix=inputs=2:duration=first[aout]" -map 0:v:0 -map "[aout]" -shortest`;
+      finalCmd += ` -i "${bgmFilePath}" -filter_complex "[1:a]volume=1.0[a1];[2:a]volume=${bgmVolume}[a2];[a1][a2]amix=inputs=2:duration=first[aout]" -map 0:v:0 -map "[aout]"`;
     } else {
-      finalCmd += ` -map 0:v:0 -map 1:a:0 -shortest`;
+      finalCmd += ` -map 0:v:0 -map 1:a:0`;
     }
 
     if (format === 'webm') {
