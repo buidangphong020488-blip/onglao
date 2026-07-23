@@ -3911,7 +3911,8 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
     setShowDiagnostics,
     renderDiagnosticsRef,
     ffScenesRef,
-    setFfScenes
+    setFfScenes,
+    FULLFRAME_PACKS
   });
 
 
