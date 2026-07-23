@@ -446,17 +446,18 @@ const PoemVaultModal = ({ isAdminMode = false, inline = false }: { isAdminMode?:
 
   const innerContent = (
     <>
-      <div className={`bg-slate-900 border border-emerald-500/30 rounded-2xl w-full ${inline ? 'h-full flex-1' : 'h-[85vh]'} shadow-2xl flex flex-col overflow-hidden`} onClick={e => e.stopPropagation()}>
-          {!inline && (
+      <div className={`bg-slate-900 border border-emerald-500/10 w-full flex-1 flex flex-col overflow-hidden ${inline ? 'h-full rounded-2xl shadow-2xl' : 'h-full rounded-none border-none'}`} onClick={e => e.stopPropagation()}>
+          {/* Header chỉ hiện khi chạy inline (nhúng) */}
+          {inline && (
               <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-800 rounded-t-2xl shrink-0">
                   <h2 className="font-black text-emerald-400 tracking-widest flex items-center gap-2"><BookOpen size={18}/> Kho Tàng Pháp Bảo</h2>
                   <button onClick={() => setShowPoemModal(false)} className="text-slate-400 hover:text-white"><X size={20}/></button>
               </div>
           )}
 
-          {/* THANH TAB CHUYỂN ĐỔI (Chỉ hiện trong Admin khi KHÔNG chạy inline) */}
-          {isAdminMode && !inline && (
-              <div className="flex border-b border-white/10 bg-slate-900 shrink-0">
+          {/* THANH TAB CHUYỂN ĐỔI: Luôn hiện khi ở trang độc lập (!inline) hoặc trong admin */}
+          {(!inline || isAdminMode) && (
+              <div className="flex border-b border-white/10 bg-slate-950 shrink-0">
                   <button onClick={() => setPoemModalTab('poems')} className={`flex-1 py-3 text-[10px] md:text-sm font-bold tracking-wider transition-all border-b-2 ${poemModalTab === 'poems' ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Kho Kệ Pháp</button>
                   <button onClick={() => setPoemModalTab('greetings')} className={`flex-1 py-3 text-[10px] md:text-sm font-bold tracking-wider transition-all border-b-2 ${poemModalTab === 'greetings' ? 'border-orange-500 text-orange-400 bg-orange-500/10' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Mào Đầu (Tiếp đón)</button>
                   <button onClick={() => setPoemModalTab('rag')} className={`flex-1 py-3 text-[10px] md:text-sm font-bold tracking-wider transition-all border-b-2 ${poemModalTab === 'rag' ? 'border-indigo-500 text-indigo-400 bg-indigo-500/10' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Kho Trí Tuệ (Huấn luyện)</button>
@@ -1544,10 +1545,31 @@ const PoemVaultModal = ({ isAdminMode = false, inline = false }: { isAdminMode?:
   if (inline) return innerContent;
 
   return (
-      <div className="fixed inset-0 z-[160] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" >
-         <div className="w-full max-w-4xl" onClick={e => e.stopPropagation()}>
-             {innerContent}
-         </div>
+      <div className="fixed inset-0 z-[140] bg-slate-950 flex flex-col w-full h-full min-h-screen overflow-hidden animate-in fade-in duration-300">
+          {/* Header Trang Kho Tàng Pháp Bảo (Fullscreen Page) */}
+          <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-slate-900/90 backdrop-blur-md shrink-0 shadow-lg z-20">
+              <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl text-emerald-400">
+                      <BookOpen size={22} />
+                  </div>
+                  <div>
+                      <h1 className="font-black text-slate-100 tracking-wide text-base sm:text-lg">Kho Tàng Pháp Bảo</h1>
+                      <p className="text-xs text-slate-400">Xem kệ pháp, mào đầu tiếp đón, và nạp nội dung huấn luyện cho Lão</p>
+                  </div>
+              </div>
+              <button 
+                  onClick={() => setShowPoemModal(false)} 
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-md cursor-pointer"
+                  title="Quay lại Thiền đường"
+              >
+                  <ChevronLeft size={16} /> Quay lại Thiền đường
+              </button>
+          </div>
+
+          {/* Body Content - Trang Full-screen */}
+          <div className="flex-1 overflow-hidden p-6 md:p-8 flex flex-col max-w-7xl w-full mx-auto">
+              {innerContent}
+          </div>
       </div>
   );
 };

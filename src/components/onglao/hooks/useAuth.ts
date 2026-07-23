@@ -202,7 +202,7 @@ export const useAuth = ({
           if (profile.customLaoName) setCustomLaoName(profile.customLaoName);
           if (profile.laoSelfCall) setLaoSelfCall(profile.laoSelfCall);
           if (profile.laoCallUser) setLaoCallUser(profile.laoCallUser);
-          if (profile.customUserName) setCustomUserName(profile.customUserName);
+          if (profile.customUserName && profile.customUserName !== 'Giac Ngo') setCustomUserName(profile.customUserName);
           if (profile.userSelfCall) setUserSelfCall(profile.userSelfCall);
           if (profile.userCallLao) setUserCallLao(profile.userCallLao);
           return true;
@@ -223,7 +223,7 @@ export const useAuth = ({
         if (targetUser.customLaoName) setCustomLaoName(targetUser.customLaoName);
         if (targetUser.laoSelfCall) setLaoSelfCall(targetUser.laoSelfCall);
         if (targetUser.laoCallUser) setLaoCallUser(targetUser.laoCallUser);
-        if (targetUser.customUserName) setCustomUserName(targetUser.customUserName);
+        if (targetUser.customUserName && targetUser.customUserName !== 'Giac Ngo') setCustomUserName(targetUser.customUserName);
         if (targetUser.userSelfCall) setUserSelfCall(targetUser.userSelfCall);
         if (targetUser.userCallLao) setUserCallLao(targetUser.userCallLao);
         

@@ -1,8 +1,8 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, X, Pencil, Trash2, Plus, Play, Pause, Music, Loader2, Save, RefreshCw, ChevronLeft, ChevronRight, ArrowRight, Volume2, Film, Mic, Info } from 'lucide-react';
+import { Sparkles, X, Pencil, Trash2, Plus, Play, Pause, Music, Loader2, Save, RefreshCw, ChevronLeft, ChevronRight, ArrowRight, Volume2, Film, Mic, Info, Video } from 'lucide-react';
 import AiDirectorModal from './AiDirectorModal';
-import ScriptModal from './ScriptModal';
+import ScriptModal, { ScriptModalHandle } from './ScriptModal';
 import {
     getChatMessagesAction,
     getScriptSessionsAction,
@@ -83,6 +83,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     const [selectedScript, setSelectedScript] = useState<any>(null);
     const [editingMessages, setEditingMessages] = useState<any[]>([]);
     const [editingRawText, setEditingRawText] = useState<string>("");
+    const scriptModalRef = useRef<ScriptModalHandle>(null); // Ref để gọi getLatestText() trước khi save
     const [saving, setSaving] = useState(false);
     const [downloadingAudio, setDownloadingAudio] = useState(false);
     const [generatingAudio, setGeneratingAudio] = useState(false);
@@ -155,6 +156,26 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
             }
         }
     }, [view, selectedScript?.id, showCreator, p.showScriptModal, p.show]);
+
+    // Mở VideoCreator từ script edit form: dùng childmodal URL routing (KHÔNG đóng AiDirectorManagerModal)
+    const handleOpenVideoCreator = () => {
+        if (!selectedScript) return;
+        const scriptId = selectedScript.id;
+
+        // Cập nhật URL: thêm childmodal + videoid
+        if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            url.searchParams.set('childmodal', 'create-video');
+            url.searchParams.set('videoid', scriptId);
+            window.history.pushState(null, '', url.toString());
+        }
+
+        // Set session ID và mở VideoExport modal chồng lên
+        p.setCurrentSessionId(scriptId);
+        if (p.setVideoExportSource) p.setVideoExportSource('ai_director_childmodal');
+        if (p.setShowVideoExportModal) p.setShowVideoExportModal(true);
+    };
+
 
     // Tự động khôi phục đúng Form (Tạo mới thủ công / Tạo mới AI / Chỉnh sửa) khi mở modal hoặc ấn F5
     const restoredFromUrlRef = useRef(false);
@@ -233,6 +254,42 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         preloadScriptsMessages();
     }, [p.show]);
 
+    // Watch sessions: tự load messages cho kịch bản script chưa được load (mới tạo hoặc chưa có messagesLoaded)
+    const loadingSessionIdsRef = useRef<Set<string>>(new Set());
+    useEffect(() => {
+        if (!p.show) return;
+        const unloaded = p.sessions.filter((s: any) =>
+            (s.type === 'script' || s.type === 'chat|script') && !s.messagesLoaded
+        );
+        if (unloaded.length === 0) return;
+
+        unloaded.forEach(async (session: any) => {
+            if (loadingSessionIdsRef.current.has(session.id)) return;
+            loadingSessionIdsRef.current.add(session.id);
+            try {
+                const res = await getChatMessagesAction(session.id);
+                if (res.success && res.data) {
+                    const mappedMsgs = res.data.map((m: any) => ({
+                        id: m.id || m.msgId || Date.now(),
+                        role: m.role === 'ASSISTANT' ? 'ai' : (m.role === 'OUTRO' ? 'outro' : 'user'),
+                        text: m.content,
+                        timestamp: m.createdAt ? new Date(m.createdAt) : new Date(),
+                        audioUrl: m.audioUrl || null,
+                        emotion: m.emotion || 'calm'
+                    }));
+                    p.setSessions((prev: any[]) => prev.map((x: any) =>
+                        x.id === session.id ? { ...x, messages: mappedMsgs, messagesLoaded: true } : x
+                    ));
+                }
+            } catch (e) {
+                console.error('Failed to load messages for session', session.id, e);
+            } finally {
+                loadingSessionIdsRef.current.delete(session.id);
+            }
+        });
+    }, [p.show, p.sessions]);
+
+
     const handleInsertRole = (roleName: string) => {
         const text = editingRawText;
         const actualPrefix = text.length === 0 || text.endsWith('\n') ? `${roleName}: ` : `\n\n${roleName}: `;
@@ -259,6 +316,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     const [editingUserVoice, setEditingUserVoice] = useState('Aoede');
     const [editingUserVoiceStyle, setEditingUserVoiceStyle] = useState('');
     const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+    const [showAiParams, setShowAiParams] = useState(false);
     const [isHoveringScripts, setIsHoveringScripts] = useState(false);
 
     // Local state cho nhân vật - không gọi context setter mỗi keystroke
@@ -314,10 +372,10 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     const handleStartEdit = async (script: any) => {
         setSelectedScript(script);
         setEditingTitle(script.title.replace(/^(\[AI\]|\[Thủ công\])?\s*/i, '').trim());
-        setEditingLaoVoice(script.laoVoice || 'Algieba');
-        setEditingLaoVoiceStyle(script.laoVoiceStyle || '');
-        setEditingUserVoice(script.userVoice || 'Aoede');
-        setEditingUserVoiceStyle(script.userVoiceStyle || '');
+        setEditingLaoVoice(script.laoVoice || p.laoVoice || 'Algieba');
+        setEditingLaoVoiceStyle(script.laoVoiceStyle || p.laoVoiceStyle || 'Giọng ấm áp, mạnh mẽ, dứt khoát, miền nam việt nam, đúng chính tả, ngắt nhịp rõ ràng giữa các câu');
+        setEditingUserVoice(script.userVoice || p.userVoice || 'Aoede');
+        setEditingUserVoiceStyle(script.userVoiceStyle || p.userVoiceStyle || 'giọng thanh niên, phong cách đọc tỏ vẻ rối rắm, thắc mắc, chuẩn giọng miền Nam Việt Nam, đúng chính tả');
         setShowVoiceSettings(false);
 
         // Reset/init AI regeneration parameters
@@ -497,9 +555,14 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     const handleSaveScript = async (transitionToList: boolean | any = true) => {
         if (saving) return;
         const shouldTransition = transitionToList === true || typeof transitionToList !== 'boolean';
+
+        // Đọc thẾảng DOM textarea — luôn là text mới nhất dù chưa blur
+        const latestText = scriptModalRef.current?.getLatestText() ?? editingRawText;
+
         setSaving(true);
         try {
-            const lines = editingRawText.split('\n');
+            const lines = latestText.split('\n');
+
             const newMsgs: any[] = [];
             let currentRole = 'ai';
 
@@ -544,10 +607,11 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                     cleanText = text.replace(outroMatch[0], '').trim();
                     currentRole = 'outro';
                  } else {
-                    currentRole = currentRole === 'ai' ? 'user' : 'ai';
-                    role = currentRole;
-                    cleanText = text;
-                    emotion = 'calm';
+                    // Dòng không có role prefix → nối vào message trước (multi-line)
+                    if (newMsgs.length > 0) {
+                        newMsgs[newMsgs.length - 1].text += '\n' + text;
+                    }
+                    return;
                  }
 
                  // Chuẩn hóa emotion
@@ -1263,28 +1327,32 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     if (!p.show) return null;
 
     return (
-        <div className="fixed inset-0 z-[140] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4">
-            <div className="bg-slate-900 border border-indigo-500/20 rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col h-[85vh] animate-in zoom-in-95">
-                {/* Header */}
-                <div className="p-5 border-b border-white/5 flex justify-between items-center bg-slate-950">
-                    <div className="flex items-center gap-2">
-                        <Sparkles className="text-indigo-400" size={20} />
-                        <h2 className="font-black text-slate-100 tracking-wide text-sm sm:text-base">Quản Lý Kịch Bản Đạo Diễn</h2>
+        <div className="fixed inset-0 z-[140] bg-slate-950 flex flex-col w-full h-full min-h-screen overflow-hidden animate-in fade-in duration-300">
+            {/* Header Trang Quản Lý Kịch Bản (Fullscreen Page) */}
+            <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-slate-900/90 backdrop-blur-md shrink-0 shadow-lg z-20">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl text-indigo-400">
+                        <Sparkles size={22} />
                     </div>
-                    <button 
-                        onClick={() => view === 'edit' ? setView('list') : p.onClose()} 
-                        className="text-slate-400 hover:text-white transition-colors"
-                        title={view === 'edit' ? 'Hủy và quay lại danh sách' : 'Đóng'}
-                    >
-                        <X size={20} />
-                    </button>
+                    <div>
+                        <h1 className="font-black text-slate-100 tracking-wide text-base sm:text-lg">Quản Lý Kịch Bản Đạo Diễn</h1>
+                        <p className="text-xs text-slate-400">Trang quản lý danh sách kịch bản AI & Thủ công, biên tập thoại và xuất video</p>
+                    </div>
                 </div>
+                <button 
+                    onClick={p.onClose} 
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-md cursor-pointer"
+                    title="Quay lại Thiền đường"
+                >
+                    <ChevronLeft size={16} /> Quay lại Thiền đường
+                </button>
+            </div>
 
-                {/* Main Body */}
-                <div className="flex-1 overflow-y-auto p-6 flex flex-col">
-                    {view === 'list' ? (
-                        /* VIEW 1: Scripts List */
-                        <div className="flex-1 flex flex-col gap-5">
+            {/* Main Body Page - Danh Sách Kịch Bản */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 flex flex-col max-w-7xl w-full mx-auto">
+                {/* VIEW 1: Scripts List - Được bao bọc trong Card Container cao cấp */}
+                <div className="bg-slate-900/80 border border-indigo-500/20 rounded-3xl p-5 md:p-8 shadow-2xl backdrop-blur-xl flex-1 flex flex-col gap-5 min-h-[550px] justify-between">
+                    <div className="flex-1 flex flex-col gap-5">
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                 <div className="flex items-center gap-3">
                                     <span className="text-xs font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Danh sách kịch bản ({scripts.length})</span>
@@ -1527,11 +1595,15 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                                             }
 
                                                             p.setCurrentSessionId(script.id);
-                                                            p.onClose();
-                                                            setTimeout(() => {
-                                                                if (p.setVideoExportSource) p.setVideoExportSource('ai_director');
-                                                                if (p.setShowVideoExportModal) p.setShowVideoExportModal(true);
-                                                            }, 200);
+                                                            // Dùng childmodal routing: KHÔNG đóng AiDirectorManagerModal
+                                                            if (typeof window !== 'undefined') {
+                                                                const url = new URL(window.location.href);
+                                                                url.searchParams.set('childmodal', 'create-video');
+                                                                url.searchParams.set('videoid', script.id);
+                                                                window.history.pushState(null, '', url.toString());
+                                                            }
+                                                            if (p.setVideoExportSource) p.setVideoExportSource('ai_director_childmodal');
+                                                            if (p.setShowVideoExportModal) p.setShowVideoExportModal(true);
                                                         }}
                                                         title="Tạo video"
                                                         className="bg-orange-600/20 border border-orange-500/30 hover:bg-orange-600/40 text-orange-400 px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors"
@@ -1594,31 +1666,40 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                 )}
                             </div>
                         </div>
-                    ) : (() => {
-                        const isAiScript = selectedScript?.title ? !selectedScript.title.toLowerCase().includes('[thủ công]') : false;
-                        const scriptTitle = selectedScript?.title || 'Kịch bản mới';
-                        return (
-                            <div className="flex-1 flex flex-col gap-4">
-                                <div className="flex justify-between items-center border-b border-white/5 pb-3">
-                                    <div className="flex items-center gap-4">
-                                        <button onClick={() => setView('list')} className="text-xs text-slate-400 hover:text-white flex items-center gap-1 font-bold">
-                                            <ChevronLeft size={14} /> Quay lại danh sách
-                                        </button>
-                                        <div className="flex items-center space-x-3">
-                                            <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest">
-                                                Biên tập kịch bản {isAiScript ? 'AI' : 'Thủ công'}: {scriptTitle}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button onClick={handleDownloadMultiSpeakerAudio} disabled={saving || downloadingAudio} className="hidden">
-                                            {downloadingAudio ? <Loader2 size={14} className="animate-spin" /> : <Mic size={14} />} Tải Audio Gộp (Multi-speaker)
-                                        </button>
-                                        <button onClick={handleGenerateAllAudio} disabled={saving || downloadingAudio} className="bg-amber-600/20 hover:bg-amber-600/40 text-amber-500 font-bold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1 transition-colors border border-amber-500/20 disabled:opacity-50">
-                                            <Music size={14} /> Tạo tất cả Audio
-                                        </button>
-                                    </div>
+                </div>
+            </div>
+
+            {/* MODAL BIÊN TẬP KỊCH BẢN (CHỈ MỞ POPUP KHI CHỈNH SỬA) */}
+            {view === 'edit' && (() => {
+                const isAiScript = selectedScript?.title ? !selectedScript.title.toLowerCase().includes('[thủ công]') : false;
+                const scriptTitle = selectedScript?.title || 'Kịch bản mới';
+                return (
+                    <div className="fixed inset-0 z-[160] bg-black/80 backdrop-blur-sm flex justify-center items-center p-3 md:p-6 animate-in fade-in duration-200" onClick={(e) => e.stopPropagation()}>
+                        <div className="bg-slate-900 border border-indigo-500/30 rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col h-[90vh] max-h-[90vh] animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
+                            {/* Header Modal Biên Tập */}
+                            <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-slate-950 shrink-0">
+                                <div className="flex items-center gap-3">
+                                    <button onClick={() => setView('list')} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors border border-white/5 cursor-pointer">
+                                        <ChevronLeft size={16} /> Quay lại danh sách
+                                    </button>
+                                    <span className="text-xs sm:text-sm font-bold text-indigo-400 uppercase tracking-widest truncate max-w-md">
+                                        Biên tập kịch bản {isAiScript ? 'AI' : 'Thủ công'}: {scriptTitle}
+                                    </span>
                                 </div>
+                                <div className="flex items-center gap-3">
+                                    <button onClick={handleGenerateAllAudio} disabled={saving || downloadingAudio} className="bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 font-bold py-1.5 px-3.5 rounded-xl text-xs flex items-center gap-1.5 transition-colors border border-amber-500/20 disabled:opacity-50 cursor-pointer">
+                                        <Music size={14} /> Tạo tất cả Audio
+                                    </button>
+                                    <button onClick={() => setView('list')} className="text-slate-400 hover:text-white transition-colors p-2 rounded-xl hover:bg-slate-800 cursor-pointer" title="Đóng modal biên tập">
+                                        <X size={20} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Body Content Modal Biên Tập - Thiết kế cột thao tác nổi dọc bên phải (Floating Toolbar) */}
+                            <div className="flex-1 flex overflow-hidden relative">
+                                {/* Cột Trái: Toàn bộ nội dung form cuộn trang (thêm pr-16 để không bị nút đè) */}
+                                <div className="flex-1 overflow-y-auto p-5 md:p-6 pr-16 flex flex-col gap-4 scrollbar-thin">
 
                                 {/* Tiêu đề & Ngày đăng Inputs */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-950/40 p-4 rounded-2xl border border-white/5">
@@ -1634,11 +1715,11 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                     </div>
                                     <div className="flex flex-col gap-1.5">
                                         <label className="text-xs font-bold text-slate-400">Ngày đăng:</label>
-                                        <input 
-                                            type="datetime-local"
-                                            value={editingDate}
-                                            onChange={(e) => setEditingDate(e.target.value)}
-                                            className="w-full bg-slate-950 border border-white/10 rounded-xl p-2.5 text-xs text-white focus:border-indigo-500 outline-none"
+                                        <input
+                                            type="text"
+                                            value={editingDate ? new Date(editingDate).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                                            readOnly
+                                            className="w-full bg-slate-950 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none cursor-default"
                                         />
                                     </div>
                                 </div>
@@ -1651,7 +1732,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                             <span className="text-[11px] font-bold text-orange-400 flex items-center gap-1.5">👳 Nhân vật Minh Sư (Lão):</span>
                                             {p.allCharacters && (
                                                 <select 
-                                                    className="bg-slate-950 border border-white/10 rounded-md px-2 py-0.5 text-[10px] text-white outline-none focus:border-orange-500"
+                                                    className="hidden"
                                                     onChange={e => {
                                                         const c = p.allCharacters?.find(x => x.id === e.target.value);
                                                         if (c) {
@@ -1690,7 +1771,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                             <span className="text-[11px] font-bold text-indigo-400 flex items-center gap-1.5">🙏 Nhân vật Hỏi đạo (Bạn):</span>
                                             {p.allCharacters && (
                                                 <select 
-                                                    className="bg-slate-950 border border-white/10 rounded-md px-2 py-0.5 text-[10px] text-white outline-none focus:border-indigo-500"
+                                                    className="hidden"
                                                     onChange={e => {
                                                         const c = p.allCharacters?.find(x => x.id === e.target.value);
                                                         if (c) {
@@ -1746,9 +1827,9 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                                <optgroup label="🎙️ Giọng Nam">{VOICES_MALE.map(v=><option key={v} value={v}>{v}</option>)}</optgroup>
                                                <optgroup label="🎙️ Giọng Nữ">{VOICES_FEMALE.map(v=><option key={v} value={v}>{v}</option>)}</optgroup>
                                             </select>
-                                            <textarea value={editingLaoVoiceStyle} onChange={e=>setEditingLaoVoiceStyle(e.target.value)} placeholder="Phong cách (VD: Giọng ấm áp...)" className="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-xs text-white outline-none h-12 resize-none" />
+                                            <textarea key={`lao-style-${selectedScript?.id}`} value={editingLaoVoiceStyle} onChange={e=>setEditingLaoVoiceStyle(e.target.value)} placeholder="Phong cách (VD: Giọng ấm áp...)" className="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-xs text-white outline-none h-12 resize-none" />
                                         </div>
-
+ 
                                         {/* Giọng Con */}
                                         <div className="flex flex-col gap-2 p-3 bg-indigo-950/20 border border-indigo-500/20 rounded-xl">
                                             <span className="text-xs font-bold text-indigo-400">🎙️ Giọng đọc của Con:</span>
@@ -1756,87 +1837,99 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                                <optgroup label="🎙️ Giọng Nữ">{VOICES_FEMALE.map(v=><option key={v} value={v}>{v}</option>)}</optgroup>
                                                <optgroup label="🎙️ Giọng Nam">{VOICES_MALE.map(v=><option key={v} value={v}>{v}</option>)}</optgroup>
                                             </select>
-                                            <textarea value={editingUserVoiceStyle} onChange={e=>setEditingUserVoiceStyle(e.target.value)} placeholder="Phong cách giọng..." className="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-xs text-white outline-none h-12 resize-none" />
+                                            <textarea key={`user-style-${selectedScript?.id}`} value={editingUserVoiceStyle} onChange={e=>setEditingUserVoiceStyle(e.target.value)} placeholder="Phong cách giọng..." className="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-xs text-white outline-none h-12 resize-none" />
                                         </div>
                                     </div>
                                 )}
-
-                                {/* AI SPECIFIC CONTROLS */}
+ 
+                                {/* AI SPECIFIC CONTROLS (Thu gọn mặc định để nhường toàn bộ không gian cho danh sách câu thoại) */}
                                 {isAiScript && (
-                                    <div className="flex flex-col gap-4 bg-slate-950/60 p-4 rounded-2xl border border-indigo-500/20">
-                                        <h3 className="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1">
-                                            <Sparkles size={14} /> THÔNG SỐ ĐẠO DIỄN AI
-                                        </h3>
-                                        
-                                        <div className="flex flex-col gap-1.5">
-                                           <label className="text-xs font-bold text-slate-400">Ngôn ngữ kịch bản:</label>
-                                           <select value={editingLanguage} onChange={e => setEditingLanguage(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-xl outline-none text-sm focus:border-indigo-500">
-                                              <option value="vi">Tiếng Việt</option>
-                                              <option value="en">Tiếng Anh (English)</option>
-                                           </select>
+                                    <div className="flex flex-col gap-3 bg-slate-950/60 p-3 rounded-2xl border border-indigo-500/20">
+                                        <div className="flex justify-between items-center">
+                                            <button 
+                                                type="button"
+                                                onClick={() => setShowAiParams(!showAiParams)}
+                                                className="text-xs text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                                            >
+                                                <Sparkles size={14} /> 
+                                                {showAiParams ? "Ẩn Thông số Đạo diễn AI" : "Hiện Thông số Đạo diễn AI & Tạo lại bằng AI"}
+                                            </button>
+                                            <span className="text-[10px] text-slate-500 hidden sm:inline">Mở nếu cần tự động tạo lại nội dung bằng AI</span>
                                         </div>
+ 
+                                        {showAiParams && (
+                                            <div className="flex flex-col gap-4 pt-3 border-t border-white/5 animate-in slide-in-from-top-2 duration-200">
+                                                <div className="flex flex-col gap-1.5">
+                                                   <label className="text-xs font-bold text-slate-400">Ngôn ngữ kịch bản:</label>
+                                                   <select value={editingLanguage} onChange={e => setEditingLanguage(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-xl outline-none text-sm focus:border-indigo-500">
+                                                      <option value="vi">Tiếng Việt</option>
+                                                      <option value="en">Tiếng Anh (English)</option>
+                                                   </select>
+                                                </div>
+ 
+                                                <div className="flex flex-col gap-1.5">
+                                                   <label className="text-xs font-bold text-slate-400">Chủ đề vướng mắc / Nỗi khổ của {p.customUserName || 'Con'}:</label>
+                                                   <textarea key={`topic-${selectedScript?.id}`} value={editingTopic} onChange={(e: any) => setEditingTopic(e.target.value)} placeholder="Ví dụ: Con đang gặp áp lực nợ nần, mất phương hướng, thất tình..." disabled={isRegenerating} className="w-full h-20 bg-slate-950 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-indigo-500 outline-none resize-none font-mono"/>
+                                                </div>
 
-                                        <div className="flex flex-col gap-1.5">
-                                           <label className="text-xs font-bold text-slate-400">Chủ đề vướng mắc / Nỗi khổ của {p.customUserName || 'Con'}:</label>
-                                           <textarea value={editingTopic} onChange={(e: any) => setEditingTopic(e.target.value)} placeholder="Ví dụ: Con đang gặp áp lực nợ nần, mất phương hướng, thất tình..." disabled={isRegenerating} className="w-full h-20 bg-slate-950 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-indigo-500 outline-none resize-none font-mono"/>
-                                        </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                   <div className="flex flex-col gap-1.5">
+                                                      <label className="text-xs font-bold text-slate-400">Độ dài kịch bản:</label>
+                                                      <select value={editingLength} onChange={e => setEditingLength(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-xl outline-none text-sm focus:border-indigo-500">
+                                                         <option value="Khoảng 4-6 câu">Khoảng 4-6 câu (Chớp nhoáng)</option>
+                                                         <option value="Khoảng 6-10 câu">Khoảng 6-10 câu (Vừa phải)</option>
+                                                         <option value="Khoảng 10-15 câu">Khoảng 10-15 câu (Phân tích sâu)</option>
+                                                         <option value="Khoảng 15-21 câu">Khoảng 15-21 câu (Khai ngộ toàn diện)</option>
+                                                      </select>
+                                                   </div>
+                                                   <div className="flex flex-col gap-1.5">
+                                                      <label className="text-xs font-bold text-slate-400">Phong cách của Lão:</label>
+                                                      <select value={editingLaoStyle} onChange={e => setEditingLaoStyle(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-xl outline-none text-sm focus:border-indigo-500">
+                                                         <option value="Sắc bén, đốn giáo, thẳng thắn đánh thức mộng ảo">Sắc bén, đốn giáo</option>
+                                                         <option value="Từ bi, ôn hòa, dắt dụ từng bước">Từ bi, ôn hòa</option>
+                                                         <option value="Hài hước, châm biếm thâm thúy cõi trần">Hài hước, châm biếm thâm thúy</option>
+                                                      </select>
+                                                   </div>
+                                                </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                           <div className="flex flex-col gap-1.5">
-                                              <label className="text-xs font-bold text-slate-400">Độ dài kịch bản:</label>
-                                              <select value={editingLength} onChange={e => setEditingLength(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-xl outline-none text-sm focus:border-indigo-500">
-                                                 <option value="Khoảng 4-6 câu">Khoảng 4-6 câu (Chớp nhoáng)</option>
-                                                 <option value="Khoảng 6-10 câu">Khoảng 6-10 câu (Vừa phải)</option>
-                                                 <option value="Khoảng 10-15 câu">Khoảng 10-15 câu (Phân tích sâu)</option>
-                                                 <option value="Khoảng 15-21 câu">Khoảng 15-21 câu (Khai ngộ toàn diện)</option>
-                                              </select>
-                                           </div>
-                                           <div className="flex flex-col gap-1.5">
-                                              <label className="text-xs font-bold text-slate-400">Phong cách của Lão:</label>
-                                              <select value={editingLaoStyle} onChange={e => setEditingLaoStyle(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-xl outline-none text-sm focus:border-indigo-500">
-                                                 <option value="Sắc bén, đốn giáo, thẳng thắn đánh thức mộng ảo">Sắc bén, đốn giáo</option>
-                                                 <option value="Từ bi, ôn hòa, dắt dụ từng bước">Từ bi, ôn hòa</option>
-                                                 <option value="Hài hước, châm biếm thâm thúy cõi trần">Hài hước, châm biếm thâm thúy</option>
-                                              </select>
-                                           </div>
-                                        </div>
+                                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-2 bg-slate-900/40 p-3 rounded-xl border border-white/5">
+                                                     <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-300 hover:text-white transition-colors select-none">
+                                                         <input 
+                                                             type="checkbox" 
+                                                             checked={editingIncludePoem} 
+                                                             onChange={e => setEditingIncludePoem(e.target.checked)} 
+                                                             className="w-4 h-4 accent-indigo-500 rounded cursor-pointer" 
+                                                         />
+                                                         <span>📜 Tích hợp kệ Sư Cha Tam Vô</span>
+                                                     </label>
 
-                                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-2 bg-slate-900/40 p-3 rounded-xl border border-white/5">
-                                             <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-300 hover:text-white transition-colors select-none">
-                                                 <input 
-                                                     type="checkbox" 
-                                                     checked={editingIncludePoem} 
-                                                     onChange={e => setEditingIncludePoem(e.target.checked)} 
-                                                     className="w-4 h-4 accent-indigo-500 rounded cursor-pointer" 
-                                                 />
-                                                 <span>📜 Tích hợp kệ Sư Cha Tam Vô</span>
-                                             </label>
+                                                     <button 
+                                                         onClick={handleRegenerateAIScript} 
+                                                         disabled={isRegenerating || !editingTopic.trim()} 
+                                                         className="w-full sm:w-auto px-5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer"
+                                                     >
+                                                         {isRegenerating ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                                                         {isRegenerating ? 'Đang viết kịch bản...' : 'Tạo lại bằng AI'}
+                                                     </button>
+                                                 </div>
 
-                                             <button 
-                                                 onClick={handleRegenerateAIScript} 
-                                                 disabled={isRegenerating || !editingTopic.trim()} 
-                                                 className="w-full sm:w-auto px-5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md"
-                                             >
-                                                 {isRegenerating ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                                                 {isRegenerating ? 'Đang viết kịch bản...' : 'Tạo lại bằng AI'}
-                                             </button>
-                                         </div>
-
-                                        <div className="flex flex-col gap-1.5">
-                                           <label className="text-xs font-bold text-slate-400">Hành trình biến đổi cảm xúc của Con:</label>
-                                           <select value={editingUserEmotionArc} onChange={e => setEditingUserEmotionArc(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-xl outline-none text-sm focus:border-indigo-500">
-                                              <option value="Từ đau khổ/bế tắc chuyển dần sang an lạc/bừng sáng">Đau khổ, bế tắc ➡️ An lạc, bừng sáng</option>
-                                              <option value="Từ tức giận/đổ lỗi chuyển sang tự nhìn nhận lại chính mình">Tức giận, đổ lỗi ➡️ Tự phản tỉnh</option>
-                                              <option value="Từ kiêu ngạo/ngộ nhận chuyển sang khiêm nhường/thấy rõ mộng">Kiêu ngạo, ngộ nhận ➡️ Khiêm nhường, tỉnh mộng</option>
-                                              <option value="Chỉ thuần túy thắc mắc, tò mò đạo lý và được giải đáp thỏa đáng">Thuần túy thắc mắc ➡️ Thỏa mãn trí tuệ</option>
-                                           </select>
-                                        </div>
-
+                                                <div className="flex flex-col gap-1.5">
+                                                   <label className="text-xs font-bold text-slate-400">Hành trình biến đổi cảm xúc của Con:</label>
+                                                   <select value={editingUserEmotionArc} onChange={e => setEditingUserEmotionArc(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-xl outline-none text-sm focus:border-indigo-500">
+                                                      <option value="Từ đau khổ/bế tắc chuyển dần sang an lạc/bừng sáng">Đau khổ, bế tắc ➡️ An lạc, bừng sáng</option>
+                                                      <option value="Từ tức giận/đổ lỗi chuyển sang tự nhìn nhận lại chính mình">Tức giận, đổ lỗi ➡️ Tự phản tỉnh</option>
+                                                      <option value="Từ kiêu ngạo/ngộ nhận chuyển sang khiêm nhường/thấy rõ mộng">Kiêu ngạo, ngộ nhận ➡️ Khiêm nhường, tỉnh mộng</option>
+                                                      <option value="Chỉ thuần túy thắc mắc, tò mò đạo lý và được giải đáp thỏa đáng">Thuần túy thắc mắc ➡️ Thỏa mãn trí tuệ</option>
+                                                   </select>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
-                                <div className="flex-1 flex flex-col gap-4 overflow-y-auto pr-2 pb-4">
-                                    <div className="bg-slate-900/40 p-4 rounded-xl border border-indigo-500/20">
+                                {/* KHU VỰC BIÊN TẬP CÂU THOẠI (RỘNG RÃI & RÕ RÀNG) */}
+                                <div className="flex-1 flex flex-col gap-4 min-h-[360px] pb-4">
+                                    <div className="bg-slate-900/40 p-4 rounded-2xl border border-indigo-500/20 flex-1 flex flex-col">
                                         <p className="text-xs text-indigo-300 mb-2 font-bold flex items-center gap-1.5">
                                             <Info size={14} /> 
                                             Chỉnh sửa nội dung Kịch bản:
@@ -1865,6 +1958,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                         </div>
 
                                         <ScriptModal
+                                            ref={scriptModalRef}
                                             hideOptions={true}
                                             show={true}
                                             scriptText={editingRawText}
@@ -1881,128 +1975,128 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                 </div>
 
 
-                                <div className="flex flex-col gap-3 border-t border-white/5 pt-4">
-                                    {/* Progress bar audio */}
+                                </div> {/* Kết thúc Cột Trái */}
+
+                                {/* Cột Phải: Bảng thao tác dọc nổi (Floating Vertical Toolbar) bay theo scroll */}
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-2.5 bg-slate-900/95 border border-white/10 p-2 rounded-2xl shadow-2xl backdrop-blur-md w-12 items-center justify-center shrink-0">
+                                    {/* Progress bar audio nén gọn */}
                                     {audioProgress && (
-                                        <div className="w-full flex flex-col gap-1.5">
-                                            <div className="flex justify-between text-xs text-slate-400">
-                                                <span className="flex items-center gap-1.5">
-                                                    <Loader2 size={11} className="animate-spin text-emerald-400" />
-                                                    Đang tạo audio thoại {audioProgress.current}/{audioProgress.total}...
-                                                </span>
-                                                <span className="font-bold text-emerald-400">{audioProgress.percent}%</span>
-                                            </div>
-                                            <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-300"
-                                                    style={{ width: `${audioProgress.percent}%` }}
-                                                />
-                                            </div>
+                                        <div className="text-[9px] font-black text-emerald-400 bg-emerald-950/50 border border-emerald-500/20 px-1 py-0.5 rounded text-center w-full shrink-0 animate-pulse" title={`Đang tạo audio thoại ${audioProgress.current}/${audioProgress.total}`}>
+                                            {audioProgress.percent}%
                                         </div>
                                     )}
-                                    <div className="flex justify-between items-center flex-wrap gap-3">
-                                        <button onClick={() => setView('list')} disabled={saving || isRegenerating || generatingAudio} className="px-5 py-2 rounded-xl text-slate-400 hover:text-white font-bold transition-colors disabled:opacity-40">Hủy</button>
 
-                                        {/* Trình phát audio nhỏ nếu đang phát kịch bản này ở chế độ sửa */}
-                                        {playingScriptId === selectedScript?.id && (
-                                            <div className="flex items-center gap-3 bg-slate-900 px-4 py-2 rounded-xl border border-white/5">
-                                                <button onClick={isPlaying ? pausePlaylist : resumePlaylist} className="text-indigo-400 hover:text-indigo-300">
-                                                    {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+                                    {/* Action Buttons */}
+                                    {(() => {
+                                        const hasAudioCount = editingMessages ? editingMessages.filter((m: any) => m.audioUrl && m.text.trim().length > 0).length : 0;
+                                        const totalCount = editingMessages ? editingMessages.filter((m: any) => m.text.trim().length > 0).length : 0;
+                                        const missingAudioCount = totalCount - hasAudioCount;
+
+                                        return (
+                                            <div className="flex flex-col gap-2.5 items-center w-full">
+                                                {/* Nút Lưu kịch bản */}
+                                                <button 
+                                                    onClick={() => handleSaveScript()} 
+                                                    disabled={saving || isRegenerating || generatingAudio} 
+                                                    title="Lưu kịch bản"
+                                                    className="w-8 h-8 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg flex items-center justify-center transition-all shadow-md disabled:opacity-40 cursor-pointer shrink-0"
+                                                >
+                                                    {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                                                 </button>
-                                                <input 
-                                                    type="range" min="0" max={totalDuration} 
-                                                    value={currentElapsedTime} onChange={handleSeek}
-                                                    className="w-32 h-1 bg-slate-850 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                                                />
-                                                <span className="text-[10px] text-slate-400 font-mono">
-                                                    {Math.floor(currentElapsedTime)}s / {Math.floor(totalDuration)}s
-                                                </span>
-                                            </div>
-                                        )}
 
-                                        <div className="flex gap-2 items-center flex-wrap">
-                                            {(() => {
-                                                const hasAudioCount = editingMessages ? editingMessages.filter((m: any) => m.audioUrl && m.text.trim().length > 0).length : 0;
-                                                const totalCount = editingMessages ? editingMessages.filter((m: any) => m.text.trim().length > 0).length : 0;
-                                                const missingAudioCount = totalCount - hasAudioCount;
+                                                {/* Nút Tạo Video */}
+                                                <button
+                                                    onClick={handleOpenVideoCreator}
+                                                    disabled={saving || isRegenerating || generatingAudio || hasAudioCount === 0}
+                                                    title={hasAudioCount === 0 ? 'Cần tạo audio trước' : 'Tạo video từ kịch bản này'}
+                                                    className="w-8 h-8 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white rounded-lg flex items-center justify-center transition-all shadow-md cursor-pointer shrink-0"
+                                                >
+                                                    <Video size={14} />
+                                                </button>
 
-                                                return (
+                                                {/* Nút Audio / Tạo lại / Tạo tiếp */}
+                                                {hasAudioCount > 0 ? (
                                                     <>
-                                                        {hasAudioCount > 0 ? (
-                                                            <>
-                                                                {/* Nút Nghe thử */}
-                                                                {playingScriptId === selectedScript?.id && isPlaying ? (
-                                                                    <button 
-                                                                        onClick={stopPlaylist} 
-                                                                        className="px-4 py-2 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-500/30 rounded-xl font-bold transition-all text-xs flex items-center gap-1.5 shadow-md"
-                                                                    >
-                                                                        <Pause size={13} /> Dừng phát
-                                                                    </button>
-                                                                ) : (
-                                                                    <button 
-                                                                        onClick={() => handlePlayPlaylist(selectedScript)} 
-                                                                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl font-bold transition-all text-xs flex items-center gap-1.5 shadow-md"
-                                                                    >
-                                                                        <Play size={13} /> Nghe thử
-                                                                    </button>
-                                                                )}
+                                                        <button
+                                                            onClick={() => handleGenerateAudioInEditView(true)}
+                                                            disabled={saving || isRegenerating || generatingAudio}
+                                                            className="w-8 h-8 bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 border border-amber-500/20 rounded-lg flex items-center justify-center transition-all cursor-pointer shrink-0 disabled:opacity-40"
+                                                            title="Tạo lại toàn bộ audio"
+                                                        >
+                                                            {generatingAudio ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                                                        </button>
 
-                                                                {/* Nút Tạo lại audio */}
-                                                                <button
-                                                                    onClick={() => handleGenerateAudioInEditView(true)}
-                                                                    disabled={saving || isRegenerating || generatingAudio}
-                                                                    className="px-3.5 py-2 bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 border border-amber-500/30 rounded-xl font-bold transition-all flex items-center gap-1.5 text-xs disabled:opacity-40"
-                                                                    title="Ép buộc tạo mới lại tất cả audio cho kịch bản này"
-                                                                >
-                                                                    {generatingAudio ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-                                                                    Tạo lại audio
-                                                                </button>
-
-                                                                {/* Nút Tạo tiếp nếu có thoại chưa có audio */}
-                                                                {missingAudioCount > 0 && (
-                                                                    <button
-                                                                        onClick={() => handleGenerateAudioInEditView(false)}
-                                                                        disabled={saving || isRegenerating || generatingAudio}
-                                                                        className="px-3.5 py-2 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/30 rounded-xl font-bold transition-all flex items-center gap-1.5 text-xs disabled:opacity-40"
-                                                                        title="Tạo audio cho những câu thoại chưa có audio"
-                                                                    >
-                                                                        {generatingAudio ? <Loader2 size={13} className="animate-spin" /> : <Mic size={13} />}
-                                                                        Tạo tiếp ({missingAudioCount})
-                                                                    </button>
-                                                                )}
-                                                            </>
-                                                        ) : (
-                                                            /* Chưa có audio nào -> Hiển thị nút Tạo Audio */
+                                                        {missingAudioCount > 0 && (
                                                             <button
                                                                 onClick={() => handleGenerateAudioInEditView(false)}
                                                                 disabled={saving || isRegenerating || generatingAudio}
-                                                                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl font-bold transition-all shadow-lg flex items-center gap-1.5 text-xs disabled:opacity-40"
-                                                                title="Tự động lưu rồi tạo audio cho từng câu thoại"
+                                                                className="w-8 h-8 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/20 rounded-lg flex items-center justify-center transition-all cursor-pointer shrink-0 disabled:opacity-40"
+                                                                title={`Tạo tiếp ${missingAudioCount} thoại chưa có audio`}
                                                             >
-                                                                {generatingAudio ? <Loader2 size={13} className="animate-spin" /> : <Mic size={13} />}
-                                                                {generatingAudio ? `${audioProgress?.percent ?? 0}%` : 'Tạo Audio'}
+                                                                {generatingAudio ? <Loader2 size={14} className="animate-spin" /> : <Mic size={14} />}
                                                             </button>
                                                         )}
-
-                                                        {/* Nút Lưu kịch bản */}
-                                                        <button 
-                                                            onClick={() => handleSaveScript()} 
-                                                            disabled={saving || isRegenerating || generatingAudio} 
-                                                            className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all shadow-lg flex items-center gap-1.5 text-xs disabled:opacity-40"
-                                                        >
-                                                            {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Lưu kịch bản
-                                                        </button>
                                                     </>
-                                                );
-                                            })()}
-                                        </div>
-                                    </div>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => handleGenerateAudioInEditView(false)}
+                                                        disabled={saving || isRegenerating || generatingAudio}
+                                                        className="w-8 h-8 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg flex items-center justify-center transition-all shadow-md cursor-pointer shrink-0 disabled:opacity-40"
+                                                        title="Tạo Audio"
+                                                    >
+                                                        {generatingAudio ? <Loader2 size={14} className="animate-spin" /> : <Mic size={14} />}
+                                                    </button>
+                                                )}
+
+                                                {/* Nút Nghe thử */}
+                                                {hasAudioCount > 0 && (
+                                                    playingScriptId === selectedScript?.id && isPlaying ? (
+                                                        <button 
+                                                            onClick={stopPlaylist} 
+                                                            className="w-8 h-8 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-500/20 rounded-lg flex items-center justify-center transition-all shadow-md cursor-pointer shrink-0"
+                                                            title="Dừng phát"
+                                                        >
+                                                            <Pause size={14} />
+                                                        </button>
+                                                    ) : (
+                                                        <button 
+                                                            onClick={() => handlePlayPlaylist(selectedScript)} 
+                                                            className="w-8 h-8 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg flex items-center justify-center transition-all shadow-md cursor-pointer shrink-0"
+                                                            title="Nghe thử kịch bản"
+                                                        >
+                                                            <Play size={14} />
+                                                        </button>
+                                                    )
+                                                )}
+
+                                                {/* Seekbar phát audio nén gọn */}
+                                                {playingScriptId === selectedScript?.id && (
+                                                    <div className="flex flex-col items-center gap-1.5 bg-slate-950/80 p-1 rounded-lg border border-white/5 w-8 shrink-0">
+                                                        <button onClick={isPlaying ? pausePlaylist : resumePlaylist} className="text-indigo-400 hover:text-indigo-300">
+                                                            {isPlaying ? <Pause size={12} /> : <Play size={12} />}
+                                                        </button>
+                                                        <span className="text-[7px] text-slate-500 font-mono scale-90">{Math.floor(currentElapsedTime)}s</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* Nút Hủy / Quay lại */}
+                                    <button 
+                                        onClick={() => setView('list')} 
+                                        disabled={saving || isRegenerating || generatingAudio} 
+                                        className="w-8 h-8 bg-slate-800 hover:bg-slate-750 text-slate-400 hover:text-white border border-white/5 rounded-lg flex items-center justify-center transition-all disabled:opacity-40 cursor-pointer shrink-0 mt-2"
+                                        title="Quay lại danh sách"
+                                    >
+                                        <X size={14} />
+                                    </button>
                                 </div>
                             </div>
-                        );
-                    })()}
-                </div>
-            </div>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {/* Render Prompt script generator inside manager modal */}
             <AiDirectorModal

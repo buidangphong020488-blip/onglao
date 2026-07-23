@@ -1,7 +1,7 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Sparkles, FileText, X } from 'lucide-react';
-import ScriptModal from './ScriptModal';
+import ScriptModal, { ScriptModalHandle } from './ScriptModal';
 import AiDirectorModal from './AiDirectorModal';
 
 interface CombinedScriptModalProps {
@@ -40,6 +40,7 @@ interface CombinedScriptModalProps {
 
 const CombinedScriptModal = (p: CombinedScriptModalProps) => {
     const [activeTab, setActiveTab] = useState<'manual' | 'ai'>('ai');
+    const scriptModalRef = useRef<ScriptModalHandle>(null);
 
     if (!p.show) return null;
 
@@ -75,6 +76,7 @@ const CombinedScriptModal = (p: CombinedScriptModalProps) => {
                 
                 {activeTab === 'manual' && (
                     <ScriptModal
+                        ref={scriptModalRef}
                         show={true}
                         asTab={true}
                         onClose={() => {}}
@@ -82,7 +84,12 @@ const CombinedScriptModal = (p: CombinedScriptModalProps) => {
                         setScriptText={p.setScriptText}
                         importMode={p.importMode}
                         setImportMode={p.setImportMode}
-                        onImport={p.onImport}
+                        onImport={() => {
+                            // Đọc DOM value mới nhất rồi nhập
+                            const latest = scriptModalRef.current?.getLatestText();
+                            if (latest !== undefined) p.setScriptText(latest);
+                            p.onImport();
+                        }}
                         publicSettings={p.publicSettings}
                     />
                 )}

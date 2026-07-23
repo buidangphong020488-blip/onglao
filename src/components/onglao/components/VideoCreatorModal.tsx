@@ -5,38 +5,138 @@ import { X, Film, Check, Save, Sliders, Maximize, Minimize, RefreshCw, Loader2, 
 
 import { useOngLaoContext } from "../context/OngLaoContext";
 import { idb } from "../constants";
+import { updateChatMessageContentAction } from "@/chat";
 
-const DebouncedInput = ({ value, onChange, ...props }: any) => {
-    const [localValue, setLocalValue] = React.useState(value);
-    React.useEffect(() => { setLocalValue(value); }, [value]);
-    return (
-        <input 
-            {...props} 
-            value={localValue} 
-            onChange={e => setLocalValue(e.target.value)} 
-            onBlur={(e) => onChange({ target: { value: localValue } })}
-            onKeyDown={e => {
-                if (e.key === 'Enter') {
-                    onChange({ target: { value: localValue } });
+
+
+// Hàm tự động chụp 1 khung ảnh tĩnh JPEG (Poster Snapshot 160x160) từ video mà KHÔNG giữ thẻ video HTML5 trong bộ nhớ
+const generateVideoPoster = (url: string): Promise<string> => {
+    return new Promise((resolve) => {
+        if (!url) { resolve(''); return; }
+        const video = document.createElement('video');
+        video.src = url;
+        video.crossOrigin = 'anonymous';
+        video.muted = true;
+        video.preload = 'metadata';
+        
+        const cleanup = () => {
+            video.removeAttribute('src');
+            video.load();
+        };
+
+        const timeout = setTimeout(() => { cleanup(); resolve(''); }, 2000);
+
+        video.onloadeddata = () => {
+            video.currentTime = 0.3;
+        };
+
+        video.onseeked = () => {
+            clearTimeout(timeout);
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = 160;
+                canvas.height = 160;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+                    cleanup();
+                    resolve(dataUrl);
+                    return;
                 }
-                if (props.onKeyDown) props.onKeyDown(e);
-            }}
-        />
-    )
-}
+            } catch (e) {
+                console.warn('Canvas poster capture failed:', e);
+            }
+            cleanup();
+            resolve('');
+        };
 
-const DebouncedTextarea = ({ value, onChange, ...props }: any) => {
-    const [localValue, setLocalValue] = React.useState(value);
-    React.useEffect(() => { setLocalValue(value); }, [value]);
+        video.onerror = () => {
+            clearTimeout(timeout);
+            cleanup();
+            resolve('');
+        };
+    });
+};
+
+// SceneThumbnailItem: Component thumbnail chụp ảnh tĩnh poster, hiển thị ảnh xem trước sắc nét mà KHÔNG tốn RAM/GPU
+const SceneThumbnailItem = ({ scene, setFfScenes }: { scene: any; setFfScenes: any }) => {
+    const [isHovered, setIsHovered] = React.useState(false);
+    const [poster, setPoster] = React.useState(scene.poster || '');
+
+    React.useEffect(() => {
+        if (scene.url && !poster) {
+            generateVideoPoster(scene.url).then(p => {
+                if (p) {
+                    setPoster(p);
+                    setFfScenes((prev: any) => prev.map((s: any) => s.id === scene.id ? { ...s, poster: p } : s));
+                }
+            });
+        }
+    }, [scene.url]);
+
+    const handleFile = async (file: File) => {
+        if (!file) return;
+        if (scene.url) URL.revokeObjectURL(scene.url);
+        const url = URL.createObjectURL(file);
+        const p = await generateVideoPoster(url);
+        setPoster(p);
+        const idbKey = `ff_clip_${scene.role}_${scene.emotion}_${Date.now()}_${Math.floor(Math.random()*10000)}`;
+        setTimeout(() => { idb.set(idbKey, file).catch(err => console.warn('Lỗi lưu IDB:', err)); }, 50);
+        setFfScenes((prev: any) => prev.map((s: any) => s.id === scene.id ? { ...s, url, poster: p, idbKey } : s));
+    };
+
     return (
-        <textarea 
-            {...props} 
-            value={localValue} 
-            onChange={e => setLocalValue(e.target.value)} 
-            onBlur={(e) => onChange({ target: { value: localValue } })}
-        />
-    )
-}
+        <label 
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            className="w-16 h-16 rounded-md border border-dashed border-emerald-500/30 hover:border-emerald-500 flex flex-col items-center justify-center cursor-pointer relative overflow-hidden bg-slate-900 shrink-0 group transition-all"
+        >
+            <input 
+                type="file" 
+                accept="video/*" 
+                className="hidden" 
+                onChange={(e: any) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFile(file);
+                    e.target.value = '';
+                }} 
+            />
+            {scene.url ? (
+                isHovered ? (
+                    <video 
+                        src={scene.url} 
+                        autoPlay 
+                        muted 
+                        loop
+                        playsInline 
+                        className="w-full h-full object-cover" 
+                    />
+                ) : (
+                    poster ? (
+                        <div className="w-full h-full relative group">
+                            <img src={poster} alt="thumbnail" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors flex items-center justify-center">
+                                <Film size={14} className="text-white/80 drop-shadow" />
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950/90 p-1 relative">
+                            <Film size={18} className="text-emerald-400 group-hover:scale-110 transition-transform" />
+                            <span className="text-[8px] font-bold text-emerald-300 mt-1 truncate max-w-full px-1">Đã nạp</span>
+                        </div>
+                    )
+                )
+            ) : (
+                <div className="flex flex-col items-center gap-0.5">
+                    <Plus size={14} className="text-emerald-500" />
+                    <span className="text-[7px] text-slate-500 font-bold">Thêm clip</span>
+                </div>
+            )}
+        </label>
+    );
+};
+
 
 // VideoCreatorModal: Modal xuất video pháp bảo
 const VideoCreatorModal = () => {
@@ -332,7 +432,7 @@ const VideoCreatorModal = () => {
                                                 else if (name.includes('hook') || name.includes('nhan manh') || name.includes('nhấn mạnh')) em = 'hook';
                                                 
                                                 const idbKey = `ff_clip_${role}_${em}_${Date.now()}_${Math.floor(Math.random()*10000)}`;
-                                                idb.set(idbKey, f).catch(err => console.warn('Lỗi lưu IDB:', err));
+                                                setTimeout(() => { idb.set(idbKey, f).catch(err => console.warn('Lỗi lưu IDB:', err)); }, 100);
                                                 return { name: f.name, url: URL.createObjectURL(f), role, emotion: em, idbKey };
                                             });
                                             console.log("Parsed file data:", fileData);
@@ -391,7 +491,7 @@ const VideoCreatorModal = () => {
                                                 else if (name.includes('hook') || name.includes('nhan manh') || name.includes('nhấn mạnh')) em = 'hook';
                                                 
                                                 const idbKey = `ff_clip_${role}_${em}_${Date.now()}_${Math.floor(Math.random()*10000)}`;
-                                                idb.set(idbKey, f).catch(err => console.warn('Lỗi lưu IDB:', err));
+                                                setTimeout(() => { idb.set(idbKey, f).catch(err => console.warn('Lỗi lưu IDB:', err)); }, 100);
                                                 return { name: f.name, url: URL.createObjectURL(f), role, emotion: em, idbKey };
                                             });
                                             console.log("Parsed file data:", fileData);
@@ -473,25 +573,8 @@ const VideoCreatorModal = () => {
                                                 </div>
                                             </div>
 
-                                            {/* Thumbnail Video */}
-                                            <label className="w-16 h-16 rounded-md border border-dashed border-emerald-500/30 hover:border-emerald-500 flex flex-col items-center justify-center cursor-pointer relative overflow-hidden bg-slate-900 shrink-0">
-                                                <input type="file" accept="video/*" className="hidden" onChange={(e: any) => {
-                                                    const file = e.target.files[0];
-                                                    if (file) {
-                                                        if (scene.url) URL.revokeObjectURL(scene.url);
-                                                        const url = URL.createObjectURL(file as any);
-                                                        const idbKey = `ff_clip_${scene.role}_${scene.emotion}_${Date.now()}_${Math.floor(Math.random()*10000)}`;
-                                                        idb.set(idbKey, file).catch(err => console.warn('Lỗi lưu IDB:', err));
-                                                        setFfScenes((prev: any) => prev.map((s: any) => s.id === scene.id ? {...s, url, idbKey} : s));
-                                                    }
-                                                    e.target.value = '';
-                                                }} />
-                                                {scene.url ? (
-                                                    <video src={scene.url} muted playsInline className="w-full h-full object-cover" onMouseEnter={e => { const p = (e.target as any).play(); if(p) p.catch(()=>{}); }} onMouseLeave={e => (e.target as any).pause()} />
-                                                ) : (
-                                                    <Plus size={14} className="text-emerald-500" />
-                                                )}
-                                            </label>
+                                            {/* Thumbnail Video - Lazy Unmounted để giải phóng RAM & GPU */}
+                                            <SceneThumbnailItem scene={scene} setFfScenes={setFfScenes} />
 
                                             {/* Settings Cảnh */}
                                             <div className="flex flex-col gap-1.5 flex-1 min-w-0">
@@ -569,11 +652,11 @@ const VideoCreatorModal = () => {
                             <div className="flex flex-col gap-3 bg-slate-950 p-3 rounded-xl border border-white/10">
                                <div className="flex gap-2 w-full">
                                   <input type="file" ref={logoFileInputRef} className="hidden" accept="image/*" onChange={handleUploadLogo} />
-                                  <button onClick={() => logoFileInputRef.current?.click()} disabled={isExportingVideo || isPreparingVideoData} className="flex-1 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-bold py-2.5 px-3 rounded-lg border border-white/10 flex justify-center items-center gap-1.5 transition-all">
+                                  <button onClick={() => logoFileInputRef.current?.click()} disabled={isExportingVideo || isPreparingVideoData} className="flex-1 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-bold py-2 px-3 rounded-lg border border-white/10 flex justify-center items-center gap-1.5 transition-all">
                                     <Upload size={14} /> Chọn Logo
                                   </button>
                                   {logoData && (
-                                     <button onClick={removeLogo} disabled={isExportingVideo || isPreparingVideoData} className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold py-2.5 px-4 rounded-lg flex items-center justify-center transition-all">
+                                     <button onClick={removeLogo} disabled={isExportingVideo || isPreparingVideoData} className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold py-2 px-4 rounded-lg flex items-center justify-center transition-all">
                                         <X size={14} /> Gỡ bỏ
                                      </button>
                                   )}
@@ -619,12 +702,12 @@ const VideoCreatorModal = () => {
                                <div className="flex flex-col gap-3 bg-slate-950 p-3 rounded-xl border border-white/10">
                                   <div className="flex gap-2 w-full">
                                      <input type="file" ref={bgmFileInputRef} className="hidden" accept="audio/*" onChange={handleUploadBgm} />
-                                     <button onClick={() => bgmFileInputRef.current?.click()} disabled={isExportingVideo || isPreparingVideoData || isGeneratingBgm} className="flex-1 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-bold py-2.5 px-3 rounded-lg border border-white/10 flex justify-center items-center gap-1.5 transition-all">
+                                     <button onClick={() => bgmFileInputRef.current?.click()} disabled={isExportingVideo || isPreparingVideoData || isGeneratingBgm} className="flex-1 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-bold py-2 px-3 rounded-lg border border-white/10 flex justify-center items-center gap-1.5 transition-all">
                                        <Upload size={14} /> Tải MP3
                                      </button>
                                      <select 
                                         disabled={isExportingVideo || isPreparingVideoData || isGeneratingBgm}
-                                        className="flex-1 bg-slate-800 border border-white/10 text-xs px-3 py-2.5 rounded-lg outline-none text-white focus:border-emerald-500 cursor-pointer"
+                                        className="flex-1 bg-slate-800 border border-white/10 text-xs px-3 py-2 rounded-lg outline-none text-white focus:border-emerald-500 cursor-pointer"
                                         onChange={(e: any) => {
                                             const selected = DEFAULT_BGM_LIST.find(m => m.id === e.target.value);
                                             if (selected && selected.url && selected.url !== 'DÁN_LINK_NHẠC_CỦA_CON_VÀO_ĐÂY.mp3') {
@@ -642,8 +725,8 @@ const VideoCreatorModal = () => {
                                   </div>
                                   
                                   <div className="flex w-full relative mt-1">
-                                     <DebouncedInput type="text" value={aiBgmPrompt} onChange={(e: any) => setAiBgmPrompt(e.target.value)} disabled={isExportingVideo || isPreparingVideoData || isGeneratingBgm} placeholder="AI tự tạo nhạc thiền 30s, tiếng nước chảy..." className="w-full bg-slate-800 border border-white/10 text-xs px-3 py-2.5 rounded-l-lg outline-none text-white placeholder:text-slate-500 focus:border-emerald-500" />
-                                     <button onClick={handleGenerateAiBgm} disabled={isExportingVideo || isPreparingVideoData || isGeneratingBgm || !aiBgmPrompt.trim()} className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-4 rounded-r-lg disabled:opacity-50 flex items-center justify-center gap-1.5 transition-all whitespace-nowrap">
+                                     <input type="text" value={aiBgmPrompt} onChange={(e: any) => setAiBgmPrompt(e.target.value)} disabled={isExportingVideo || isPreparingVideoData || isGeneratingBgm} placeholder="AI tự tạo nhạc thiền 30s, tiếng nước chảy..." className="w-full bg-slate-800 border border-white/10 text-xs px-3 py-2 rounded-l-lg outline-none text-white placeholder:text-slate-500 focus:border-emerald-500" />
+                                     <button onClick={handleGenerateAiBgm} disabled={isExportingVideo || isPreparingVideoData || isGeneratingBgm || !aiBgmPrompt.trim()} className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 px-4 rounded-r-lg disabled:opacity-50 flex items-center justify-center gap-1.5 transition-all whitespace-nowrap">
                                         {isGeneratingBgm ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} Tạo AI
                                      </button>
                                   </div>
@@ -679,27 +762,27 @@ const VideoCreatorModal = () => {
                                 </div>
                              </div>
 
-                             <div className="mt-4 pt-4 border-t border-white/5">
+                             <div className="mt-3 pt-3 border-t border-white/5">
                                {!isExportingVideo ? (
-                                  <div className="grid grid-cols-2 gap-3 w-full">
+                                  <div className="grid grid-cols-2 gap-2 w-full">
                                      <button 
                                         onClick={handleSaveVideoConfig} 
                                         disabled={isPreparingVideoData} 
-                                        className="w-full bg-slate-800 hover:bg-slate-700 text-emerald-400 font-bold py-4 rounded-xl border border-emerald-500/30 flex items-center justify-center gap-2 transition-all shadow-md hover:scale-[1.02] text-sm"
+                                        className="w-full bg-slate-800 hover:bg-slate-700 text-emerald-400 font-bold py-3 rounded-lg border border-emerald-500/30 flex items-center justify-center gap-1.5 transition-all shadow-md text-xs"
                                      >
-                                        <Save size={18} /> Lưu Cài Đặt
+                                        <Save size={14} /> Lưu Cài Đặt
                                      </button>
                                      <button 
                                         onClick={startVideoExport} 
                                         disabled={isPreparingVideoData} 
-                                        className="w-full bg-orange-600 hover:bg-orange-500 text-white font-bold py-4 rounded-xl tracking-wider flex justify-center items-center gap-2 shadow-lg disabled:opacity-50 disabled:cursor-wait transition-all hover:scale-[1.02] text-sm"
+                                        className="w-full bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 rounded-lg flex justify-center items-center gap-1.5 shadow-lg disabled:opacity-50 disabled:cursor-wait transition-all text-xs"
                                      >
-                                        {isPreparingVideoData ? <><Loader2 size={18} className="animate-spin"/> Đang render video...</> : <><Video size={18}/> Bắt Đầu Render</>}
+                                        {isPreparingVideoData ? <><Loader2 size={14} className="animate-spin"/> Đang render...</> : <><Video size={14}/> Bắt Đầu Render</>}
                                      </button>
                                   </div>
                                ) : (
-                                  <button onClick={cancelVideoExport} className="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-4 rounded-xl tracking-wider shadow-lg flex items-center justify-center gap-2 animate-pulse">
-                                     <XCircle size={18}/> Dừng & Hủy Bỏ Render
+                                  <button onClick={cancelVideoExport} className="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-1.5 animate-pulse text-xs">
+                                     <XCircle size={14}/> Dừng & Hủy Bỏ Render
                                   </button>
                                )}
                              </div>
@@ -725,21 +808,21 @@ const VideoCreatorModal = () => {
                                       <div className="flex flex-col gap-3 animate-in fade-in">
                                           <div className="flex flex-col gap-1.5">
                                               <label className="text-[10px] font-bold text-slate-300">Tiêu đề chính (Màu Vàng):</label>
-                                              <DebouncedInput 
+                                              <input 
                                                   type="text" 
-                                                  value={introTitle} 
-                                                  onChange={(e: any) => setIntroTitle(e.target.value)} 
+                                                  defaultValue={introTitle} 
+                                                  onBlur={(e: any) => setIntroTitle(e.target.value)} 
                                                   placeholder="VD: Chủ đề Vô Thường" 
-                                                  className="w-full bg-slate-950 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:border-yellow-500 outline-none font-bold" 
+                                                  className="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-yellow-500 outline-none font-bold" 
                                               />
                                           </div>
                                           <div className="flex flex-col gap-1.5">
                                               <label className="text-[10px] font-bold text-slate-300">Dòng Phụ / Câu hỏi tự vấn (Màu Trắng):</label>
-                                              <DebouncedTextarea 
-                                                  value={introSubtitle} 
-                                                  onChange={(e: any) => setIntroSubtitle(e.target.value)} 
+                                              <textarea 
+                                                  defaultValue={introSubtitle} 
+                                                  onBlur={(e: any) => setIntroSubtitle(e.target.value)} 
                                                   placeholder="VD: Làm sao để buông bỏ muộn phiền?" 
-                                                  className="w-full bg-slate-950 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:border-yellow-500 outline-none resize-none h-16 scrollbar-hide italic" 
+                                                  className="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-yellow-500 outline-none resize-none h-16 scrollbar-hide italic" 
                                               />
                                           </div>
                                       </div>
@@ -760,9 +843,9 @@ const VideoCreatorModal = () => {
                                   
                                   {enableOutroText && (
                                       <div className="flex flex-col gap-3 animate-in fade-in">
-                                          <DebouncedTextarea 
-                                              value={outroText} 
-                                              onChange={(e: any) => setOutroText(e.target.value)} 
+                                          <textarea 
+                                              defaultValue={outroText} 
+                                              onBlur={(e: any) => setOutroText(e.target.value)} 
                                               placeholder="VD: Nguyện người xem được giác ngộ giải thoát..." 
                                               className="w-full bg-slate-950 border border-white/10 rounded-lg p-3 text-sm text-center text-orange-200 focus:border-orange-500 outline-none resize-none h-24 scrollbar-hide font-bold leading-relaxed" 
                                           />
@@ -772,8 +855,8 @@ const VideoCreatorModal = () => {
                               
                               <div className="mt-auto pt-4 border-t border-white/5">
                                  {!isExportingVideo ? (
-                                    <button onClick={startVideoExport} disabled={isPreparingVideoData} className="w-full bg-orange-600 hover:bg-orange-500 text-white font-bold py-4 rounded-xl tracking-wider flex justify-center items-center gap-2 shadow-lg disabled:opacity-50 disabled:cursor-wait transition-all hover:scale-[1.02]">
-                                       {isPreparingVideoData ? <><Loader2 size={18} className="animate-spin"/> Đang render Video...</> : <><Video size={18}/> Bắt Đầu Render Video</>}
+                                    <button onClick={startVideoExport} disabled={isPreparingVideoData} className="w-full bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 rounded-lg flex justify-center items-center gap-1.5 shadow-lg disabled:opacity-50 disabled:cursor-wait transition-all text-xs">
+                                       {isPreparingVideoData ? <><Loader2 size={14} className="animate-spin"/> Đang render...</> : <><Video size={14}/> Bắt Đầu Render Video</>}
                                     </button>
                                  ) : (
                                     <button onClick={cancelVideoExport} className="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-3.5 rounded-xl tracking-wider shadow-lg flex items-center justify-center gap-2 animate-pulse text-xs">
@@ -933,14 +1016,14 @@ const VideoCreatorModal = () => {
                       <div className="p-5 flex flex-col gap-4">
                           <div className="flex flex-col gap-1.5">
                              <label className="text-xs font-bold text-slate-400">Tên bối cảnh:</label>
-                             <DebouncedInput 
-                                type="text" 
-                                value={presetFormData.name} 
-                                onChange={(e: any) => setPresetFormData({...presetFormData, name: e.target.value})}
-                                autoFocus
-                                placeholder="Ví dụ: Rừng trúc ngang 1"
-                                className="w-full bg-slate-950 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-amber-500 outline-none"
-                             />
+                             <input 
+                                 type="text" 
+                                 value={presetFormData.name} 
+                                 onChange={(e: any) => setPresetFormData({...presetFormData, name: e.target.value})}
+                                 autoFocus
+                                 placeholder="Ví dụ: Rừng trúc ngang 1"
+                                 className="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-amber-500 outline-none"
+                              />
                           </div>
                           
                           <div className="flex flex-col gap-1.5">
@@ -1018,13 +1101,13 @@ const VideoCreatorModal = () => {
                       <div className="p-5 flex flex-col gap-4">
                           <div className="flex flex-col gap-1.5">
                               <label className="text-xs font-bold text-slate-400">Tên hình tướng:</label>
-                              <DebouncedInput 
+                              <input 
                                   type="text" 
                                   value={saveCharData.name} 
                                   onChange={(e: any) => setSaveCharData({...saveCharData, name: e.target.value})} 
                                   autoFocus 
                                   placeholder="VD: Lão Video Của Tôi" 
-                                  className="w-full bg-slate-950 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-orange-500 outline-none" 
+                                  className="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-orange-500 outline-none" 
                               />
                           </div>
                           {saveCharData.role === 'user' && (
@@ -1073,13 +1156,13 @@ const VideoCreatorModal = () => {
                        <div className="p-5 flex flex-col gap-4">
                            <div className="flex flex-col gap-1.5">
                                <label className="text-xs font-bold text-slate-400">Tên video để dễ nhớ:</label>
-                               <DebouncedInput 
+                               <input 
                                    type="text" 
                                    value={ffSaveData.name} 
                                    onChange={(e: any) => setFfSaveData({...ffSaveData, name: e.target.value})} 
                                    autoFocus 
                                    placeholder="VD: Cảnh Lão ngồi thiền" 
-                                   className="w-full bg-slate-950 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-emerald-500 outline-none" 
+                                   className="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-emerald-500 outline-none" 
                                />
                            </div>
                            <div className="flex justify-end gap-3 mt-2">

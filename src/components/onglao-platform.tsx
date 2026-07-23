@@ -705,8 +705,10 @@ const OngLaoPlatform = ({ initialPoems = [], autoOpenVideoModal = false }: { ini
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const modalParam = urlParams.get('modal');
+      const childModal = urlParams.get('childmodal');
       
-      if (autoOpenVideoModal || modalParam === 'create-video') {
+      // Mở video creator khi URL có modal=create-video hoặc childmodal=create-video (từ script form)
+      if (autoOpenVideoModal || modalParam === 'create-video' || childModal === 'create-video') {
         videoExportState.setShowVideoExportModal(true);
         videoExportState.setVideoSlug('createvideo');
       }
@@ -726,6 +728,13 @@ const OngLaoPlatform = ({ initialPoems = [], autoOpenVideoModal = false }: { ini
       const url = new URL(window.location.href);
       const currentModal = url.searchParams.get('modal');
       const currentId = url.searchParams.get('id');
+      const currentChildModal = url.searchParams.get('childmodal');
+      
+      // Nếu video creator đang mở thông qua childmodal (từ script form):
+      // KHÔNG ghi đè URL — childmodal URL đã được quản lý bởi AiDirectorManagerModal
+      if (isExportModalOpen && currentChildModal === 'create-video') {
+        return;
+      }
       
       let targetModal = null;
       if (isExportModalOpen) targetModal = 'create-video';

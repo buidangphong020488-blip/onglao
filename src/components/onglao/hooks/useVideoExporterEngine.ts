@@ -1343,10 +1343,28 @@ export const useVideoExporterEngine = ({
     setIsExportingVideo(false);
     setIsPreviewFullscreen(false); // Reset trạng thái fullscreen khi thoát
     setShowVideoExportModal(false);
+
+    // Xử lý childmodal routing: nếu mở từ script form (childmodal=create-video)
+    // thì xóa childmodal+videoid param và giữ AiDirectorManagerModal đang mở
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      const childModal = url.searchParams.get('childmodal');
+      if (childModal === 'create-video') {
+        // Xóa chỉ childmodal và videoid, giữ nguyên modal=ai-director và các param của script
+        url.searchParams.delete('childmodal');
+        url.searchParams.delete('videoid');
+        window.history.replaceState(null, '', url.toString());
+        // AiDirectorManagerModal vẫn đang mở (showAiManager không thay đổi)
+        return;
+      }
+    }
+
+    // Trường hợp thông thường (từ chat): kiểm tra videoExportSource cũ
     if (videoExportSource === 'ai_director' && setShowAiManager) {
         setShowAiManager(true);
     }
   };
+
 
   return {
     startVideoExport,
