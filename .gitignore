@@ -48,3 +48,7 @@ OngLao.zip
 
 # Data folder
 /data
+
+# Media files
+*.wav
+*.mp4
