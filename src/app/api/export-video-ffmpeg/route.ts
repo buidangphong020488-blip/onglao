@@ -142,9 +142,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (format === 'webm') {
-      finalCmd += ` -c:v libvpx-vp9 -b:v 15M -c:a libopus "${finalOutputPath}"`;
+      finalCmd += ` -c:v libvpx-vp9 -b:v 15M -c:a libopus -movflags +faststart "${finalOutputPath}"`;
     } else {
-      finalCmd += ` -c:v copy -c:a aac -b:a 192k "${finalOutputPath}"`;
+      finalCmd += ` -c:v libx264 -preset ultrafast -profile:v main -pix_fmt yuv420p -c:a aac -b:a 192k -movflags +faststart "${finalOutputPath}"`;
     }
 
     console.log('Running FFmpeg Final Cmd:', finalCmd);
