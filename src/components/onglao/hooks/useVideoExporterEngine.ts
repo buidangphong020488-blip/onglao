@@ -34,8 +34,6 @@ import {
 
 import { saveChatMessageAction } from '@/actions/chat';
 
-
-
 export const useVideoExporterEngine = ({
   FULLFRAME_PACKS = [],
 
@@ -44,8 +42,6 @@ export const useVideoExporterEngine = ({
   messages,
 
   currentSessionId,
-
-  
 
   // Refs from parent
 
@@ -82,8 +78,6 @@ export const useVideoExporterEngine = ({
   spellCheckTimeoutsRef,
 
   globalAudioRef,
-
-  
 
   // Settings & appearance configurations
 
@@ -123,8 +117,6 @@ export const useVideoExporterEngine = ({
 
   logoSettings,
 
-  
-
   // Export option values
 
   videoResolution,
@@ -157,8 +149,6 @@ export const useVideoExporterEngine = ({
 
   isFullFrameMode,
 
-  
-
   // Exporter states and setters
 
   isExportingVideo,
@@ -185,8 +175,6 @@ export const useVideoExporterEngine = ({
 
   setBgUpdateTrigger,
 
-  
-
   // Timeline cache refs
 
   globalAudioUrlRef,
@@ -195,8 +183,6 @@ export const useVideoExporterEngine = ({
 
   globalAudioMetadataRef,
 
-  
-
   // Diagnostic states
 
   setDiagnosticReport,
@@ -204,8 +190,6 @@ export const useVideoExporterEngine = ({
   setShowDiagnostics,
 
   renderDiagnosticsRef,
-
-  
 
   // Fullframe configuration
 
@@ -217,8 +201,6 @@ export const useVideoExporterEngine = ({
 
   const blurCanvasRef = useRef<any>(null);
 
-
-
   const resetVideoExport = () => {
 
     setIsExportingVideo(false);
@@ -228,8 +210,6 @@ export const useVideoExporterEngine = ({
     setBgUpdateTrigger((prev: any) => prev + 1);
 
   };
-
-
 
   const releaseExportRAM = () => {
 
@@ -265,8 +245,6 @@ export const useVideoExporterEngine = ({
 
       }
 
-
-
       // 2. Dọn các canvas mờ & canvas đệm
 
       if (blurCanvasRef.current) {
@@ -278,8 +256,6 @@ export const useVideoExporterEngine = ({
         blurCanvasRef.current = null;
 
       }
-
-
 
       // 3. Xóa bộ nhớ đệm frame tạm
 
@@ -293,8 +269,6 @@ export const useVideoExporterEngine = ({
 
       processedLogoRef.current = null;
 
-
-
       // 4. Gọi Garbage Collector nếu trình duyệt hỗ trợ
 
       if (typeof window !== 'undefined' && (window as any).gc) {
@@ -307,17 +281,11 @@ export const useVideoExporterEngine = ({
 
   };
 
-
-
   const handleClearCache = () => {
 
       showToastMsg('Đang dọn dẹp bộ nhớ đệm (RAM/VRAM)...', 'loading', 2500);
 
-
-
       releaseExportRAM();
-
-
 
       // 1. Phá hủy các Canvas xử lý điểm ảnh (Nặng RAM nhất) của Bối cảnh Video
 
@@ -335,8 +303,6 @@ export const useVideoExporterEngine = ({
 
       });
 
-
-
       // 2. Phá hủy Canvas tách nền của Lão
 
       ['idle', 'talking'].forEach(state => {
@@ -352,8 +318,6 @@ export const useVideoExporterEngine = ({
           }
 
       });
-
-
 
       // 3. Phá hủy Canvas tách nền của Người hỏi
 
@@ -371,15 +335,11 @@ export const useVideoExporterEngine = ({
 
       });
 
-
-
       // 4. Xóa bộ nhớ đệm Ảnh tĩnh & Logo đã xử lý (Sẽ tự động vẽ lại mới, sắc nét hơn)
 
       processedBgsRef.current = {};
 
       processedLogoRef.current = null;
-
-
 
       // 5. Xóa rác của luồng Render cũ
 
@@ -397,8 +357,6 @@ export const useVideoExporterEngine = ({
 
       preloadedBowFrames.current = {};
 
-
-
       // 6. Xóa Video Preview cũ nếu có (Nhưng chưa lưu) để trả lại dung lượng
 
       if (exportAudioCtxRef.current && !isExportingVideo) {
@@ -411,13 +369,9 @@ export const useVideoExporterEngine = ({
 
       }
 
-
-
       // 7. Kích hoạt render lại giao diện để khởi tạo bộ nhớ sạch
 
       setBgUpdateTrigger((prev: any) => prev + 1);
-
-
 
       setTimeout(() => {
 
@@ -427,8 +381,6 @@ export const useVideoExporterEngine = ({
 
   };
 
-
-
   const startVideoExport = async () => {
 
     if (isExportingVideo) return;
@@ -436,8 +388,6 @@ export const useVideoExporterEngine = ({
     setIsPreparingVideoData(true);
 
     setDiagnosticReport(null); // Reset báo cáo cũ
-
-
 
     // TÂM AN FIX: Tiêu diệt triệt để vòng lặp bóng ma từ lần render trước
 
@@ -448,8 +398,6 @@ export const useVideoExporterEngine = ({
         exportAnimFrameRef.current = null;
 
     }
-
-
 
     // TỰ ĐỘNG NẠP BỘ CẢNH MẶC ĐỊNH nếu các cảnh chưa có URL video để quy trình render luôn là video chuyển động 100%
 
@@ -478,8 +426,6 @@ export const useVideoExporterEngine = ({
         }
 
     }
-
-
 
     // Auto-persist tất cả video blobs chưa có idbKey vào IndexedDB để lưu trữ vĩnh viễn
 
@@ -511,15 +457,11 @@ export const useVideoExporterEngine = ({
 
     }
 
-
-
     try {
 
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
 
       exportAudioCtxRef.current = new AudioContextClass();
-
-      
 
       const audioUrl = await combineWavs(messages.filter((m: any) => m.audioUrl).map((m: any) => ({ url: m.audioUrl, role: m.role, text: m.text, emotion: m.emotion || 'calm', msgId: m.id })));
 
@@ -537,21 +479,15 @@ export const useVideoExporterEngine = ({
 
       const combinedAudioMetadata = audioUrl.metadata;
 
-
-
       // Tách riêng danh sách timeline nói của Lão và Con từ Metadata của file gộp
 
       const laoTalkingBlocks = combinedAudioMetadata.filter((m: any) => m.role === 'ai');
 
       const userTalkingBlocks = combinedAudioMetadata.filter((m: any) => m.role === 'user');
 
-
-
       // Tách khung hình SVG/Ảnh cho Lão & Con dựa trên các mốc thời gian để vẽ FullFrame cực nhanh
 
       showToastMsg('Đang tải trước bối cảnh...', 'loading', 0);
-
-      
 
       // Khởi tạo các khung hình SVG
 
@@ -560,8 +496,6 @@ export const useVideoExporterEngine = ({
       preloadedUserFrames.current = {};
 
       preloadedBowFrames.current = {};
-
-
 
       const loadSvgToImage = (svgString: any) => {
 
@@ -580,8 +514,6 @@ export const useVideoExporterEngine = ({
         });
 
       };
-
-
 
       // Tải trước toàn bộ các trạng thái miệng nhép của Lão (Từ 0 đến 16)
 
@@ -612,8 +544,6 @@ export const useVideoExporterEngine = ({
           }
 
       }
-
-
 
       // Tải trước các trạng thái miệng của Người hỏi (user)
 
@@ -661,8 +591,6 @@ export const useVideoExporterEngine = ({
 
       }
 
-
-
       // Tải trước hình nền tĩnh nếu bối cảnh chính là ảnh tĩnh để tránh giật lag lúc render
 
       const activeBgForBounds = customBgs.find((b: any) => b.visible !== false);
@@ -689,15 +617,11 @@ export const useVideoExporterEngine = ({
 
       }
 
-
-
       // Nạp audio gộp vào AudioContext
 
       const combinedAudioBuffer = await combinedAudioBlob.arrayBuffer();
 
       const decodedAudioBuffer = await exportAudioCtxRef.current.decodeAudioData(combinedAudioBuffer);
-
-
 
       // --- FFMEG ENGINE EXPORT (SIÊU TỐC - 0% GIẬT LAG VIA FORMDATA MULTIPART) ---
 
@@ -705,13 +629,9 @@ export const useVideoExporterEngine = ({
 
         showToastMsg('Đang render Video...', 'loading', 0);
 
-
-
         const formData = new FormData();
 
         formData.append('audio', combinedAudioBlob, 'narration.mp3');
-
-
 
         if (bgmAudioData && bgmAudioData.url) {
 
@@ -731,13 +651,9 @@ export const useVideoExporterEngine = ({
 
         }
 
-
-
         const scenesList: any[] = [];
 
         const totalDur = decodedAudioBuffer.duration || 10;
-
-        
 
         if (combinedAudioMetadata && combinedAudioMetadata.length > 0) {
 
@@ -755,13 +671,9 @@ export const useVideoExporterEngine = ({
 
             }
 
-            
-
             let clipUrl = matchedScene?.url || '';
 
             let blobToConvert: Blob | null = null;
-
-
 
             if (!clipUrl) {
 
@@ -780,8 +692,6 @@ export const useVideoExporterEngine = ({
               }
 
             }
-
-
 
             if (matchedScene?.idbKey) {
 
@@ -812,8 +722,6 @@ export const useVideoExporterEngine = ({
               } catch (e) {}
 
             }
-
-
 
             if (!blobToConvert && ffScenesRef.current && ffScenesRef.current.length > 0) {
 
@@ -857,15 +765,11 @@ export const useVideoExporterEngine = ({
 
             }
 
-
-
             if (blobToConvert) {
 
               formData.append(`clip_${i}`, blobToConvert, `clip_${i}.mp4`);
 
             }
-
-
 
             scenesList.push({
 
@@ -939,8 +843,6 @@ export const useVideoExporterEngine = ({
 
         }
 
-
-
         formData.append('metadata', JSON.stringify({
 
           scenes: scenesList,
@@ -954,8 +856,6 @@ export const useVideoExporterEngine = ({
           format: videoExt || 'mp4'
 
         }));
-
-
 
         let hasAnyClips = false;
 
@@ -971,8 +871,6 @@ export const useVideoExporterEngine = ({
 
         }
 
-
-
         if (hasAnyClips) {
 
           const res = await fetch('/api/export-video-ffmpeg', {
@@ -982,8 +880,6 @@ export const useVideoExporterEngine = ({
             body: formData
 
           });
-
-
 
           if (res.ok) {
 
@@ -998,8 +894,6 @@ export const useVideoExporterEngine = ({
               ? serverVideoUrlHeader 
 
               : URL.createObjectURL(exportedBlob);
-
-
 
             setRenderedVideoBlob(exportedBlob);
 
@@ -1051,8 +945,6 @@ export const useVideoExporterEngine = ({
 
       }
 
-
-
       // Cấu hình tham số xuất video (Kích thước tùy thuộc vào độ phân giải đã chọn)
 
       let width = 1920;
@@ -1064,8 +956,6 @@ export const useVideoExporterEngine = ({
       else if (videoResolution === '4k') { width = 3840; height = 2160; }
 
       else if (videoResolution === '1080') { width = 1920; height = 1080; }
-
-
 
       // Tráo đổi chiều rộng/cao nếu là khung hình dọc (9x16)
 
@@ -1081,15 +971,15 @@ export const useVideoExporterEngine = ({
 
       }
 
-
-
-      const canvas = exportCanvasRef.current;
+      let canvas = exportCanvasRef ? exportCanvasRef.current : null;
+      if (!canvas) {
+          canvas = document.createElement('canvas');
+          if (exportCanvasRef) exportCanvasRef.current = canvas;
+      }
 
       canvas.width = width;
 
       canvas.height = height;
-
-
 
       // Chuẩn bị luồng MediaStream ghi hình từ Canvas (60 FPS chuẩn xác để khử 100% giật lag)
 
@@ -1097,15 +987,11 @@ export const useVideoExporterEngine = ({
 
       const videoTrack = canvasStream.getVideoTracks()[0] as any;
 
-      
-
       // Tạo nút âm thanh phát file Audio gộp
 
       const audioSourceNode = exportAudioCtxRef.current.createBufferSource();
 
       audioSourceNode.buffer = decodedAudioBuffer;
-
-
 
       // Tạo bộ thu phát sóng âm (Analyser) để nhép môi đồng bộ theo thời gian thực
 
@@ -1115,8 +1001,6 @@ export const useVideoExporterEngine = ({
 
       audioSourceNode.connect(analyserNode);
 
-
-
       // Ghi âm luồng âm thanh
 
       const audioDestinationNode = exportAudioCtxRef.current.createMediaStreamDestination();
@@ -1124,8 +1008,6 @@ export const useVideoExporterEngine = ({
       audioSourceNode.connect(audioDestinationNode);
 
       audioSourceNode.connect(exportAudioCtxRef.current.destination);
-
-
 
       // MIX BGM: Nạp và kết hợp nhạc nền (BGM) nếu được lựa chọn
 
@@ -1145,21 +1027,15 @@ export const useVideoExporterEngine = ({
 
                   const bgmDecodedBuffer = await exportAudioCtxRef.current.decodeAudioData(bgmArrayBuf);
 
-                  
-
                   bgmSourceNode = exportAudioCtxRef.current.createBufferSource();
 
                   bgmSourceNode.buffer = bgmDecodedBuffer;
 
                   bgmSourceNode.loop = true;
 
-                  
-
                   const bgmGainNode = exportAudioCtxRef.current.createGain();
 
                   bgmGainNode.gain.setValueAtTime(bgmVolume !== undefined ? bgmVolume : 0.15, exportAudioCtxRef.current.currentTime);
-
-                  
 
                   bgmSourceNode.connect(bgmGainNode);
 
@@ -1177,8 +1053,6 @@ export const useVideoExporterEngine = ({
 
       }
 
-
-
       // Gộp luồng Video từ Canvas và luồng Audio thành MediaStream tổng
 
       const combinedStream = new MediaStream([
@@ -1189,8 +1063,6 @@ export const useVideoExporterEngine = ({
 
       ]);
 
-
-
       // Bắt đầu khởi tạo bộ mã hóa (Recorder) để đóng gói video (Dùng VP8 phần cứng siêu mượt)
 
       let options: any = { mimeType: 'video/webm;codecs=vp8,opus', videoBitsPerSecond: 12000000 };
@@ -1199,15 +1071,11 @@ export const useVideoExporterEngine = ({
 
       else if (videoResolution === '720') options.videoBitsPerSecond = 6000000;
 
-
-
       if (videoExt === 'mp4' && MediaRecorder.isTypeSupported('video/mp4;codecs=h264,aac')) {
 
           options.mimeType = 'video/mp4;codecs=h264,aac';
 
       }
-
-
 
       if (!MediaRecorder.isTypeSupported(options.mimeType)) {
 
@@ -1221,23 +1089,17 @@ export const useVideoExporterEngine = ({
 
       }
 
-
-
       const mediaRecorder = new MediaRecorder(combinedStream, options);
 
       exportMediaRecorderRef.current = mediaRecorder;
 
       const chunks: any[] = [];
 
-
-
       mediaRecorder.ondataavailable = (e) => {
 
           if (e.data && e.data.size > 0) chunks.push(e.data);
 
       };
-
-
 
       mediaRecorder.onstop = () => {
 
@@ -1275,8 +1137,6 @@ export const useVideoExporterEngine = ({
 
       };
 
-
-
       // TÂM AN PROFILER V2: Khởi tạo các biến đo đạc
 
       const profilerStats = {
@@ -1300,8 +1160,6 @@ export const useVideoExporterEngine = ({
           fxEnabled: enableAutoHarmonization
 
       };
-
-
 
       // Tua mồi tất cả video trước khi quay
 
@@ -1327,8 +1185,6 @@ export const useVideoExporterEngine = ({
 
       };
 
-
-
       const waitForSeek = (vid: any) => {
 
           return new Promise<void>(resolve => {
@@ -1349,8 +1205,6 @@ export const useVideoExporterEngine = ({
 
       };
 
-
-
       const bgWaitPromises = customBgs.reduce((acc: any[], bg: any) => {
 
           if (bg.type === 'video') {
@@ -1364,8 +1218,6 @@ export const useVideoExporterEngine = ({
           return acc;
 
       }, []);
-
-
 
       await Promise.all([
 
@@ -1385,8 +1237,6 @@ export const useVideoExporterEngine = ({
 
       ]);
 
-
-
       const attachRVFC = (vid: any) => {
 
           if (!vid || !vid.requestVideoFrameCallback) return;
@@ -1401,15 +1251,11 @@ export const useVideoExporterEngine = ({
 
       };
 
-
-
       ['idle', 'talking'].forEach(t => attachRVFC(laoExportVidRefs.current[t]));
 
       ['idle', 'talking', 'bowing'].forEach(t => attachRVFC(userExportVidRefs.current[t]));
 
       ffScenesRef.current.forEach((scene: any) => attachRVFC(ffVidRefs.current[scene.id]));
-
-
 
       customBgs.forEach((bg: any) => { 
 
@@ -1423,8 +1269,6 @@ export const useVideoExporterEngine = ({
 
       });
 
-
-
       customBgs.forEach((bg: any) => {
 
           if (bg.type === 'video' && bg.visible !== false) {
@@ -1437,8 +1281,6 @@ export const useVideoExporterEngine = ({
 
       });
 
-
-
       ['idle'].forEach(t => { 
 
           if(laoExportVidRefs.current[t]) { laoExportVidRefs.current[t].play().catch(()=>{}); }
@@ -1446,8 +1288,6 @@ export const useVideoExporterEngine = ({
           if(userExportVidRefs.current[t]) { userExportVidRefs.current[t].play().catch(()=>{}); }
 
       });
-
-      
 
       ffScenesRef.current.forEach((scene: any) => { 
 
@@ -1462,8 +1302,6 @@ export const useVideoExporterEngine = ({
           }
 
       });
-
-
 
       // Bắt đầu quay hình và phát âm thanh đồng thời
 
@@ -1505,8 +1343,6 @@ export const useVideoExporterEngine = ({
 
       showToastMsg('Đang xuất video... Vui lòng không đóng tab này!', 'loading', 0);
 
-
-
       // --- GAME LOOP: KHỞI CHẠY BỘ MÁY VẼ KHUNG HÌNH (ENGINE 2D/GL) ---
 
       const totalDuration = decodedAudioBuffer.duration;
@@ -1515,13 +1351,9 @@ export const useVideoExporterEngine = ({
 
       let currentUserBlockIdx = 0;
 
-
-
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
       const frequencyDataArray = new Uint8Array(analyserNode.frequencyBinCount);
-
-
 
       const drawFrame = () => {
 
@@ -1529,15 +1361,11 @@ export const useVideoExporterEngine = ({
 
         const ct = Math.max(0, exportAudioCtxRef.current.currentTime - audioStartCtxTime);
 
-
-
         let introDuration = 4.0;
 
         let outroStart = totalDuration - 2.5;
 
         let isOutro = ct >= outroStart;
-
-
 
         // Clear canvas to prevent frame residuals and overlapping text
 
@@ -1545,21 +1373,15 @@ export const useVideoExporterEngine = ({
 
         ctx.fillRect(0, 0, width, height);
 
-
-
         // Update progress status inside the modal UI
 
         const progress = Math.min(99, Math.round((ct / totalDuration) * 100));
-
-        
 
         // Find active segment in timeline
 
         const activeProgressSegmentIdx = combinedAudioMetadata.findIndex((m: any) => ct >= m.start && ct <= m.end);
 
         const activeProgressSegment = activeProgressSegmentIdx !== -1 ? combinedAudioMetadata[activeProgressSegmentIdx] : null;
-
-        
 
         let progressDetail = '';
 
@@ -1582,8 +1404,6 @@ export const useVideoExporterEngine = ({
             progressDetail = `Đang chuyển cảnh...`;
 
         }
-
-
 
         const statusEl = document.getElementById('ai-moderator-status');
 
@@ -1613,8 +1433,6 @@ export const useVideoExporterEngine = ({
 
         }
 
-
-
         if (ct >= totalDuration) {
 
             mediaRecorder.stop();
@@ -1629,8 +1447,6 @@ export const useVideoExporterEngine = ({
 
             exportAudioCtxRef.current.close().catch(()=>{});
 
-            
-
             profilerStats.endTime = Date.now();
 
             const report = buildDiagnosticReport(profilerStats);
@@ -1640,8 +1456,6 @@ export const useVideoExporterEngine = ({
             return;
 
         }
-
-
 
         // 1. Vẽ bối cảnh video nền kép hoặc ảnh tĩnh
 
@@ -1663,8 +1477,6 @@ export const useVideoExporterEngine = ({
 
                     const secondary = vObj.elementB;
 
-                    
-
                     if (primary && primary.readyState >= 2) {
 
                         if (!vObj.chromaCanvas) {
@@ -1679,13 +1491,9 @@ export const useVideoExporterEngine = ({
 
                         }
 
-                        
-
                         const cCanvas = vObj.chromaCanvas;
 
                         const cCtx = vObj.chromaCtx;
-
-                        
 
                         const currentDecoderTime = primary.lastRvfFrameTime || primary.currentTime;
 
@@ -1702,8 +1510,6 @@ export const useVideoExporterEngine = ({
                             profilerStats.chromaProcessingTimes.push(performance.now() - tChromaStart);
 
                             vObj.lastRenderedTime = currentDecoderTime;
-
-                            
 
                             // Đổi vai bản sao A và B nếu gần đến điểm cuối video nền
 
@@ -1741,8 +1547,6 @@ export const useVideoExporterEngine = ({
 
         }
 
-
-
         // TÍNH TOÁN CẢM XÚC VÀ LỜI PHỤ ĐỀ THEO HÀNG ĐỢI
 
         const segment = combinedAudioMetadata.find((m: any) => ct >= (m.start - 0.3) && ct <= (m.end + 0.3));
@@ -1753,15 +1557,9 @@ export const useVideoExporterEngine = ({
 
         const activeRole = segment ? segment.role : 'ai';
 
-
-
         const lines = wrapTextToLines(ctx, activeText, width * 0.85);
 
-
-
         isOutro = ct >= outroStart;
-
-
 
         // 2. Chế độ Video Dựng sẵn Toàn cảnh (Bypass 3D)
 
@@ -1774,8 +1572,6 @@ export const useVideoExporterEngine = ({
             let isUserBowing = false;
 
             isOutro = false;
-
-
 
             // Dò tìm trên timeline xem ai đang là người nói chính
 
@@ -1797,8 +1593,6 @@ export const useVideoExporterEngine = ({
 
             }
 
-
-
             let currentUserSpeaking = false;
 
             if (currentUserBlockIdx < userTalkingBlocks.length) {
@@ -1817,8 +1611,6 @@ export const useVideoExporterEngine = ({
 
             }
 
-
-
             // Giai đoạn Outro ở cuối video gộp
 
             outroStart = totalDuration - 2.5; 
@@ -1829,17 +1621,11 @@ export const useVideoExporterEngine = ({
 
             }
 
-
-
             if (currentLaoSpeaking) { isLaoSpeaking = true; isUserSpeaking = false; }
 
             else if (currentUserSpeaking) { isUserSpeaking = true; isLaoSpeaking = false; }
 
-            
-
             if (isOutro) { isUserBowing = true; isUserSpeaking = false; isLaoSpeaking = false; }
-
-
 
             // Giới hạn chống race condition: không cho cả 2 nói đồng thời
 
@@ -1851,19 +1637,13 @@ export const useVideoExporterEngine = ({
 
             }
 
-
-
             let currentUserState = isUserSpeaking ? 'talking' : (isUserBowing ? 'bowing' : 'idle');
 
             let currentLaoState = isLaoSpeaking ? 'talking' : 'idle';
 
-
-
             let activeScreenRole = isOutro ? 'user' : (isUserSpeaking ? 'user' : (isLaoSpeaking ? 'ai' : (isUserBowing ? 'user' : (exportAudioCtxRef.current.lastScreenRole || 'ai'))));
 
             exportAudioCtxRef.current.lastScreenRole = activeScreenRole;
-
-
 
             // Tua trước video Talking của cảnh kế tiếp
 
@@ -1872,8 +1652,6 @@ export const useVideoExporterEngine = ({
             let isNextLaoSpeaking = (currentLaoBlockIdx < laoTalkingBlocks.length && laoTalkingBlocks[currentLaoBlockIdx].start <= lookAheadCt && !isLaoSpeaking);
 
             let isNextUserSpeaking = (currentUserBlockIdx < userTalkingBlocks.length && userTalkingBlocks[currentUserBlockIdx].start <= lookAheadCt && !isUserSpeaking);
-
-
 
             if (isNextUserSpeaking && !isUserSpeaking) {
 
@@ -1893,8 +1671,6 @@ export const useVideoExporterEngine = ({
 
             }
 
-
-
             if (isNextLaoSpeaking && !isLaoSpeaking) {
 
                 if (!exportAudioCtxRef.current.preWarmedLaoTalking && laoVisualType === 'video' && laoExportVidRefs.current.talking) {
@@ -1913,8 +1689,6 @@ export const useVideoExporterEngine = ({
 
             }
 
-
-
             // GIAO DIỆN LĂN LIÊM (CẮT CẢNH ĐA CẢM XÚC - MULTI CAMERA DIRECTION)
 
             let currentActiveSceneId = 'scene_lao_calm';
@@ -1928,8 +1702,6 @@ export const useVideoExporterEngine = ({
                 currentActiveSceneId = isOutro ? 'scene_outro_calm' : `scene_user_${activeEmotion}`;
 
             }
-
-
 
             let currentActiveScene = null;
 
@@ -1959,13 +1731,9 @@ export const useVideoExporterEngine = ({
 
             }
 
-
-
             if (currentActiveScene && ffVidRefs.current[currentActiveScene.id]) {
 
                 const activeV = ffVidRefs.current[currentActiveScene.id];
-
-                
 
                 // Tách nền & vẽ video dựng sẵn
 
@@ -1983,17 +1751,11 @@ export const useVideoExporterEngine = ({
 
                     }
 
-                    
-
                     const cCanvas = activeV.chromaCanvas;
 
                     const cCtx = activeV.chromaCtx;
 
-                    
-
                     if (activeV.paused) activeV.play().catch(()=>{});
-
-                    
 
                     const currentDecoderTime = activeV.lastRvfFrameTime || activeV.currentTime;
 
@@ -2002,8 +1764,6 @@ export const useVideoExporterEngine = ({
                         cCtx.clearRect(0, 0, cCanvas.width, cCanvas.height);
 
                         cCtx.drawImage(activeV, 0, 0, cCanvas.width, cCanvas.height);
-
-                        
 
                         if (laoChromaSettings?.enabled) {
 
@@ -2019,8 +1779,6 @@ export const useVideoExporterEngine = ({
 
                     }
 
-                    
-
                     // Tính toán tỉ lệ Object-Fit chuẩn mượt 60FPS
 
                     const canvasAspect = width / height;
@@ -2034,8 +1792,6 @@ export const useVideoExporterEngine = ({
                     let drawX = 0;
 
                     let drawY = 0;
-
-                    
 
                     if (videoAspect > canvasAspect) {
 
@@ -2055,8 +1811,6 @@ export const useVideoExporterEngine = ({
 
                     }
 
-                    
-
                     ctx.drawImage(cCanvas, drawX, drawY, drawW, drawH);
 
                 }
@@ -2066,8 +1820,6 @@ export const useVideoExporterEngine = ({
                 // FALLBACK: VẼ KHUNG HÌNH 2.5D CỦA LÃO/USER NẾU THIẾU VIDEO DỰNG SẴN
 
                 let activeFullFrameImg = null;
-
-                
 
                 // Nhép miệng dựa trên sóng âm (Analyser) cho Ảnh tĩnh/SVG
 
@@ -2082,8 +1834,6 @@ export const useVideoExporterEngine = ({
                 if (mouthVal >= 12) mouthState = 16;
 
                 else if (mouthVal >= 4) mouthState = 8;
-
-
 
                 if (activeScreenRole === 'user') {
 
@@ -2113,15 +1863,11 @@ export const useVideoExporterEngine = ({
 
                 }
 
-
-
                 if (activeFullFrameImg) {
 
                     ctx.fillStyle = '#0b1329';
 
                     ctx.fillRect(0, 0, width, height);
-
-
 
                     const scale = Math.max(width / activeFullFrameImg.width, height / activeFullFrameImg.height) * 1.1;
 
@@ -2132,8 +1878,6 @@ export const useVideoExporterEngine = ({
                     const dx = (width - w) / 2;
 
                     const dy = (height - h) / 2 + (height * 0.05);
-
-
 
                     ctx.save();
 
@@ -2150,8 +1894,6 @@ export const useVideoExporterEngine = ({
                 }
 
             }
-
-
 
         } else {
 
@@ -2171,8 +1913,6 @@ export const useVideoExporterEngine = ({
 
             else if (mouthVal >= 4) mouthState = 8;
 
-
-
             let isUserSpeaking = false;
 
             let isLaoSpeaking = false;
@@ -2180,8 +1920,6 @@ export const useVideoExporterEngine = ({
             let isUserBowing = false;
 
             isOutro = false;
-
-
 
             let currentLaoSpeaking = false;
 
@@ -2195,8 +1933,6 @@ export const useVideoExporterEngine = ({
 
             }
 
-
-
             let currentUserSpeaking = false;
 
             if (currentUserBlockIdx < userTalkingBlocks.length) {
@@ -2209,23 +1945,15 @@ export const useVideoExporterEngine = ({
 
             }
 
-
-
             outroStart = totalDuration - 2.5; 
 
             if (ct >= outroStart) isOutro = true;
-
-
 
             if (currentLaoSpeaking) { isLaoSpeaking = true; isUserSpeaking = false; }
 
             else if (currentUserSpeaking) { isUserSpeaking = true; isLaoSpeaking = false; }
 
-            
-
             if (isOutro) { isUserBowing = true; isUserSpeaking = false; isLaoSpeaking = false; }
-
-
 
             if (isLaoSpeaking && isUserSpeaking) {
 
@@ -2235,13 +1963,9 @@ export const useVideoExporterEngine = ({
 
             }
 
-
-
             let currentUserState = isUserSpeaking ? 'talking' : (isUserBowing ? 'bowing' : 'idle');
 
             let currentLaoState = isLaoSpeaking ? 'talking' : 'idle';
-
-
 
             // Vẽ Lão
 
@@ -2265,13 +1989,9 @@ export const useVideoExporterEngine = ({
 
                     }
 
-                    
-
                     const cCanvas = activeV.chromaCanvas;
 
                     const cCtx = activeV.chromaCtx;
-
-                    
 
                     const currentDecoderTime = activeV.lastRvfFrameTime || activeV.currentTime;
 
@@ -2288,8 +2008,6 @@ export const useVideoExporterEngine = ({
                         profilerStats.chromaProcessingTimes.push(performance.now() - tChromaStart);
 
                         activeV.lastRenderedTime = currentDecoderTime;
-
-                        
 
                         if (activeV.duration && activeV.currentTime >= activeV.duration - 0.15) {
 
@@ -2310,8 +2028,6 @@ export const useVideoExporterEngine = ({
                 laoImgToDraw = preloadedLaoFrames.current[isLaoSpeaking ? mouthState : 0] || preloadedLaoFrames.current[0];
 
             }
-
-
 
             // Vẽ Người hỏi
 
@@ -2335,13 +2051,9 @@ export const useVideoExporterEngine = ({
 
                     }
 
-                    
-
                     const cCanvas = activeV.chromaCanvas;
 
                     const cCtx = activeV.chromaCtx;
-
-                    
 
                     const currentDecoderTime = activeV.lastRvfFrameTime || activeV.currentTime;
 
@@ -2358,8 +2070,6 @@ export const useVideoExporterEngine = ({
                         profilerStats.chromaProcessingTimes.push(performance.now() - tChromaStart);
 
                         activeV.lastRenderedTime = currentDecoderTime;
-
-                        
 
                         if (activeV.duration && activeV.currentTime >= activeV.duration - 0.15) {
 
@@ -2397,13 +2107,9 @@ export const useVideoExporterEngine = ({
 
             }
 
-
-
             // Tự động lật hướng nhân vật để nhìn đối diện nhau
 
             const { laoFlip, userFlip } = calculateAutoFlip(charOffsets.lao.x, charOffsets.user.x, authState?.currentLaoPresetId || 'char_lao_xeo', authState?.currentUserPresetId || 'char_user_nu');
-
-
 
             // Vẽ Lão lên khung hình chung
 
@@ -2421,8 +2127,6 @@ export const useVideoExporterEngine = ({
 
                 const h = laoH * scale;
 
-
-
                 const baseLaoX = width * 0.25;
 
                 const baseLaoY = height * 0.85 - h;
@@ -2430,8 +2134,6 @@ export const useVideoExporterEngine = ({
                 const x = baseLaoX + (charOffsets.lao.x * baseScale);
 
                 const y = baseLaoY - (charOffsets.lao.y * baseScale);
-
-
 
                 ctx.save();
 
@@ -2451,8 +2153,6 @@ export const useVideoExporterEngine = ({
 
             }
 
-
-
             // Vẽ Người hỏi lên khung hình chung
 
             if (userImgToDraw) {
@@ -2469,8 +2169,6 @@ export const useVideoExporterEngine = ({
 
                 const h = userH * scale;
 
-
-
                 const baseUserX = width * 0.75 - w;
 
                 const baseUserY = height * 0.85 - h;
@@ -2478,8 +2176,6 @@ export const useVideoExporterEngine = ({
                 const x = baseUserX + (charOffsets.user.x * baseScale);
 
                 const y = baseUserY - (charOffsets.user.y * baseScale);
-
-
 
                 ctx.save();
 
@@ -2501,8 +2197,6 @@ export const useVideoExporterEngine = ({
 
         }
 
-
-
         // 4. Vẽ Logo đóng dấu thương hiệu
 
         if (logoData && logoSettings.visible !== false) {
@@ -2511,13 +2205,9 @@ export const useVideoExporterEngine = ({
 
             const padding = Math.round(Math.min(width, height) * 0.03);
 
-            
-
             let logoX = padding;
 
             let logoY = padding;
-
-            
 
             if (logoSettings.x !== undefined && logoSettings.y !== undefined && logoSettings.position === 'custom') {
 
@@ -2536,8 +2226,6 @@ export const useVideoExporterEngine = ({
                 logoY = height - logoSize - padding;
 
             }
-
-
 
             ctx.save();
 
@@ -2573,8 +2261,6 @@ export const useVideoExporterEngine = ({
 
         }
 
-
-
         // introDuration is defined at the top of drawFrame 
 
         const hasValidIntro = enableIntro && Boolean(introTitle?.trim() || introSubtitle?.trim());
@@ -2583,13 +2269,9 @@ export const useVideoExporterEngine = ({
 
             const opacity = ct <= 1.0 ? ct : (ct >= introDuration - 1.0 ? (introDuration - ct) : 1.0);
 
-            
-
             ctx.fillStyle = `rgba(15, 23, 42, ${opacity * 0.95})`;
 
             ctx.fillRect(0, 0, width, height);
-
-
 
             const titleSize = Math.max(24, Math.min(width, height) * 0.05);
 
@@ -2601,8 +2283,6 @@ export const useVideoExporterEngine = ({
 
             if (introTitle) ctx.fillText(introTitle, width / 2, height / 2 - (titleSize * 0.6));
 
-
-
             const subtitleSize = Math.max(16, Math.min(width, height) * 0.03);
 
             ctx.font = `500 ${subtitleSize}px sans-serif`;
@@ -2612,8 +2292,6 @@ export const useVideoExporterEngine = ({
             if (introSubtitle) ctx.fillText(introSubtitle, width / 2, height / 2 + (subtitleSize * 0.8));
 
         }
-
-
 
         // 6. Vẽ Phụ đề lời thoại (Subtitles)
 
@@ -2625,8 +2303,6 @@ export const useVideoExporterEngine = ({
 
             ctx.textAlign = 'center';
 
-
-
             ctx.shadowColor = 'rgba(0,0,0,0.8)';
 
             ctx.shadowBlur = 8;
@@ -2635,13 +2311,9 @@ export const useVideoExporterEngine = ({
 
             ctx.shadowOffsetY = 2;
 
-
-
             ctx.lineWidth = fontSizeText * 0.15;
 
             ctx.strokeStyle = '#020617'; 
-
-
 
             let textY = height * (subtitleYPos / 100);
 
@@ -2650,8 +2322,6 @@ export const useVideoExporterEngine = ({
                 textY -= (lines.length - 1) * fontSizeText * 0.65;
 
             }
-
-
 
             lines.forEach((line: any) => {
 
@@ -2669,21 +2339,15 @@ export const useVideoExporterEngine = ({
 
         }
 
-
-
         // 7. Vẽ Outro ở cuối video
 
         if (enableOutroText && isOutro) {
 
             const opacity = Math.min(1.0, (ct - outroStart) / 1.0);
 
-            
-
             ctx.fillStyle = `rgba(15, 23, 42, ${opacity * 0.95})`;
 
             ctx.fillRect(0, 0, width, height);
-
-
 
             const outroLines = String(outroText || '').split('\n');
 
@@ -2694,8 +2358,6 @@ export const useVideoExporterEngine = ({
             ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
 
             ctx.textAlign = 'center';
-
-            
 
             let textY = height / 2 - (outroLines.length - 1) * outroSize * 0.5;
 
@@ -2708,8 +2370,6 @@ export const useVideoExporterEngine = ({
             });
 
         }
-
-
 
         // Đo đạc FPS và lưu vào Diagnostic
 
@@ -2731,27 +2391,19 @@ export const useVideoExporterEngine = ({
 
         }
 
-
-
         if (videoTrack && typeof videoTrack.requestFrame === 'function') {
 
             videoTrack.requestFrame();
 
         }
 
-
-
         exportAnimFrameRef.current = requestAnimationFrame(drawFrame);
 
       };
 
-
-
       // Đâm luồng phát và bắt đầu game loop render
 
       exportAnimFrameRef.current = requestAnimationFrame(drawFrame);
-
-
 
     } catch (err: any) {
 
@@ -2764,8 +2416,6 @@ export const useVideoExporterEngine = ({
     }
 
   };
-
-
 
   const cancelVideoExport = () => {
 
@@ -2786,8 +2436,6 @@ export const useVideoExporterEngine = ({
     }
 
     if (setPlayingMsgId) setPlayingMsgId(null);
-
-
 
     if (exportAnimFrameRef.current) {
 
@@ -2811,8 +2459,6 @@ export const useVideoExporterEngine = ({
 
     exportAudioCtxRef.current = null; // Dọn rác
 
-    
-
     resetVideoExport();
 
     releaseExportRAM();
@@ -2822,8 +2468,6 @@ export const useVideoExporterEngine = ({
     setIsPreviewFullscreen(false); // Reset trạng thái fullscreen khi thoát
 
     setShowVideoExportModal(false);
-
-
 
     // Xử lý childmodal routing: nếu mở từ script form (childmodal=create-video)
 
@@ -2855,8 +2499,6 @@ export const useVideoExporterEngine = ({
 
     }
 
-
-
     // Trường hợp thông thường (từ chat): kiểm tra videoExportSource cũ
 
     if (videoExportSource === 'ai_director' && setShowAiManager) {
@@ -2866,10 +2508,6 @@ export const useVideoExporterEngine = ({
     }
 
   };
-
-
-
-
 
   return {
 
@@ -2884,4 +2522,3 @@ export const useVideoExporterEngine = ({
   };
 
 };
-

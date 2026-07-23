@@ -52,7 +52,7 @@ export const useFullFrameScenes = ({
     const restoreBlobs = async () => {
       let changed = false;
       const updated = await Promise.all(ffScenes.map(async (scene: any) => {
-        if (scene.idbKey && !scene.url) {
+        if (scene.idbKey && (!scene.url || scene.url.startsWith('blob:'))) {
           const resolved = await resolveFfAssetUrl(scene.idbKey);
           if (resolved) {
             changed = true;
@@ -66,7 +66,7 @@ export const useFullFrameScenes = ({
       }
     };
     
-    if (ffScenes.some((s: any) => s.idbKey && !s.url)) {
+    if (ffScenes.some((s: any) => s.idbKey && (!s.url || s.url.startsWith('blob:')))) {
       restoreBlobs();
     }
     return () => { isMounted = false; };
