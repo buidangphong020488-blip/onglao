@@ -2422,46 +2422,26 @@ export const useVideoExporterEngine = ({
   };
 
   const cancelVideoExport = () => {
-
     // Dừng sạch sẽ tất cả audio đang phát khi đóng/hủy
-
     if (localAudio) {
-
-        try { localAudio.pause(); } catch(e) {}
-
-        setLocalAudio(null);
-
+      try { localAudio.pause(); } catch(e) {}
+      setLocalAudio(null);
     }
-
     if (globalAudioRef && globalAudioRef.current) {
-
-        try { globalAudioRef.current.pause(); } catch(e) {}
-
+      try { globalAudioRef.current.pause(); } catch(e) {}
     }
-
     if (setPlayingMsgId) setPlayingMsgId(null);
-
     if (exportAnimFrameRef.current) {
-
-        cancelAnimationFrame(exportAnimFrameRef.current);
-
-        exportAnimFrameRef.current = null;
-
+      cancelAnimationFrame(exportAnimFrameRef.current);
+      exportAnimFrameRef.current = null;
     }
-
     if (exportMediaRecorderRef.current && exportMediaRecorderRef.current.state === 'recording') {
-
-      exportMediaRecorderRef.current.stop();
-
+      try { exportMediaRecorderRef.current.stop(); } catch(e) {}
     }
-
     if (exportAudioCtxRef.current && exportAudioCtxRef.current.state !== 'closed') {
-
-      exportAudioCtxRef.current.close().catch((err: any) => console.warn("Lỗi khi đóng AudioContext:", err));
-
+      try { exportAudioCtxRef.current.close(); } catch(e) {}
     }
-
-    exportAudioCtxRef.current = null; // Dọn rác
+    exportAudioCtxRef.current = null;
 
     resetVideoExport();
 

@@ -372,27 +372,23 @@ const VideoCreatorModal = () => {
     return renderHistory.filter((item: any) => item.sessionId === p.currentSessionId);
   }, [renderHistory, p.currentSessionId]);
   if (!p.showVideoExportModal) return null;
+  React.useEffect(() => {
+    if (!p.showVideoExportModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        cancelVideoExport();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [p.showVideoExportModal]);
+
   return (
          <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-md flex justify-center items-center p-4 md:p-6">
            <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-7xl shadow-2xl flex flex-col h-[92vh] md:h-[88vh] overflow-hidden">
               <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-800 shrink-0">
                 <h2 className="font-black text-orange-400 tracking-widest flex items-center gap-2"><Film size={18}/> Xuất video pháp bảo</h2>
-                {!isExportingVideo && (
-                  <button 
-                    type="button" 
-                    onClick={() => {
-                      cancelVideoExport();
-                      setShowVideoExportModal(false);
-                      if (typeof window !== 'undefined') {
-                        localStorage.setItem('onglao_show_video_export_modal', 'false');
-                      }
-                    }} 
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer flex items-center justify-center shrink-0"
-                    title="Đóng cửa sổ"
-                  >
-                    <X size={22}/>
-                  </button>
-                )}
+                <button onClick={cancelVideoExport} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors" title="Đóng (Esc)"><X size={22}/></button>
               </div>
               <div className="flex flex-col md:flex-row gap-6 p-4 md:p-6 flex-1 min-h-0">
                  {/* BÊN TRÁI: BẢNG ĐIỀU CHỈNH THÔNG SỐ & LỊCH SỬ RENDER */}
@@ -1135,17 +1131,7 @@ const VideoCreatorModal = () => {
                                              }} className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-1.5 rounded-lg text-[10px] flex items-center justify-center gap-1 border border-white/10 transition-all">
                                                 <Save size={12}/> Tải Về
                                              </button>
-                                             <button 
-                                                type="button"
-                                                onClick={(e) => { 
-                                                   e.stopPropagation();
-                                                   if (deleteRenderHistoryItem) deleteRenderHistoryItem(item.id); 
-                                                   if (setRenderHistory) setRenderHistory((prev: any[]) => prev.filter((x: any) => x.id !== item.id));
-                                                   if (renderedVideoUrl === item.url) setRenderedVideoUrl(null);
-                                                   if (p.showToastMsg) p.showToastMsg('Đã xóa video khỏi lịch sử render!', 'info');
-                                                }} 
-                                                className="bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 hover:text-white font-bold py-1.5 rounded-lg text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer border border-rose-500/30"
-                                             >
+                                             <button onClick={() => { if (deleteRenderHistoryItem) deleteRenderHistoryItem(item.id); }} className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold py-1.5 rounded-lg text-[10px] flex items-center justify-center gap-1 transition-all">
                                                 <X size={12}/> Xóa
                                              </button>
                                           </div>
