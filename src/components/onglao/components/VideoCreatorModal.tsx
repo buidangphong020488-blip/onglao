@@ -345,6 +345,12 @@ const VideoCreatorModal = () => {
     renderHistory, setRenderHistory, deleteRenderHistoryItem
   } = p;
 
+  const filteredHistory = React.useMemo(() => {
+    if (!renderHistory) return [];
+    if (!p.currentSessionId) return renderHistory;
+    return renderHistory.filter((item: any) => item.sessionId === p.currentSessionId);
+  }, [renderHistory, p.currentSessionId]);
+
   return (
          <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-md flex justify-center items-center p-4 md:p-6">
            <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-6xl shadow-2xl flex flex-col h-[90vh] md:h-[85vh] overflow-hidden">
@@ -359,7 +365,7 @@ const VideoCreatorModal = () => {
                     <div className="flex border-b border-white/10 mb-2 shrink-0 overflow-x-auto scrollbar-hide">
                        <button onClick={() => setExportTab('basic')} className={`flex-1 py-2.5 px-2 text-[11px] md:text-xs font-bold tracking-wider transition-all border-b-2 whitespace-nowrap ${exportTab === 'basic' ? 'border-orange-500 text-orange-400 bg-orange-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Cơ bản</button>
                        <button onClick={() => setExportTab('text')} className={`flex-1 py-2.5 px-2 text-[11px] md:text-xs font-bold tracking-wider transition-all border-b-2 whitespace-nowrap ${exportTab === 'text' ? 'border-yellow-500 text-yellow-400 bg-yellow-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Thông điệp</button>
-                       <button onClick={() => setExportTab('history')} className={`flex-1 py-2.5 px-2 text-[11px] md:text-xs font-bold tracking-wider transition-all border-b-2 whitespace-nowrap flex items-center justify-center gap-1 ${exportTab === 'history' ? 'border-emerald-500 text-emerald-400 bg-emerald-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>📜 Lịch sử {renderHistory?.length > 0 ? `(${renderHistory.length})` : ''}</button>
+                       <button onClick={() => setExportTab('history')} className={`flex-1 py-2.5 px-2 text-[11px] md:text-xs font-bold tracking-wider transition-all border-b-2 whitespace-nowrap flex items-center justify-center gap-1 ${exportTab === 'history' ? 'border-emerald-500 text-emerald-400 bg-emerald-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>📜 Lịch sử {filteredHistory?.length > 0 ? `(${filteredHistory.length})` : ''}</button>
                     </div>
 
                         {exportTab === 'basic' && (
@@ -1091,10 +1097,10 @@ const VideoCreatorModal = () => {
                            <div className="flex flex-col gap-4 flex-1 animate-in fade-in overflow-y-auto pr-1">
                               <div className="flex items-center justify-between bg-slate-800/80 p-3 rounded-xl border border-white/10 shrink-0">
                                  <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5"><Film size={14}/> Lịch Sử Video Đã Render</span>
-                                 <span className="text-[10px] text-slate-400 font-mono">{renderHistory?.length || 0} video</span>
+                                 <span className="text-[10px] text-slate-400 font-mono">{filteredHistory?.length || 0} video</span>
                               </div>
 
-                              {!renderHistory || renderHistory.length === 0 ? (
+                              {!filteredHistory || filteredHistory.length === 0 ? (
                                  <div className="flex flex-col items-center justify-center p-8 text-center bg-slate-950/50 rounded-xl border border-dashed border-white/10 my-auto">
                                     <Film size={32} className="text-slate-600 mb-2" />
                                     <p className="text-xs text-slate-400 font-bold mb-1">Chưa có video nào trong lịch sử</p>
@@ -1102,12 +1108,12 @@ const VideoCreatorModal = () => {
                                  </div>
                               ) : (
                                  <div className="flex flex-col gap-3 overflow-y-auto pr-1 max-h-[60vh]">
-                                    {renderHistory.map((item: any, idx: number) => (
+                                    {filteredHistory.map((item: any, idx: number) => (
                                        <div key={item.id || idx} className={`flex flex-col p-3 rounded-xl border transition-all ${renderedVideoUrl === item.url ? 'bg-emerald-950/40 border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.15)]' : 'bg-slate-950 border-white/10 hover:border-white/20'}`}>
                                           <div className="flex items-center justify-between mb-1.5">
                                              <div className="flex items-center gap-2">
-                                                <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold flex items-center justify-center font-mono">#{renderHistory.length - idx}</span>
-                                                <span className="text-xs font-bold text-white truncate max-w-[180px]">{item.name || `Video #${renderHistory.length - idx}`}</span>
+                                                <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold flex items-center justify-center font-mono">#{filteredHistory.length - idx}</span>
+                                                <span className="text-xs font-bold text-white truncate max-w-[180px]">{item.name || `Video #${filteredHistory.length - idx}`}</span>
                                              </div>
                                              <span className="text-[10px] text-slate-400 font-mono">{item.createdAt ? new Date(item.createdAt).toLocaleTimeString('vi-VN') : ''}</span>
                                           </div>
