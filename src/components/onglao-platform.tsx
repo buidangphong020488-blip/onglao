@@ -1077,7 +1077,7 @@ const OngLaoPlatform = ({ initialPoems = [], autoOpenVideoModal = false }: { ini
 
   // Logic generateVoice gốc từ onglao-platform.tsx
 
-    const generateVoice = async (msgId: any, fullText: any, role: any, targetSessionId: any = currentSessionId, autoPlay: any = true, prefixAudioUrls: any = null, textToSynthesize: any = null, appendOnly: any = false) => {
+    const generateVoice = async (msgId: any, fullText: any, role: any, targetSessionId: any = currentSessionId, autoPlay: any = true, prefixAudioUrls: any = null, textToSynthesize: any = null, appendOnly: any = false, customVoiceName: any = null, customVoiceStyle: any = null) => {
     if (creatingVoices[msgId]) return false;
     setCreatingVoices((prev: any) => ({ ...prev, [msgId]: true }));
     
@@ -1093,12 +1093,12 @@ const OngLaoPlatform = ({ initialPoems = [], autoOpenVideoModal = false }: { ini
     // Căn cứ: Hoặc chọn trên UI, Hoặc có ký tự tượng hình, Hoặc văn bản dài > 10 ký tự mà hoàn toàn KHÔNG CÓ DẤU TIẾNG VIỆT (Tức là tiếng Anh/Latin)
     const isForeignContext = authState.appLanguage !== 'Tiếng Việt' || hasCJK || (!hasVietnameseTones && ttsText.replace(/[^a-zA-Z]/g, '').length > 10);
 
-    let voiceName = "Aoede";
+    let voiceName = customVoiceName || "Aoede";
     let promptPrefix = "";
 
     if (role === 'ai') {
-      voiceName = authState.laoVoiceRef.current || "Algieba";
-      let prefix = (authState.laoVoiceStyleRef.current || "").trim();
+      voiceName = customVoiceName || authState.laoVoiceRef.current || "Algieba";
+      let prefix = (customVoiceStyle !== null ? customVoiceStyle : (authState.laoVoiceStyleRef.current || "")).trim();
       
       if (isForeignContext) {
           // TÂM AN KHỬ GIỌNG ĐỊA PHƯƠNG: Cắt sạch các yêu cầu về giọng miền nam, tiếng việt để AI tự do uốn lưỡi đọc tiếng Anh/Hàn/Trung chuẩn như người bản xứ
@@ -1116,8 +1116,8 @@ const OngLaoPlatform = ({ initialPoems = [], autoOpenVideoModal = false }: { ini
           promptPrefix = prefix + " ";
       }
     } else {
-      voiceName = authState.userVoiceRef.current || (userGender === 'Nam' ? 'Puck' : 'Aoede');
-      let prefix = (authState.userVoiceStyleRef.current || "").trim();
+      voiceName = customVoiceName || authState.userVoiceRef.current || (userGender === 'Nam' ? 'Puck' : 'Aoede');
+      let prefix = (customVoiceStyle !== null ? customVoiceStyle : (authState.userVoiceStyleRef.current || "")).trim();
       
       if (isForeignContext) {
           prefix = prefix.replace(/miền nam việt nam/gi, '')

@@ -49,7 +49,7 @@ interface AiDirectorManagerModalProps {
     generatedScriptText: string;
     setGeneratedScriptText: (v: string) => void;
     onSaveGeneratedScript?: (overrides?: { scriptText?: string; laoName?: string; userName?: string }) => void;
-    generateVoice: (msgId: any, text: string, role: string, sessionId: any, forceRecreate: boolean) => Promise<boolean>;
+    generateVoice: (msgId: any, text: string, role: string, sessionId: any, forceRecreate?: boolean, prefixAudioUrls?: any, textToSynthesize?: any, appendOnly?: any, customVoiceName?: any, customVoiceStyle?: any) => Promise<boolean>;
     saveNewSessionWithMessages: (title: string, messages: any[]) => Promise<any>;
     poemDatabase: any[];
     selectedAiConfigId: any;
@@ -395,7 +395,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         setShowVoiceSettings(false);
 
         // Reset/init AI regeneration parameters
-        setEditingTopic(script.topic || '');
+        setEditingTopic(script.topic || script.title.replace(/^(\[AI\]|\[Thủ công\])?\s*/i, '').trim());
         setEditingLength(p.aiScriptLength || 'Khoảng 6-10 câu');
         setEditingLaoStyle(p.aiLaoStyle || 'Từ bi, ôn hòa, dắt dụ từng bước');
         setEditingUserEmotionArc(p.aiUserEmotionArc || 'Từ đau khổ/bế tắc chuyển dần sang an lạc/bừng sáng');
@@ -921,9 +921,9 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         setEditingRawText('');
         setEditingTitle('Kịch bản mới');
         setEditingLaoVoice(p.laoVoice || 'Algieba');
-        setEditingLaoVoiceStyle('');
+        setEditingLaoVoiceStyle(p.laoVoiceStyle || 'Giọng ấm áp, mạnh mẽ, dứt khoát, miền nam việt nam, đúng chính tả, ngắt nhịp rõ ràng giữa các câu');
         setEditingUserVoice(p.userVoice || 'Aoede');
-        setEditingUserVoiceStyle('');
+        setEditingUserVoiceStyle(p.userVoiceStyle || 'giọng thanh niên, phong cách đọc tỏ vẻ rối rắm, thắc mắc, chuẩn giọng miền Nam Việt Nam, đúng chính tả');
         p.setCustomUserName?.('Con');
         p.setCustomLaoName?.('L\u00e3o');
         p.setUserSelfCall?.('Con');
@@ -984,7 +984,9 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                 const msg = toGenerate[i];
                 setAudioProgress({ current: i + 1, total, percent: Math.round(((i) / total) * 100) });
                 const targetRole = msg.role === 'ai' ? 'ai' : 'user';
-                const success = await p.generateVoice(msg.id, msg.text, targetRole, selectedScript.id, forceAll);
+                const targetVoice = targetRole === 'ai' ? (editingLaoVoice || p.laoVoice || 'Algieba') : (editingUserVoice || p.userVoice || 'Aoede');
+                const targetStyle = targetRole === 'ai' ? (editingLaoVoiceStyle || p.laoVoiceStyle || '') : (editingUserVoiceStyle || p.userVoiceStyle || '');
+                const success = await p.generateVoice(msg.id, msg.text, targetRole, selectedScript.id, forceAll, null, null, false, targetVoice, targetStyle);
                 if (success) {
                     successCount++;
                     setAudioProgress({ current: i + 1, total, percent: Math.round(((i + 1) / total) * 100) });
@@ -1051,7 +1053,10 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
             let successCount = 0;
             for (let i = 0; i < toGenerate.length; i++) {
                 const msg = toGenerate[i];
-                const success = await p.generateVoice(msg.id, msg.text, msg.role === 'ai' ? 'ai' : 'user', sessionId, forceAll);
+                const targetRole = msg.role === 'ai' ? 'ai' : 'user';
+                const targetVoice = targetRole === 'ai' ? (editingLaoVoice || p.laoVoice || 'Algieba') : (editingUserVoice || p.userVoice || 'Aoede');
+                const targetStyle = targetRole === 'ai' ? (editingLaoVoiceStyle || p.laoVoiceStyle || '') : (editingUserVoiceStyle || p.userVoiceStyle || '');
+                const success = await p.generateVoice(msg.id, msg.text, targetRole, sessionId, forceAll, null, null, false, targetVoice, targetStyle);
                 if (success) {
                     successCount++;
                     setScriptAudioProgress(prev => ({ ...prev, [sessionId]: { current: i + 1, total, percent: Math.round(((i + 1) / total) * 100) } }));
@@ -1127,7 +1132,9 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                 if (!msg.audioUrl && msg.text.trim().length > 0) {
                     p.showToastMsg(`Đang tạo audio cho thoại ${i + 1}/${currentEditingMessages.length}...`, 'loading');
                     const targetRole = msg.role === 'ai' ? 'ai' : 'user';
-                    const success = await p.generateVoice(msg.id, msg.text, targetRole, selectedScript.id, false);
+                    const targetVoice = targetRole === 'ai' ? (editingLaoVoice || p.laoVoice || 'Algieba') : (editingUserVoice || p.userVoice || 'Aoede');
+                    const targetStyle = targetRole === 'ai' ? (editingLaoVoiceStyle || p.laoVoiceStyle || '') : (editingUserVoiceStyle || p.userVoiceStyle || '');
+                    const success = await p.generateVoice(msg.id, msg.text, targetRole, selectedScript.id, false, null, null, false, targetVoice, targetStyle);
                     if (success) {
                         successCount++;
                     } else {
@@ -1331,8 +1338,10 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         const msg = editingMessages[msgIndex];
         setSaving(true);
         try {
-            // Force recreation of TTS audio
-            const success = await p.generateVoice(msg.id, msg.text, msg.role, selectedScript.id, true);
+            const targetRole = msg.role === 'ai' ? 'ai' : 'user';
+            const targetVoice = targetRole === 'ai' ? (editingLaoVoice || p.laoVoice || 'Algieba') : (editingUserVoice || p.userVoice || 'Aoede');
+            const targetStyle = targetRole === 'ai' ? (editingLaoVoiceStyle || p.laoVoiceStyle || '') : (editingUserVoiceStyle || p.userVoiceStyle || '');
+            const success = await p.generateVoice(msg.id, msg.text, targetRole, selectedScript.id, true, null, null, false, targetVoice, targetStyle);
             if (success) {
                 // Fetch fresh messages
                 const res = await getChatMessagesAction(selectedScript.id);
