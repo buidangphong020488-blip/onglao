@@ -486,7 +486,14 @@ export const useVideoExporterEngine = ({
 
             setRenderedVideoBlob(exportedBlob);
             setRenderedVideoUrl(videoUrl);
-            if (saveRenderHistoryItem) saveRenderHistoryItem(exportedBlob, videoUrl, serverFilenameHeader || undefined);
+            if (saveRenderHistoryItem) {
+              const vidId = saveRenderHistoryItem(exportedBlob, videoUrl, serverFilenameHeader || undefined);
+              if (vidId && typeof window !== 'undefined') {
+                const url = new URL(window.location.href);
+                url.searchParams.set('videoid', vidId);
+                window.history.replaceState(null, '', url.toString());
+              }
+            }
             if (setExportTab) setExportTab('history');
             setIsExportingVideo(false);
             setIsPreparingVideoData(false);
@@ -601,7 +608,14 @@ export const useVideoExporterEngine = ({
           setRenderedVideoBlob(blob);
           const videoUrl = URL.createObjectURL(blob);
           setRenderedVideoUrl(videoUrl);
-          if (saveRenderHistoryItem) saveRenderHistoryItem(blob, videoUrl);
+          if (saveRenderHistoryItem) {
+            const vidId = saveRenderHistoryItem(blob, videoUrl);
+            if (vidId && typeof window !== 'undefined') {
+              const url = new URL(window.location.href);
+              url.searchParams.set('videoid', vidId);
+              window.history.replaceState(null, '', url.toString());
+            }
+          }
           if (setExportTab) setExportTab('history');
           setIsExportingVideo(false);
           releaseExportRAM();

@@ -286,7 +286,10 @@ export const useVideoExport = ({
         } catch (e) {}
         return updated;
       });
-    } catch (e) {}
+      return newItem.id;
+    } catch (e) {
+      return undefined;
+    }
   };
 
   const deleteRenderHistoryItem = (id: string) => {

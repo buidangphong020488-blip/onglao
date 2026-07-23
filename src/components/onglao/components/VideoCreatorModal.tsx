@@ -1031,7 +1031,15 @@ const VideoCreatorModal = () => {
                                           </div>
 
                                           <div className="grid grid-cols-3 gap-2">
-                                             <button onClick={() => { setRenderedVideoUrl(item.url); setRenderedVideoBlob(item.blob || null); }} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1.5 rounded-lg text-[10px] flex items-center justify-center gap-1 transition-all">
+                                             <button onClick={() => { 
+                                                setRenderedVideoUrl(item.url); 
+                                                setRenderedVideoBlob(item.blob || null); 
+                                                if (typeof window !== 'undefined') {
+                                                   const url = new URL(window.location.href);
+                                                   url.searchParams.set('videoid', item.id);
+                                                   window.history.replaceState(null, '', url.toString());
+                                                }
+                                             }} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1.5 rounded-lg text-[10px] flex items-center justify-center gap-1 transition-all">
                                                 <PlayCircle size={12}/> Xem
                                              </button>
                                              <button onClick={() => {
