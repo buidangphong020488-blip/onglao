@@ -147,6 +147,7 @@ const VideoCreatorModal = () => {
   // States and Handlers for inline text/audio editing within VideoCreatorModal
   const [playingMsgId, setPlayingMsgId] = React.useState<string | null>(null);
   const [localAudio, setLocalAudio] = React.useState<HTMLAudioElement | null>(null);
+  const [audioProgressMap, setAudioProgressMap] = React.useState<Record<string, { currentTime: number; duration: number }>>({});
   const [generatingMsgIds, setGeneratingMsgIds] = React.useState<Record<string, boolean>>({});
 
   const handlePlayMsgAudio = (msgId: string, audioUrl: string) => {
@@ -156,11 +157,32 @@ const VideoCreatorModal = () => {
       if (playingMsgId === msgId) {
           setPlayingMsgId(null);
           setLocalAudio(null);
+          setAudioProgressMap(prev => {
+              const next = { ...prev };
+              delete next[msgId];
+              return next;
+          });
           return;
       }
       const audio = new Audio(audioUrl);
+      audio.ontimeupdate = () => {
+          setAudioProgressMap(prev => ({
+              ...prev,
+              [msgId]: {
+                  currentTime: audio.currentTime,
+                  duration: audio.duration || 1
+              }
+          }));
+      };
+      audio.onended = () => {
+          setPlayingMsgId(null);
+          setAudioProgressMap(prev => {
+              const next = { ...prev };
+              delete next[msgId];
+              return next;
+          });
+      };
       audio.play().catch(err => console.warn("Lỗi phát audio:", err));
-      audio.onended = () => setPlayingMsgId(null);
       setLocalAudio(audio);
       setPlayingMsgId(msgId);
   };
@@ -706,12 +728,10 @@ const VideoCreatorModal = () => {
                                                     // Tìm message tương ứng với scene qua msgId
                                                     const msg = scene.msgId ? messages?.find((m: any) => m.id === scene.msgId) : null;
                                                     if (msg) {
-                                                        const hasAudio = !!msg.audioUrl;
                                                         const isAudioPlaying = playingMsgId === scene.msgId;
-                                                        const isAudioGenerating = !!generatingMsgIds[scene.msgId];
 
                                                         return (
-                                                            <div className="flex flex-col gap-1 w-full bg-slate-900/40 p-1.5 rounded-lg border border-white/5">
+                                                            <div className="flex flex-col gap-1 w-full bg-slate-900/40 p-1.5 rounded-lg border border-white/5 relative">
                                                                 <textarea
                                                                     defaultValue={msg.text}
                                                                     onBlur={(e) => handleTextBlur(scene, e.target.value)}
@@ -720,43 +740,17 @@ const VideoCreatorModal = () => {
                                                                     className="w-full bg-slate-950 border border-white/10 focus:border-indigo-500/50 rounded px-1.5 py-0.5 text-[9px] text-slate-200 outline-none resize-none font-medium leading-normal min-h-[36px] scrollbar-hide"
                                                                     title="Bấm vào đây để sửa câu thoại trực tiếp"
                                                                 />
-                                                                <div className="flex items-center justify-between mt-0.5">
-                                                                    <div className="flex items-center gap-1">
-                                                                        {hasAudio ? (
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => handlePlayMsgAudio(scene.msgId, msg.audioUrl)}
-                                                                                className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-indigo-400 hover:text-indigo-300 transition-colors flex items-center justify-center cursor-pointer"
-                                                                                title="Nghe thử giọng đọc"
-                                                                            >
-                                                                                {isAudioPlaying ? <Pause size={10} /> : <Play size={10} />}
-                                                                            </button>
-                                                                        ) : (
-                                                                            <span className="text-[7px] text-amber-400 font-bold bg-amber-950/40 px-1 py-0.5 rounded border border-amber-500/20">
-                                                                                Chưa có audio
-                                                                            </span>
-                                                                        )}
-
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => handleGenerateSingleAudio(scene.msgId, msg.text, scene.role)}
-                                                                            disabled={isAudioGenerating}
-                                                                            className={`p-1 rounded transition-colors flex items-center justify-center cursor-pointer ${
-                                                                                isAudioGenerating 
-                                                                                    ? 'bg-slate-800 text-emerald-400' 
-                                                                                    : hasAudio 
-                                                                                        ? 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200' 
-                                                                                        : 'bg-emerald-600 hover:bg-emerald-500 text-white animate-pulse'
-                                                                            }`}
-                                                                            title={hasAudio ? "Tạo lại audio" : "Tạo audio câu này"}
-                                                                        >
-                                                                            {isAudioGenerating ? <Loader2 size={10} className="animate-spin" /> : hasAudio ? <RefreshCw size={10} /> : <Mic size={10} />}
-                                                                        </button>
+                                                                {/* Thanh thời gian chạy của audio khi play */}
+                                                                {isAudioPlaying && audioProgressMap[scene.msgId] && (
+                                                                    <div className="w-full bg-slate-950/80 rounded-full h-1 overflow-hidden mt-0.5">
+                                                                        <div 
+                                                                            className="bg-gradient-to-r from-indigo-500 to-violet-500 h-full rounded-full transition-all duration-100 ease-linear"
+                                                                            style={{
+                                                                                width: `${(audioProgressMap[scene.msgId].currentTime / audioProgressMap[scene.msgId].duration) * 100}%`
+                                                                            }}
+                                                                        />
                                                                     </div>
-                                                                    <span className="text-[8px] text-slate-500 font-semibold italic">
-                                                                        {scene.role === 'lao' ? '👳 Lão' : scene.role === 'user' ? '🙏 Con' : '🎬 Cảnh'}
-                                                                    </span>
-                                                                </div>
+                                                                )}
                                                             </div>
                                                         );
                                                     }
@@ -793,26 +787,75 @@ const VideoCreatorModal = () => {
 
                                                     return null;
                                                 })()}
-                                                <div className="flex gap-1.5 w-full">
-                                                    <select 
-                                                        value={scene.role}
-                                                        onChange={(e: any) => setFfScenes((prev: any) => prev.map((s: any) => s.id === scene.id ? {...s, role: e.target.value} : s))}
-                                                        className="flex-1 bg-slate-800 border border-white/10 rounded px-1 py-1 text-[9px] text-white outline-none"
-                                                    >
-                                                        <option value="lao">👳 Máy quay Lão</option>
-                                                        <option value="user">🙏 Máy quay Con</option>
-                                                        <option value="outro">🎬 Cảnh Kết thúc</option>
-                                                    </select>
-                                                    <select 
-                                                        value={scene.emotion}
-                                                        onChange={(e: any) => setFfScenes((prev: any) => prev.map((s: any) => s.id === scene.id ? {...s, emotion: e.target.value} : s))}
-                                                        className="flex-1 bg-slate-800 border border-white/10 rounded px-1 py-1 text-[9px] text-white outline-none"
-                                                    >
-                                                        <option value="calm">😐 Bình thường</option>
-                                                        <option value="sad">😢 Buồn / Bế tắc</option>
-                                                        <option value="joy">😊 Vui / Hạnh phúc</option>
-                                                    </select>
-                                                </div>
+                                                
+                                                {(() => {
+                                                    const msg = scene.msgId ? messages?.find((m: any) => m.id === scene.msgId) : null;
+                                                    const hasAudio = msg ? !!msg.audioUrl : false;
+                                                    const isAudioPlaying = msg ? (playingMsgId === scene.msgId) : false;
+                                                    const isAudioGenerating = msg ? (!!generatingMsgIds[scene.msgId]) : false;
+
+                                                    return (
+                                                        <div className="flex gap-1.5 w-full items-center">
+                                                            <select 
+                                                                value={scene.role}
+                                                                onChange={(e: any) => setFfScenes((prev: any) => prev.map((s: any) => s.id === scene.id ? {...s, role: e.target.value} : s))}
+                                                                className="flex-1 bg-slate-800 border border-white/10 rounded px-1.5 py-1 text-[9px] text-white outline-none h-7 min-w-0"
+                                                            >
+                                                                <option value="lao">👳 Máy quay Lão</option>
+                                                                <option value="user">🙏 Máy quay Con</option>
+                                                                <option value="outro">🎬 Cảnh Kết thúc</option>
+                                                            </select>
+                                                            <select 
+                                                                value={scene.emotion}
+                                                                onChange={(e: any) => setFfScenes((prev: any) => prev.map((s: any) => s.id === scene.id ? {...s, emotion: e.target.value} : s))}
+                                                                className="flex-1 bg-slate-800 border border-white/10 rounded px-1.5 py-1 text-[9px] text-white outline-none h-7 min-w-0"
+                                                            >
+                                                                <option value="calm">😐 Bình thường</option>
+                                                                <option value="sad">😢 Buồn / Bế tắc</option>
+                                                                <option value="joy">😊 Vui / Hạnh phúc</option>
+                                                            </select>
+
+                                                            {/* 2 nút Play/Refresh nằm kế bên phải combobox trạng thái */}
+                                                            {msg && (
+                                                                <div className="flex items-center gap-1 shrink-0">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            if (hasAudio) {
+                                                                                handlePlayMsgAudio(scene.msgId, msg.audioUrl);
+                                                                            }
+                                                                        }}
+                                                                        disabled={!hasAudio}
+                                                                        className={`w-7 h-7 rounded flex items-center justify-center transition-colors border border-white/5 ${
+                                                                            hasAudio 
+                                                                                ? 'bg-slate-800 hover:bg-slate-700 text-indigo-400 hover:text-indigo-300 cursor-pointer' 
+                                                                                : 'bg-slate-800/40 text-slate-600 cursor-not-allowed opacity-40'
+                                                                        }`}
+                                                                        title={hasAudio ? "Nghe thử giọng đọc" : "Chưa có audio"}
+                                                                    >
+                                                                        {isAudioPlaying ? <Pause size={10} /> : <Play size={10} />}
+                                                                    </button>
+
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleGenerateSingleAudio(scene.msgId, msg.text, scene.role)}
+                                                                        disabled={isAudioGenerating}
+                                                                        className={`w-7 h-7 rounded transition-colors flex items-center justify-center cursor-pointer border border-white/5 ${
+                                                                            isAudioGenerating 
+                                                                                ? 'bg-slate-800 text-emerald-400' 
+                                                                                : hasAudio 
+                                                                                    ? 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200' 
+                                                                                    : 'bg-emerald-600 hover:bg-emerald-500 text-white animate-pulse'
+                                                                        }`}
+                                                                        title={hasAudio ? "Tạo lại audio" : "Tạo audio câu này"}
+                                                                    >
+                                                                        {isAudioGenerating ? <Loader2 size={10} className="animate-spin" /> : hasAudio ? <RefreshCw size={10} /> : <Mic size={10} />}
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
 
                                             </div>
                                         </div>
