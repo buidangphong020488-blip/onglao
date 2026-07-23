@@ -709,10 +709,6 @@ const OngLaoPlatform = ({ initialPoems = [], autoOpenVideoModal = false }: { ini
       
       // Mở video creator khi URL có modal=create-video hoặc childmodal=create-video (từ script form)
       if (autoOpenVideoModal || modalParam === 'create-video' || childModal === 'create-video') {
-        const scriptIdParam = urlParams.get('scriptid') || urlParams.get('videoid');
-        if (scriptIdParam && setCurrentSessionId) {
-          setCurrentSessionId(scriptIdParam);
-        }
         videoExportState.setShowVideoExportModal(true);
         videoExportState.setVideoSlug('createvideo');
       }
