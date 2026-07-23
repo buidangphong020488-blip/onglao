@@ -2423,24 +2423,30 @@ export const useVideoExporterEngine = ({
 
   const cancelVideoExport = () => {
     // Dừng sạch sẽ tất cả audio đang phát khi đóng/hủy
-    if (localAudio) {
-      try { localAudio.pause(); } catch(e) {}
-      setLocalAudio(null);
-    }
-    if (globalAudioRef && globalAudioRef.current) {
-      try { globalAudioRef.current.pause(); } catch(e) {}
-    }
-    if (setPlayingMsgId) setPlayingMsgId(null);
-    if (exportAnimFrameRef.current) {
-      cancelAnimationFrame(exportAnimFrameRef.current);
-      exportAnimFrameRef.current = null;
-    }
-    if (exportMediaRecorderRef.current && exportMediaRecorderRef.current.state === 'recording') {
-      try { exportMediaRecorderRef.current.stop(); } catch(e) {}
-    }
-    if (exportAudioCtxRef.current && exportAudioCtxRef.current.state !== 'closed') {
-      try { exportAudioCtxRef.current.close(); } catch(e) {}
-    }
+    try {
+      if (globalAudioRef && globalAudioRef.current) {
+        globalAudioRef.current.pause();
+      }
+    } catch(e) {}
+
+    try {
+      if (exportAnimFrameRef.current) {
+        cancelAnimationFrame(exportAnimFrameRef.current);
+        exportAnimFrameRef.current = null;
+      }
+    } catch(e) {}
+
+    try {
+      if (exportMediaRecorderRef.current && exportMediaRecorderRef.current.state === 'recording') {
+        exportMediaRecorderRef.current.stop();
+      }
+    } catch(e) {}
+
+    try {
+      if (exportAudioCtxRef.current && exportAudioCtxRef.current.state !== 'closed') {
+        exportAudioCtxRef.current.close().catch(() => {});
+      }
+    } catch(e) {}
     exportAudioCtxRef.current = null;
 
     resetVideoExport();
