@@ -67,6 +67,19 @@
   1. Comment out tab button `"Mào Đầu (Tiếp đón)"` trong `PoemVaultModal.tsx` để người dùng không thể chọn tab này.
   2. Đổi tên nút mở Modal trong sidebar (`SessionsSidebar.tsx`) từ `"Kho Kệ Pháp & Mào Đầu"` thành `"Kho Kệ Pháp"`.
 
+## Ngày 23/07/2026
+
+### 1. Bổ sung nút Sửa chữ, Tạo Audio, Nghe Thử cho từng phân cảnh trong VideoCreatorModal
+- **Vấn đề:** Người dùng yêu cầu biên tập văn bản, nghe thử âm thanh, và tạo lại TTS ngay trong danh sách phân cảnh thoại của modal "Xuất video pháp bảo" (VideoCreatorModal) thay vì phải tắt modal đi để quay về trang quản lý kịch bản.
+- **Giải pháp:**
+  - Tích hợp thêm các hooks và states quản lý phát âm thanh (`playingMsgId`, `localAudio`) và trạng thái tạo âm thanh (`generatingMsgIds`) ngay trong `VideoCreatorModal`.
+  - Thay thế phần hiển thị thoại tĩnh (`textSnippet`) của mỗi phân cảnh bằng một ô `<textarea>` chỉnh sửa trực tiếp. Khi người dùng nhập xong và `onBlur`, hệ thống tự động lưu vào PostgreSQL (qua `updateChatMessageContentAction`) và đồng bộ lên state cục bộ, đồng thời thu hồi/đặt lại `audioUrl` về `null` vì nội dung đã đổi.
+  - Bổ sung nút **Nghe thử (Play/Pause)** và nút **Tạo/Tạo lại audio (Mic/RefreshCw)** cho từng dòng thoại. Khi bấm Tạo, nó gọi `generateVoice` từ context để sinh âm thanh TTS mới và tự động cập nhật lại URL âm thanh trong danh sách tin nhắn.
+
+### 2. Khắc phục lỗi ReferenceError: `setMessages` is not defined gây crash ứng dụng trên trình duyệt
+- **Vấn đề:** Trong commit `a95471b`, mã nguồn đã gọi hàm `setMessages(mapped)` bên trong `useEffect` nạp tin nhắn của `onglao-platform.tsx`. Do `messages` là biến được tính toán động từ `currentSession?.messages` chứ không phải là React state nên không tồn tại hàm `setMessages`. Điều này không gây lỗi compile (vì Next.js build bỏ qua useEffect trên server-side), nhưng ngay khi người dùng load trang trên trình duyệt sẽ crash ứng dụng hoàn toàn.
+- **Giải pháp:** Xoá bỏ dòng `setMessages(mapped)` dư thừa và không xác định trong `onglao-platform.tsx`. Trạng thái `sessions` được cập nhật thông qua `setSessions` sẽ tự động cập nhật lại biến phái sinh `messages` chuẩn xác và an toàn.
+
 ---
 *Lưu ý (SKILL):* Các agent/skill trong hệ thống **phải** đọc tài liệu này trước khi tiếp tục công việc để nắm bắt context và không lặp lại lỗi cũ (đặc biệt là lỗi Puppeteer vs React Synthetic Events).
 

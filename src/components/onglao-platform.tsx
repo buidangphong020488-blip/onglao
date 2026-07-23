@@ -706,10 +706,10 @@ const OngLaoPlatform = ({ initialPoems = [], autoOpenVideoModal = false }: { ini
       const urlParams = new URLSearchParams(window.location.search);
       const modalParam = urlParams.get('modal');
       const childModal = urlParams.get('childmodal');
-      const videoIdParam = urlParams.get('videoid') || urlParams.get('id');
+      const scriptIdParam = urlParams.get('scriptid') || urlParams.get('videoid') || urlParams.get('id');
 
-      if (videoIdParam) {
-        setCurrentSessionId(videoIdParam);
+      if (scriptIdParam) {
+        setCurrentSessionId(scriptIdParam);
       }
       
       // Mở video creator khi URL có modal=create-video hoặc childmodal=create-video (từ script form)
@@ -793,7 +793,6 @@ const OngLaoPlatform = ({ initialPoems = [], autoOpenVideoModal = false }: { ini
             sessionId: currentSessionId,
             emotion: m.emotion || 'calm'
           }));
-          setMessages(mapped);
           setSessions(prev => {
             const exists = prev.some(x => x.id === currentSessionId);
             if (exists) {

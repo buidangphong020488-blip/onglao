@@ -1,11 +1,11 @@
 // @ts-nocheck
 "use client";
 import React from "react";
-import { X, Film, Check, Save, Sliders, Maximize, Minimize, RefreshCw, Loader2, Play, Pause, ChevronDown, Sparkles, FileText, Volume2, Plus, Info, Upload, PlayCircle, Eye, EyeOff, Music, Video, Archive, Share as ShareIcon, Copy, ChevronUp, Trash2, Palette, Music4, Wand2, XCircle, Undo2, Redo2, LayoutTemplate, Image as ImageIcon } from "lucide-react";
+import { X, Film, Check, Save, Sliders, Maximize, Minimize, RefreshCw, Loader2, Play, Pause, ChevronDown, Sparkles, FileText, Volume2, Plus, Info, Upload, PlayCircle, Eye, EyeOff, Music, Video, Archive, Share as ShareIcon, Copy, ChevronUp, Trash2, Palette, Music4, Wand2, XCircle, Undo2, Redo2, LayoutTemplate, Image as ImageIcon, Pencil, Mic } from "lucide-react";
 
 import { useOngLaoContext } from "../context/OngLaoContext";
 import { idb } from "../constants";
-import { updateChatMessageContentAction } from "@/chat";
+import { updateChatMessageContentAction, getChatMessagesAction } from "@/actions/chat";
 
 
 
@@ -143,6 +143,84 @@ const VideoCreatorModal = () => {
   const p = useOngLaoContext();
   const previewVideoRef = React.useRef(null);
   const [selectedFfPackId, setSelectedFfPackId] = React.useState('');
+
+  // States and Handlers for inline text/audio editing within VideoCreatorModal
+  const [playingMsgId, setPlayingMsgId] = React.useState<string | null>(null);
+  const [localAudio, setLocalAudio] = React.useState<HTMLAudioElement | null>(null);
+  const [generatingMsgIds, setGeneratingMsgIds] = React.useState<Record<string, boolean>>({});
+
+  const handlePlayMsgAudio = (msgId: string, audioUrl: string) => {
+      if (localAudio) {
+          localAudio.pause();
+      }
+      if (playingMsgId === msgId) {
+          setPlayingMsgId(null);
+          setLocalAudio(null);
+          return;
+      }
+      const audio = new Audio(audioUrl);
+      audio.play().catch(err => console.warn("Lỗi phát audio:", err));
+      audio.onended = () => setPlayingMsgId(null);
+      setLocalAudio(audio);
+      setPlayingMsgId(msgId);
+  };
+
+  React.useEffect(() => {
+    return () => {
+      if (localAudio) {
+        localAudio.pause();
+      }
+    };
+  }, [localAudio]);
+
+  const handleTextBlur = async (scene: any, newText: string) => {
+      if (!newText.trim() || newText === scene.textSnippet) return;
+      
+      // 1. Cập nhật state local
+      setFfScenes((prev: any) => prev.map((s: any) => s.id === scene.id ? { ...s, textSnippet: newText } : s));
+      p.updateCurrentMessages((prevMsgs: any[]) => prevMsgs.map((m: any) => m.id === scene.msgId ? { ...m, text: newText, audioUrl: null } : m));
+      
+      // 2. Cập nhật database
+      try {
+          await updateChatMessageContentAction(scene.msgId, newText);
+      } catch (err) {
+          console.error("Lỗi cập nhật tin nhắn:", err);
+      }
+  };
+
+  const handleGenerateSingleAudio = async (msgId: string, text: string, role: string) => {
+      if (generatingMsgIds[msgId]) return;
+      setGeneratingMsgIds(prev => ({ ...prev, [msgId]: true }));
+      try {
+          const targetRole = role === 'lao' ? 'ai' : 'user';
+          const success = await p.generateVoice(msgId, text, targetRole, p.currentSessionId, false);
+          if (success) {
+              p.showToastMsg?.("Đã tạo audio câu thoại thành công!", "success");
+              const res = await getChatMessagesAction(p.currentSessionId);
+              if (res.success && res.data) {
+                  const mapped = res.data.map((m: any) => ({
+                      id: m.id,
+                      role: m.role.toLowerCase() === 'user' ? 'user' : 'ai',
+                      text: m.content,
+                      audioUrl: m.audioUrl,
+                      emotion: m.emotion || 'calm',
+                      sessionId: p.currentSessionId
+                  }));
+                  p.updateCurrentMessages(mapped);
+              }
+          } else {
+              p.showToastMsg?.("Lỗi tạo audio câu thoại.", "error");
+          }
+      } catch (err: any) {
+          p.showToastMsg?.("Lỗi tạo audio: " + err.message, "error");
+      } finally {
+          setGeneratingMsgIds(prev => {
+              const next = { ...prev };
+              delete next[msgId];
+              return next;
+          });
+      }
+  };
 
   // Tự động chia cảnh theo từng câu thoại khi mở modal (nếu chưa có scene gán message cụ thể)
   React.useEffect(() => {
@@ -578,8 +656,67 @@ const VideoCreatorModal = () => {
 
                                             {/* Settings Cảnh */}
                                             <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-                                                {/* Hiển thị tóm tắt câu thoại để biết cần nạp video cho nội dung gì */}
+                                                {/* Hiển thị tóm tắt câu thoại, sửa chữ và tạo/phát âm thanh trực tiếp */}
                                                 {(() => {
+                                                    // Tìm message tương ứng với scene qua msgId
+                                                    const msg = scene.msgId ? messages?.find((m: any) => m.id === scene.msgId) : null;
+                                                    if (msg) {
+                                                        const hasAudio = !!msg.audioUrl;
+                                                        const isAudioPlaying = playingMsgId === scene.msgId;
+                                                        const isAudioGenerating = !!generatingMsgIds[scene.msgId];
+
+                                                        return (
+                                                            <div className="flex flex-col gap-1 w-full bg-slate-900/40 p-1.5 rounded-lg border border-white/5">
+                                                                <textarea
+                                                                    defaultValue={msg.text}
+                                                                    onBlur={(e) => handleTextBlur(scene, e.target.value)}
+                                                                    placeholder="Nội dung câu thoại..."
+                                                                    rows={1}
+                                                                    className="w-full bg-slate-950 border border-white/10 focus:border-indigo-500/50 rounded px-1.5 py-0.5 text-[9px] text-slate-200 outline-none resize-none font-medium leading-normal min-h-[36px] scrollbar-hide"
+                                                                    title="Bấm vào đây để sửa câu thoại trực tiếp"
+                                                                />
+                                                                <div className="flex items-center justify-between mt-0.5">
+                                                                    <div className="flex items-center gap-1">
+                                                                        {hasAudio ? (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handlePlayMsgAudio(scene.msgId, msg.audioUrl)}
+                                                                                className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-indigo-400 hover:text-indigo-300 transition-colors flex items-center justify-center cursor-pointer"
+                                                                                title="Nghe thử giọng đọc"
+                                                                            >
+                                                                                {isAudioPlaying ? <Pause size={10} /> : <Play size={10} />}
+                                                                            </button>
+                                                                        ) : (
+                                                                            <span className="text-[7px] text-amber-400 font-bold bg-amber-950/40 px-1 py-0.5 rounded border border-amber-500/20">
+                                                                                Chưa có audio
+                                                                            </span>
+                                                                        )}
+
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleGenerateSingleAudio(scene.msgId, msg.text, scene.role)}
+                                                                            disabled={isAudioGenerating}
+                                                                            className={`p-1 rounded transition-colors flex items-center justify-center cursor-pointer ${
+                                                                                isAudioGenerating 
+                                                                                    ? 'bg-slate-800 text-emerald-400' 
+                                                                                    : hasAudio 
+                                                                                        ? 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200' 
+                                                                                        : 'bg-emerald-600 hover:bg-emerald-500 text-white animate-pulse'
+                                                                            }`}
+                                                                            title={hasAudio ? "Tạo lại audio" : "Tạo audio câu này"}
+                                                                        >
+                                                                            {isAudioGenerating ? <Loader2 size={10} className="animate-spin" /> : hasAudio ? <RefreshCw size={10} /> : <Mic size={10} />}
+                                                                        </button>
+                                                                    </div>
+                                                                    <span className="text-[8px] text-slate-500 font-semibold italic">
+                                                                        {scene.role === 'lao' ? '👳 Lão' : scene.role === 'user' ? '🙏 Con' : '🎬 Cảnh'}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    // --- Fallback cũ cho các scene không có msgId trực tiếp ---
                                                     const targetRole = scene.role === 'lao' ? 'ai' : (scene.role === 'user' ? 'user' : 'outro');
                                                     if (scene.textSnippet) return (
                                                         <div className="w-full text-[10px] text-slate-300 italic truncate mb-0.5 bg-slate-900 px-1.5 py-0.5 rounded border border-white/5" title={scene.textSnippet}>
@@ -588,13 +725,10 @@ const VideoCreatorModal = () => {
                                                     );
                                                     if (targetRole === 'outro') return null;
                                                     
-                                                    // Nếu scene có msgId thì chỉ lấy đúng câu thoại đó
-                                                    const matchedMsgs = scene.msgId 
-                                                        ? messages.filter((m: any) => m.id === scene.msgId || `scene_msg_${m.id}` === scene.id || scene.id.includes(`_${m.id}`))
-                                                        : messages.filter((m: any) => {
-                                                            const mRole = m.role === 'ASSISTANT' || m.role === 'ai' ? 'ai' : 'user';
-                                                            return mRole === targetRole;
-                                                        });
+                                                    const matchedMsgs = messages.filter((m: any) => {
+                                                        const mRole = m.role === 'ASSISTANT' || m.role === 'ai' ? 'ai' : 'user';
+                                                        return mRole === targetRole;
+                                                    });
 
                                                     if (matchedMsgs.length === 0) return (
                                                         <div className="w-full text-[8px] text-amber-400 bg-amber-900/20 px-1.5 py-1 rounded border border-amber-500/20 mb-0.5">
@@ -602,8 +736,7 @@ const VideoCreatorModal = () => {
                                                         </div>
                                                     );
 
-                                                    // Nếu cảnh này được gán riêng cho 1 câu thoại cụ thể
-                                                    if (scene.msgId || matchedMsgs.length === 1) {
+                                                    if (matchedMsgs.length === 1) {
                                                         const m = matchedMsgs[0];
                                                         return (
                                                             <div className="w-full text-[10px] text-slate-300 italic mb-0.5 bg-slate-900 px-1.5 py-1 rounded border border-white/5" title={m.text}>
@@ -613,7 +746,6 @@ const VideoCreatorModal = () => {
                                                         );
                                                     }
 
-                                                    // Nếu cảnh này là cảnh chung (fallback) cho nhiều câu, không hiển thị danh sách thoại gộp
                                                     return null;
                                                 })()}
                                                 <div className="flex gap-1.5 w-full">

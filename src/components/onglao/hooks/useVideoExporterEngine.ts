@@ -1378,9 +1378,10 @@ export const useVideoExporterEngine = ({
       const url = new URL(window.location.href);
       const childModal = url.searchParams.get('childmodal');
       if (childModal === 'create-video') {
-        // Xóa chỉ childmodal và videoid, giữ nguyên modal=ai-director và các param của script
+        // Xóa childmodal, videoid và scriptid
         url.searchParams.delete('childmodal');
         url.searchParams.delete('videoid');
+        url.searchParams.delete('scriptid');
         window.history.replaceState(null, '', url.toString());
         // AiDirectorManagerModal vẫn đang mở (showAiManager không thay đổi)
         return;

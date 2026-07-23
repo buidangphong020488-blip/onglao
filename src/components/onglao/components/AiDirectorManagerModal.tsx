@@ -166,7 +166,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         if (typeof window !== 'undefined') {
             const url = new URL(window.location.href);
             url.searchParams.set('childmodal', 'create-video');
-            url.searchParams.set('videoid', scriptId);
+            url.searchParams.set('scriptid', scriptId);
             window.history.pushState(null, '', url.toString());
         }
 
@@ -1606,12 +1606,12 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
 
                                                             p.setCurrentSessionId(script.id);
                                                             // Dùng childmodal routing: KHÔNG đóng AiDirectorManagerModal
-                                                            if (typeof window !== 'undefined') {
-                                                                const url = new URL(window.location.href);
-                                                                url.searchParams.set('childmodal', 'create-video');
-                                                                url.searchParams.set('videoid', script.id);
-                                                                window.history.pushState(null, '', url.toString());
-                                                            }
+                                                                if (typeof window !== 'undefined') {
+                                                                    const url = new URL(window.location.href);
+                                                                    url.searchParams.set('childmodal', 'create-video');
+                                                                    url.searchParams.set('scriptid', script.id);
+                                                                    window.history.pushState(null, '', url.toString());
+                                                                }
                                                             if (p.setVideoExportSource) p.setVideoExportSource('ai_director_childmodal');
                                                             if (p.setShowVideoExportModal) p.setShowVideoExportModal(true);
                                                         }}
