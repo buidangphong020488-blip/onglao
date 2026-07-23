@@ -257,8 +257,11 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                         return x;
                     }));
                 }
-            } catch (e) {
+            } catch (e: any) {
                 console.error("Failed to load script sessions:", e);
+                if (e?.message?.includes('Server Action') || String(e).includes('Server Action')) {
+                    if (p.showToastMsg) p.showToastMsg('Server đã được cập nhật phiên bản mới. Lão hãy nhấn Ctrl + F5 để nạp lại trang.', 'warning');
+                }
             }
         };
         preloadScriptsMessages();
@@ -291,8 +294,11 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                         x.id === session.id ? { ...x, messages: mappedMsgs, messagesLoaded: true } : x
                     ));
                 }
-            } catch (e) {
+            } catch (e: any) {
                 console.error('Failed to load messages for session', session.id, e);
+                if (e?.message?.includes('Server Action') || String(e).includes('Server Action')) {
+                    if (p.showToastMsg) p.showToastMsg('Server đã được cập nhật phiên bản mới. Lão hãy nhấn Ctrl + F5 để nạp lại trang.', 'warning');
+                }
             } finally {
                 loadingSessionIdsRef.current.delete(session.id);
             }
