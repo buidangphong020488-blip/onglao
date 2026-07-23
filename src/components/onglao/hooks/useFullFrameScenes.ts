@@ -117,7 +117,7 @@ export const useFullFrameScenes = ({
               }
               if (ffVidRefs.current[scene.id].src !== url) {
                   ffVidRefs.current[scene.id].src = url;
-                  ffVidRefs.current[scene.id].play().catch(()=>{});
+                  ffVidRefs.current[scene.id].load();
               }
           } else if (ffVidRefs.current[scene.id]) {
               ffVidRefs.current[scene.id].pause();

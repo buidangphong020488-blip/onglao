@@ -1609,9 +1609,8 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
                 };
                 attachProxyHandler(vA, true);
                 attachProxyHandler(vB, false);
-                // --- KẾT THÚC VÁ LỖI GOOGLE DRIVE ---
-
-                vA.play().catch((e: any) => console.log("Bg Video Autoplay Prevented", e));
+                vA.load();
+                vB.load();
                 
                 // Lưu cả 2 bản sao vào Refs. activeKey quyết định video nào đang làm chủ.
                 bgVideoRefs.current[bg.id] = { 
