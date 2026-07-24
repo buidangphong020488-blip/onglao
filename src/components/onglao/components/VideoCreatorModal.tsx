@@ -1688,6 +1688,17 @@ const VideoCreatorModal = () => {
                                                                 src={formattedUrl} 
                                                                 preload="metadata" 
                                                                 onLoadedData={(e) => { e.currentTarget.currentTime = 0.5; }}
+                                                                onError={(e) => {
+                                                                    // Thẻ video bị lỗi 404 do file không tồn tại trên đĩa
+                                                                    e.currentTarget.style.display = 'none';
+                                                                    const parentDiv = e.currentTarget.parentElement;
+                                                                    if (parentDiv && !parentDiv.querySelector('.video-err-fallback')) {
+                                                                        const errDiv = document.createElement('div');
+                                                                        errDiv.className = 'video-err-fallback flex flex-col items-center justify-center p-2 text-amber-400 text-center gap-1 w-full h-full bg-slate-950/80';
+                                                                        errDiv.innerHTML = '<span style="font-size:10px;font-weight:bold;">⚠️ File video không có sẵn</span><span style="font-size:8px;color:#94a3b8;">Vui lòng bấm "Nạp Thêm" để nạp file mới</span>';
+                                                                        parentDiv.appendChild(errDiv);
+                                                                    }
+                                                                }}
                                                                 className="w-full h-full object-cover" 
                                                             />
                                                         ) : (
