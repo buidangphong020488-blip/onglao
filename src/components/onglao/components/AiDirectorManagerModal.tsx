@@ -2038,20 +2038,22 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                             <span className="text-[10px] text-slate-500 hidden sm:inline">Click chèn nhanh cú pháp thoại kèm cờ cảm xúc.</span>
                                         </div>
 
-                                        <ScriptModal
-                                            ref={scriptModalRef}
-                                            hideOptions={true}
-                                            show={true}
-                                            scriptText={editingRawText}
-                                            setScriptText={setEditingRawText}
-                                            publicSettings={p.publicSettings}
-                                            customLaoName={p.customLaoName}
-                                            customUserName={p.customUserName}
-                                            importMode="new"
-                                            setImportMode={() => {}}
-                                            onImport={() => {}}
-                                            onClose={() => {}}
-                                        />
+                                        {/* Ô NHẬP / DÁN KỊCH BẢN THỦ CÔNG TRỰC TIẾP */}
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-xs font-bold text-indigo-300 flex items-center gap-1.5 select-none">
+                                                    <Pencil size={14} className="text-indigo-400" />
+                                                    Khung Nhập / Dán Kịch Bản Thủ Công (Textarea Đa Dòng):
+                                                </label>
+                                                <span className="text-[10px] text-slate-400">Gõ dạng Lão: [vui] ... hoặc Con: [buồn] ...</span>
+                                            </div>
+                                            <textarea
+                                                value={editingRawText}
+                                                onChange={(e) => setEditingRawText(e.target.value)}
+                                                placeholder={`Dán hoặc gõ kịch bản thủ công tại đây...\n\nVí dụ:\n${p.customLaoName || 'Lão'}: [vui] Nghe ${p.customLaoName || 'Lão'} nói đây, mọi khổ đau đều từ chấp thủ mà ra...\n${p.customUserName || 'Con'}: [buồn] ${p.customUserName || 'Con'} cảm ơn ${p.customLaoName || 'Lão'} đã khai thị...\nOutro: [kết thúc] Sư Cha Tam Vô đã hướng dẫn...`}
+                                                className="w-full h-44 bg-slate-950 border border-indigo-500/30 rounded-2xl p-3.5 text-xs sm:text-sm text-white focus:border-indigo-500 outline-none resize-y font-mono leading-relaxed placeholder:text-slate-600 shadow-inner"
+                                            />
+                                        </div>
 
                                         {/* GIAO DIỆN CÁC BLOCK THOẠI TRỰC QUAN ĐƯỢC BÓC TÁCH */}
                                         <div className="flex flex-col gap-2.5 mt-4 bg-slate-950/40 p-3 rounded-2xl border border-white/10">
