@@ -1926,28 +1926,42 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                                 className="text-xs text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
                                             >
                                                 <Sparkles size={14} /> 
-                                                {showAiParams ? "Ẩn Thông số Đạo diễn AI" : "Hiện Thông số Đạo diễn AI & Tạo lại bằng AI"}
+                                                {showAiParams ? "Ẩn Thông số Đạo diễn AI" : "Hiện Thông số Đạo diễn AI & Tạo bằng AI"}
                                             </button>
                                             <span className="text-[10px] text-slate-500 hidden sm:inline">Mở nếu cần tự động tạo lại nội dung bằng AI</span>
                                         </div>
  
                                         {showAiParams && (
-                                            <div className="flex flex-col gap-4 pt-3 border-t border-white/5 animate-in slide-in-from-top-2 duration-200">
-                                                <div className="flex flex-col gap-1.5">
-                                                   <label className="text-xs font-bold text-slate-400">Ngôn ngữ kịch bản:</label>
-                                                   <select value={editingLanguage} onChange={e => setEditingLanguage(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2 rounded-xl outline-none text-[11px] focus:border-indigo-500">
-                                                      <option value="vi">Tiếng Việt</option>
-                                                      <option value="en">Tiếng Anh (English)</option>
-                                                   </select>
-                                                </div>
- 
-                                                <div className="flex flex-col gap-1.5">
-                                                   <label className="text-xs font-bold text-slate-400">Chủ đề vướng mắc / Nỗi khổ của {p.customUserName || 'Con'}:</label>
-                                                   <textarea key={`topic-${selectedScript?.id}`} value={editingTopic} onChange={(e: any) => setEditingTopic(e.target.value)} placeholder="Ví dụ: Con đang gặp áp lực nợ nần, mất phương hướng, thất tình..." disabled={isRegenerating} className="w-full h-20 bg-slate-950 border border-white/10 rounded-xl p-2 text-[11px] text-white focus:border-indigo-500 outline-none resize-none"/>
+                                            <div className="flex flex-col gap-3 pt-3 border-t border-white/5 animate-in slide-in-from-top-2 duration-200">
+                                                {/* 1. Ngôn ngữ kịch bản & Hành trình cảm xúc */}
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    <div className="flex flex-col gap-1">
+                                                       <label className="text-xs font-bold text-slate-400">Ngôn ngữ kịch bản:</label>
+                                                       <select value={editingLanguage} onChange={e => setEditingLanguage(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2 rounded-xl outline-none text-[11px] focus:border-indigo-500">
+                                                          <option value="vi">Tiếng Việt</option>
+                                                          <option value="en">Tiếng Anh (English)</option>
+                                                       </select>
+                                                    </div>
+                                                    <div className="flex flex-col gap-1">
+                                                       <label className="text-xs font-bold text-slate-400">Hành trình biến đổi cảm xúc của Con:</label>
+                                                       <select value={editingUserEmotionArc} onChange={e => setEditingUserEmotionArc(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2 rounded-xl outline-none text-[11px] focus:border-indigo-500">
+                                                          <option value="Từ đau khổ/bế tắc chuyển dần sang an lạc/bừng sáng">Đau khổ, bế tắc ➡️ An lạc, bừng sáng</option>
+                                                          <option value="Từ tức giận/đổ lỗi chuyển sang tự nhìn nhận lại chính mình">Tức giận, đổ lỗi ➡️ Tự phản tỉnh</option>
+                                                          <option value="Từ kiêu ngạo/ngộ nhận chuyển sang khiêm nhường/thấy rõ mộng">Kiêu ngạo, ngộ nhận ➡️ Khiêm nhường, tỉnh mộng</option>
+                                                          <option value="Chỉ thuần túy thắc mắc, tò mò đạo lý và được giải đáp thỏa đáng">Thuần túy thắc mắc ➡️ Thỏa mãn trí tuệ</option>
+                                                       </select>
+                                                    </div>
                                                 </div>
 
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                   <div className="flex flex-col gap-1.5">
+                                                {/* 2. Chủ đề vướng mắc */}
+                                                <div className="flex flex-col gap-1">
+                                                   <label className="text-xs font-bold text-slate-400">Chủ đề vướng mắc / Nỗi khổ của {p.customUserName || 'Con'}:</label>
+                                                   <textarea key={`topic-${selectedScript?.id}`} value={editingTopic} onChange={(e: any) => setEditingTopic(e.target.value)} placeholder="Ví dụ: Con đang gặp áp lực nợ nần, mất phương hướng, thất tình..." disabled={isRegenerating} className="w-full h-16 bg-slate-950 border border-white/10 rounded-xl p-2.5 text-[11px] text-white focus:border-indigo-500 outline-none resize-none"/>
+                                                </div>
+
+                                                {/* 3. Độ dài kịch bản & Phong cách Lão */}
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                   <div className="flex flex-col gap-1">
                                                       <label className="text-xs font-bold text-slate-400">Độ dài kịch bản:</label>
                                                       <select value={editingLength} onChange={e => setEditingLength(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2 rounded-xl outline-none text-[11px] focus:border-indigo-500">
                                                          <option value="Khoảng 4-6 câu">Khoảng 4-6 câu (Chớp nhoáng)</option>
@@ -1956,7 +1970,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                                          <option value="Khoảng 15-21 câu">Khoảng 15-21 câu (Khai ngộ toàn diện)</option>
                                                       </select>
                                                    </div>
-                                                   <div className="flex flex-col gap-1.5">
+                                                   <div className="flex flex-col gap-1">
                                                       <label className="text-xs font-bold text-slate-400">Phong cách của Lão:</label>
                                                       <select value={editingLaoStyle} onChange={e => setEditingLaoStyle(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2 rounded-xl outline-none text-[11px] focus:border-indigo-500">
                                                          <option value="Sắc bén, đốn giáo, thẳng thắn đánh thức mộng ảo">Sắc bén, đốn giáo</option>
@@ -1966,7 +1980,8 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                                    </div>
                                                 </div>
 
-                                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-2 bg-slate-900/40 p-3 rounded-xl border border-white/5">
+                                                {/* 4. Tích hợp kệ Sư Cha Tam Vô & Nút Tạo bằng AI ở dưới cùng */}
+                                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-1 bg-slate-900/40 p-2.5 rounded-xl border border-white/5">
                                                      <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-300 hover:text-white transition-colors select-none">
                                                          <input 
                                                              type="checkbox" 
@@ -1980,27 +1995,16 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                                      <button 
                                                          onClick={handleRegenerateAIScript} 
                                                          disabled={isRegenerating || !editingTopic.trim()} 
-                                                         className="w-full sm:w-auto px-5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer"
+                                                         className="w-full sm:w-auto px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer border border-indigo-400/30"
                                                      >
-                                                         {isRegenerating ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                                                         {isRegenerating ? 'Đang viết kịch bản...' : 'Tạo lại bằng AI'}
+                                                         {isRegenerating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                                                         {isRegenerating ? 'Đang viết kịch bản...' : '✨ Tạo bằng AI'}
                                                      </button>
-                                                 </div>
-
-                                                <div className="flex flex-col gap-1.5">
-                                                   <label className="text-xs font-bold text-slate-400">Hành trình biến đổi cảm xúc của Con:</label>
-                                                   <select value={editingUserEmotionArc} onChange={e => setEditingUserEmotionArc(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2 rounded-xl outline-none text-[11px] focus:border-indigo-500">
-                                                      <option value="Từ đau khổ/bế tắc chuyển dần sang an lạc/bừng sáng">Đau khổ, bế tắc ➡️ An lạc, bừng sáng</option>
-                                                      <option value="Từ tức giận/đổ lỗi chuyển sang tự nhìn nhận lại chính mình">Tức giận, đổ lỗi ➡️ Tự phản tỉnh</option>
-                                                      <option value="Từ kiêu ngạo/ngộ nhận chuyển sang khiêm nhường/thấy rõ mộng">Kiêu ngạo, ngộ nhận ➡️ Khiêm nhường, tỉnh mộng</option>
-                                                      <option value="Chỉ thuần túy thắc mắc, tò mò đạo lý và được giải đáp thỏa đáng">Thuần túy thắc mắc ➡️ Thỏa mãn trí tuệ</option>
-                                                   </select>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
+                                                  </div>
+                                             </div>
+                                         )}
+                                     </div>
+                                 )}
                                 {/* KHU VỰC BIÊN TẬP CÂU THOẠI (RỘNG RÃI & RÕ RÀNG) */}
                                 <div className="flex-1 flex flex-col gap-4 min-h-[360px] pb-4">
                                     <div className="bg-slate-900/40 p-4 rounded-2xl border border-indigo-500/20 flex-1 flex flex-col">
