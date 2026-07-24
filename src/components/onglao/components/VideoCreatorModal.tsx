@@ -72,49 +72,59 @@ const generateVideoPoster = (videoUrl: string): Promise<string> => {
     });
 };
 // SceneThumbnailItem: Component thumbnail chụp ảnh tĩnh poster, hiển thị ảnh xem trước sắc nét mà KHÔNG tốn RAM/GPU
-const SceneThumbnailItem = React.memo(({ scene, setFfScenes }: { scene: any; setFfScenes: any }) => {
+const SceneThumbnailItem = React.memo(({ scene, setFfScenes, onOpenLibraryPicker }: { scene: any; setFfScenes: any; onOpenLibraryPicker?: any }) => {
     const [isHovered, setIsHovered] = React.useState(false);
     const [poster, setPoster] = React.useState(scene.poster || '');
+    const [activeUrl, setActiveUrl] = React.useState<string | null>(scene.url && !scene.url.startsWith('idb://') ? scene.url : null);
+    const [hasError, setHasError] = React.useState(false);
+
     React.useEffect(() => {
-        if (scene.poster) {
-            setPoster(scene.poster);
-        } else if (scene.url && !poster) {
-            let isMounted = true;
-            generateVideoPoster(scene.url).then(p => {
-                if (p && isMounted) {
-                    setPoster(p);
+        let isMounted = true;
+        let createdBlobUrl: string | null = null;
+
+        const resolveSceneUrl = async () => {
+            const keyToFetch = scene.idbKey || (scene.url && scene.url.startsWith('idb://') ? scene.url.replace('idb://', '') : null);
+            if (keyToFetch) {
+                try {
+                    const blob = await idb.get(keyToFetch);
+                    if (blob && isMounted) {
+                        createdBlobUrl = URL.createObjectURL(blob);
+                        setActiveUrl(createdBlobUrl);
+                        if (!scene.poster) {
+                            const p = await generateVideoPoster(createdBlobUrl);
+                            if (p && isMounted) setPoster(p);
+                        }
+                    }
+                } catch (e) {
+                    console.error(e);
+                    if (isMounted) setHasError(true);
                 }
-            });
-            return () => { isMounted = false; };
-        }
-    }, [scene.url, scene.poster]);
-    const handleFile = async (file: File) => {
-        if (!file) return;
-        if (scene.url) URL.revokeObjectURL(scene.url);
-        const url = URL.createObjectURL(file);
-        const p = await generateVideoPoster(url);
-        setPoster(p);
-        const idbKey = `ff_clip_${scene.role}_${scene.emotion}_${Date.now()}_${Math.floor(Math.random()*10000)}`;
-        setTimeout(() => { idb.set(idbKey, file).catch(err => console.warn('Lỗi lưu IDB:', err)); }, 50);
-        setFfScenes((prev: any) => prev.map((s: any) => s.id === scene.id ? { ...s, url, poster: p, idbKey } : s));
-    };
+            } else if (scene.url && !scene.url.startsWith('idb://') && isMounted) {
+                setActiveUrl(scene.url);
+                if (!scene.poster) {
+                    const p = await generateVideoPoster(scene.url);
+                    if (p && isMounted) setPoster(p);
+                }
+            }
+        };
+
+        resolveSceneUrl();
+
+        return () => {
+            isMounted = false;
+            if (createdBlobUrl) URL.revokeObjectURL(createdBlobUrl);
+        };
+    }, [scene.url, scene.idbKey, scene.poster]);
+
     return (
-        <label 
+        <div 
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
+            onClick={() => onOpenLibraryPicker ? onOpenLibraryPicker(scene.id) : null}
             className="w-16 h-16 rounded-md border border-dashed border-emerald-500/30 hover:border-emerald-500 flex flex-col items-center justify-center cursor-pointer relative overflow-hidden bg-slate-900 shrink-0 group transition-all"
+            title="Click để chọn video clip từ kho cho cảnh quay này"
         >
-            <input 
-                type="file" 
-                accept="video/*" 
-                className="hidden" 
-                onChange={(e: any) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleFile(file);
-                    e.target.value = '';
-                }} 
-            />
-            {scene.url ? (
+            {activeUrl && !hasError ? (
                 poster ? (
                     <div className="w-full h-full relative group">
                         <img src={poster} alt="thumbnail" className="w-full h-full object-cover" />
@@ -124,19 +134,20 @@ const SceneThumbnailItem = React.memo(({ scene, setFfScenes }: { scene: any; set
                     </div>
                 ) : (
                     <video 
-                        src={scene.url} 
+                        src={activeUrl} 
                         muted 
                         playsInline 
+                        onError={() => setHasError(true)}
                         className="w-full h-full object-cover" 
                     />
                 )
             ) : (
                 <div className="flex flex-col items-center gap-0.5">
                     <Plus size={14} className="text-emerald-500" />
-                    <span className="text-[7px] text-slate-500 font-bold">Thêm clip</span>
+                    <span className="text-[7px] text-slate-500 font-bold">{hasError ? 'Lỗi file' : 'Thêm clip'}</span>
                 </div>
             )}
-        </label>
+        </div>
     );
 });
 // VideoCreatorModal: Modal xuất video pháp bảo
@@ -382,6 +393,7 @@ const VideoCreatorModal = () => {
   } = p;
 
   const [showLibraryModal, setShowLibraryModal] = React.useState(false);
+    const [targetPickerSceneId, setTargetPickerSceneId] = React.useState<string | null>(null);
     const [selectedLibraryCategory, setSelectedLibraryCategory] = React.useState<string>('ALL');
     const [stagedClips, setStagedClips] = React.useState<any[]>([]);
     const [previewVideoUrl, setPreviewVideoUrl] = React.useState<string | null>(null);
@@ -432,6 +444,40 @@ const VideoCreatorModal = () => {
 
     const handleUnstageClip = (stageId: string) => {
         setStagedClips(prev => prev.filter(c => c.stageId !== stageId));
+    };
+
+    
+    const handleAssignClipToSingleScene = async (clip: any) => {
+        if (!targetPickerSceneId) return;
+
+        let activeBlobUrl = clip.url && !clip.url.startsWith('idb://') ? clip.url : null;
+        const targetKey = clip.idbKey || (clip.url && clip.url.startsWith('idb://') ? clip.url.replace('idb://', '') : null);
+        if (!activeBlobUrl && targetKey) {
+            try {
+                const blob = await idb.get(targetKey);
+                if (blob) activeBlobUrl = URL.createObjectURL(blob);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        const posterImg = activeBlobUrl ? await generateVideoPoster(activeBlobUrl) : '';
+
+        p.setFfScenes((prev: any[]) => prev.map((s: any) => {
+            if (s.id === targetPickerSceneId) {
+                return {
+                    ...s,
+                    url: activeBlobUrl,
+                    idbKey: targetKey || null,
+                    poster: posterImg || s.poster
+                };
+            }
+            return s;
+        }));
+
+        setShowLibraryModal(false);
+        setTargetPickerSceneId(null);
+        if (p.showToastMsg) p.showToastMsg('Đã chọn video clip từ kho vào cảnh quay!', 'success');
     };
 
     const handleConfirmStagedClips = async () => {
@@ -914,7 +960,7 @@ const VideoCreatorModal = () => {
                                                 </div>
                                             </div>
                                             {/* Thumbnail Video - Lazy Unmounted để giải phóng RAM & GPU */}
-                                            <SceneThumbnailItem scene={scene} setFfScenes={setFfScenes} />
+                                            <SceneThumbnailItem scene={scene} setFfScenes={setFfScenes} onOpenLibraryPicker={(sceneId: string) => { setTargetPickerSceneId(sceneId); setShowLibraryModal(true); }} />
                                             {/* Settings Cảnh */}
                                             <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                                                 {/* Hiển thị tóm tắt câu thoại, sửa chữ và tạo/phát âm thanh trực tiếp */}
@@ -1764,8 +1810,9 @@ const VideoCreatorModal = () => {
                                                     roleName={roleName}
                                                     emotionName={emotionName}
                                                     displayName={displayName}
-                                                    handleStageClip={handleStageClip}
+                                                    handleStageClip={targetPickerSceneId ? () => handleAssignClipToSingleScene(clip) : handleStageClip}
                                                     setPreviewVideoUrl={setPreviewVideoUrl}
+                                                    isSinglePickerMode={!!targetPickerSceneId}
                                                 />
                                             );
                                         })}
@@ -1878,7 +1925,7 @@ const VideoCreatorModal = () => {
 };
 
 // SUBCOMPONENT: LIBRARY CLIP CARD (RESOLVES IDB BLOB URLS AND HANDLES 404 ONERROR)
-const LibraryClipCard = ({ clip, idx, globalIndex, isSelected, roleName, emotionName, displayName, handleStageClip, setPreviewVideoUrl }: any) => {
+const LibraryClipCard = ({ clip, idx, globalIndex, isSelected, roleName, emotionName, displayName, handleStageClip, setPreviewVideoUrl, isSinglePickerMode }: any) => {
     const [blobUrl, setBlobUrl] = React.useState<string | null>(clip.url && !clip.url.startsWith('idb://') ? clip.url : null);
     const [videoError, setVideoError] = React.useState(false);
 
@@ -1954,9 +2001,9 @@ const LibraryClipCard = ({ clip, idx, globalIndex, isSelected, roleName, emotion
             <button
                 type="button"
                 onClick={() => handleStageClip({ ...clip, url: blobUrl || clip.url, name: displayName })}
-                className={`w-full py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${isSelected ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md' : 'bg-indigo-600/80 hover:bg-indigo-600 text-white shadow-sm'}`}
+                className={`w-full py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${isSinglePickerMode ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md' : (isSelected ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md' : 'bg-indigo-600/80 hover:bg-indigo-600 text-white shadow-sm')}`}
             >
-                {isSelected ? <Check size={12} /> : <Plus size={12} />} {isSelected ? 'Đã Chọn' : 'Thêm'}
+                {isSinglePickerMode ? <Check size={12} /> : (isSelected ? <Check size={12} /> : <Plus size={12} />)} {isSinglePickerMode ? 'Chọn Clip Này' : (isSelected ? 'Đã Chọn' : 'Thêm')}
             </button>
         </div>
     );
