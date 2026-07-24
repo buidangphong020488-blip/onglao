@@ -580,7 +580,7 @@ const VideoCreatorModal = () => {
                                                   onClick={() => setShowLibraryModal(true)}
                                                   className="col-span-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:to-purple-500 text-white px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg border border-indigo-400/40 cursor-pointer hover:scale-[1.01]"
                                               >
-                                                  <Film size={14}/> 🎬 Chọn Từ Kho Cảnh Quay & Phân Mục (Nạp 1 Lần)
+                                                  <Film size={14}/> Chọn Từ Kho Cảnh Quay & Phân Mục (Nạp 1 Lần)
                                               </button>
                                               
                                              <button 
@@ -1490,7 +1490,248 @@ const VideoCreatorModal = () => {
                    </div>
                </div>
            )}
-         </div>
+         
+            {/* MODAL KHO CẢNH QUAY & PHÂN MỤC (LIBRARY PICKER MODAL) */}
+            {showLibraryModal && (
+                <div className="fixed inset-0 z-[350] bg-black/85 backdrop-blur-md flex justify-center items-center p-3 sm:p-5" onClick={() => setShowLibraryModal(false)}>
+                    <div className="bg-slate-900 border border-indigo-500/30 rounded-3xl w-full max-w-6xl shadow-2xl flex flex-col h-[90vh] overflow-hidden animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+                        
+                        {/* HEADER MODAL */}
+                        <div className="p-4 border-b border-white/10 flex justify-between items-center bg-slate-950/80 shrink-0">
+                            <div className="flex items-center gap-2.5">
+                                <span className="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-500/30">
+                                    <Film size={20} />
+                                </span>
+                                <div>
+                                    <h2 className="font-extrabold text-white text-base tracking-wide">Kho Cảnh Quay Video & Phân Mục</h2>
+                                    <p className="text-[11px] text-slate-400">Chọn clip từ kho hoặc nạp file mới để đưa hàng loạt vào kịch bản</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowBatchUploadLibraryDrawer(prev => !prev)}
+                                    className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                                >
+                                    <Upload size={14} /> Nạp Thêm Clip Mới
+                                </button>
+                                <button onClick={() => setShowLibraryModal(false)} className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition-colors">
+                                    <X size={20} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* DRAWER UPLOAD BATCH MỚI VÀO KHO */}
+                        {showBatchUploadLibraryDrawer && (
+                            <div className="p-4 bg-indigo-950/40 border-b border-indigo-500/30 flex flex-col gap-3 animate-in slide-in-from-top-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-indigo-300">📤 Nạp Thêm Video Clip Mới Vào Kho Cảnh Quay (Batch Upload & Đặt Tên)</span>
+                                    <button onClick={() => setShowBatchUploadLibraryDrawer(false)} className="text-xs text-slate-400 hover:text-white"><X size={14} /></button>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-[10px] text-slate-400 font-bold">Phân Mục / Tên Kho:</span>
+                                        <input 
+                                            type="text" 
+                                            value={batchCategoryName} 
+                                            onChange={e => setBatchCategoryName(e.target.value)} 
+                                            placeholder="VD: Cảnh Thiên Nhiên, Cảnh Đàm Đạo..."
+                                            className="bg-slate-950 border border-white/10 rounded-lg p-2 text-xs text-white outline-none" 
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-[10px] text-slate-400 font-bold">Gán Vai Mặc Định:</span>
+                                        <select 
+                                            value={batchRoleTag} 
+                                            onChange={e => setBatchRoleTag(e.target.value)} 
+                                            className="bg-slate-950 border border-white/10 rounded-lg p-2 text-xs text-white outline-none"
+                                        >
+                                            <option value="lao">🎙️ Lão (Khai Thị)</option>
+                                            <option value="user">🎙️ Con (Người Hỏi)</option>
+                                            <option value="outro">🎬 Outro (Kết Thúc)</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-[10px] text-slate-400 font-bold">Gán Cảm Xúc Mặc Định:</span>
+                                        <select 
+                                            value={batchEmotionTag} 
+                                            onChange={e => setBatchEmotionTag(e.target.value)} 
+                                            className="bg-slate-950 border border-white/10 rounded-lg p-2 text-xs text-white outline-none"
+                                        >
+                                            <option value="calm">😐 Bình thường (Calm)</option>
+                                            <option value="joy">😊 Vui vẻ / Hạnh phúc (Joy)</option>
+                                            <option value="sad">😢 Buồn / Bế tắc (Sad)</option>
+                                            <option value="hook">🔥 Mào đầu (Hook)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3 mt-1">
+                                    <input 
+                                        ref={libraryFileInputRef} 
+                                        type="file" 
+                                        accept="video/*" 
+                                        multiple 
+                                        className="hidden" 
+                                        onChange={e => {
+                                            if (e.target.files) handleBatchUploadToLibrary(e.target.files);
+                                        }} 
+                                    />
+                                    <button 
+                                        type="button"
+                                        onClick={() => libraryFileInputRef.current?.click()}
+                                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                                    >
+                                        <Upload size={14} /> Chọn File Máy Bắt Đầu Upload Vào Kho
+                                    </button>
+                                    <span className="text-[10px] text-slate-400">Chọn 1 hoặc nhiều file video cùng lúc.</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* BODY CONTENT MODAL */}
+                        <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
+                            {/* LEFT SIDEBAR: PHÂN MỤC */}
+                            <div className="w-full md:w-56 bg-slate-950/60 p-3 border-r border-white/10 flex flex-col gap-2 shrink-0 overflow-y-auto">
+                                <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 px-2 py-1">Phân Mục Cảnh Quay</span>
+                                <button 
+                                    type="button"
+                                    onClick={() => setSelectedLibraryCategory('ALL')} 
+                                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all text-left ${selectedLibraryCategory === 'ALL' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-300 hover:bg-white/5'}`}
+                                >
+                                    <span>📁 Tất Cả Clip</span>
+                                    <span className="text-[10px] opacity-75">{(p.FULLFRAME_PACKS?.flatMap((pack: any) => pack.scenes)?.length || 0) + (p.localFfClips?.length || 0)}</span>
+                                </button>
+                                <button 
+                                    type="button"
+                                    onClick={() => setSelectedLibraryCategory('lao')} 
+                                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all text-left ${selectedLibraryCategory === 'lao' ? 'bg-orange-600 text-white shadow-md' : 'text-slate-300 hover:bg-white/5'}`}
+                                >
+                                    <span>🧘 Cảnh Lão Đàm Đạo</span>
+                                </button>
+                                <button 
+                                    type="button"
+                                    onClick={() => setSelectedLibraryCategory('user')} 
+                                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all text-left ${selectedLibraryCategory === 'user' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-300 hover:bg-white/5'}`}
+                                >
+                                    <span>👤 Cảnh Con Hỏi Đạo</span>
+                                </button>
+                                <button 
+                                    type="button"
+                                    onClick={() => setSelectedLibraryCategory('outro')} 
+                                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all text-left ${selectedLibraryCategory === 'outro' ? 'bg-purple-600 text-white shadow-md' : 'text-slate-300 hover:bg-white/5'}`}
+                                >
+                                    <span>🎬 Cảnh Outro Kết Thúc</span>
+                                </button>
+                            </div>
+
+                            {/* CENTER GRID: DANH SÁCH CLIP TRONG KHO */}
+                            <div className="flex-1 p-4 overflow-y-auto custom-scrollbar flex flex-col gap-4">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-slate-300">
+                                        Danh sách Video Clip ({selectedLibraryCategory})
+                                    </span>
+                                    <span className="text-[10px] text-slate-500">Click "+ Thêm" để đưa clip vào danh sách chờ</span>
+                                </div>
+
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                                    {[
+                                        ...(p.FULLFRAME_PACKS?.flatMap((pack: any) => pack.scenes.map((s: any) => ({ ...s, packName: pack.name }))) || []),
+                                        ...(p.localFfClips || [])
+                                    ]
+                                    .filter((clip: any) => {
+                                        if (selectedLibraryCategory === 'ALL') return true;
+                                        return clip.role === selectedLibraryCategory || clip.category === selectedLibraryCategory;
+                                    })
+                                    .map((clip: any, idx: number) => {
+                                        const isSelected = stagedClips.some((s: any) => s.url === clip.url || (s.idbKey && s.idbKey === clip.idbKey));
+                                        return (
+                                            <div key={idx} className={`flex flex-col bg-slate-950/80 border rounded-2xl p-2.5 gap-2 relative transition-all group ${isSelected ? 'border-indigo-500 bg-indigo-950/30' : 'border-white/10 hover:border-white/20'}`}>
+                                                <div className="w-full aspect-video bg-black rounded-xl overflow-hidden relative flex items-center justify-center">
+                                                    {clip.url ? (
+                                                        <video src={clip.url} className="w-full h-full object-cover" preload="metadata" />
+                                                    ) : (
+                                                        <Film size={24} className="text-slate-600" />
+                                                    )}
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => setPreviewVideoUrl(clip.url)}
+                                                        className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity"
+                                                    >
+                                                        <Play size={20} />
+                                                    </button>
+                                                </div>
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-[11px] font-bold text-white truncate" title={clip.name}>{clip.name || `Clip ${idx+1}`}</span>
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
+                                                            {clip.role === 'lao' ? 'Lão' : (clip.role === 'outro' ? 'Outro' : 'Con')}
+                                                        </span>
+                                                        <span className="text-[9px] text-slate-400 truncate">{clip.emotion || 'calm'}</span>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleStageClip(clip)}
+                                                    className={`w-full py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${isSelected ? 'bg-emerald-600 text-white' : 'bg-indigo-600/80 hover:bg-indigo-600 text-white'}`}
+                                                >
+                                                    {isSelected ? <Check size={12} /> : <Plus size={12} />} {isSelected ? 'Đã Chọn' : '+ Thêm'}
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* RIGHT SIDEBAR: BẢNG DANH SÁCH ĐÃ CHỌN (STAGING LIST) */}
+                            <div className="w-full md:w-64 bg-slate-950/90 p-4 border-l border-white/10 flex flex-col justify-between shrink-0">
+                                <div className="flex flex-col gap-3 flex-1 overflow-y-auto">
+                                    <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                                        <span className="text-xs font-bold text-indigo-300">Danh Sách Chọn ({stagedClips.length})</span>
+                                        {stagedClips.length > 0 && (
+                                            <button onClick={() => setStagedClips([])} className="text-[10px] text-rose-400 hover:underline">Xóa tất cả</button>
+                                        )}
+                                    </div>
+
+                                    <div className="flex flex-col gap-2 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">
+                                        {stagedClips.length === 0 ? (
+                                            <span className="text-xs text-slate-500 italic text-center py-6">Chưa chọn clip nào. Click "+ Thêm" trên các video bên cạnh.</span>
+                                        ) : (
+                                            stagedClips.map((stg: any, sIdx: number) => (
+                                                <div key={stg.stageId || sIdx} className="flex items-center justify-between bg-slate-900 border border-indigo-500/30 p-2 rounded-xl text-xs">
+                                                    <span className="font-bold text-slate-200 truncate max-w-[140px]" title={stg.name}>{sIdx+1}. {stg.name || `Clip ${sIdx+1}`}</span>
+                                                    <button onClick={() => handleUnstageClip(stg.stageId)} className="text-slate-400 hover:text-rose-400 p-1"><X size={13} /></button>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* FOOTER XÁC NHẬN / HỦY */}
+                                <div className="flex flex-col gap-2 pt-3 border-t border-white/10 mt-2">
+                                    <button 
+                                        type="button" 
+                                        onClick={handleConfirmStagedClips} 
+                                        disabled={stagedClips.length === 0}
+                                        className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                                    >
+                                        <Check size={14} /> ✅ Xác Nhận Nạp {stagedClips.length} Clip
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setShowLibraryModal(false)}
+                                        className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                                    >
+                                        ❌ Hủy Bỏ
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            )}
+
+</div>
   );
 };
 export default VideoCreatorModal;
