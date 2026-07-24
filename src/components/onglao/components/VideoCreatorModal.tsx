@@ -72,7 +72,7 @@ const generateVideoPoster = (videoUrl: string): Promise<string> => {
     });
 };
 // SceneThumbnailItem: Component thumbnail chụp ảnh tĩnh poster, hiển thị ảnh xem trước sắc nét mà KHÔNG tốn RAM/GPU
-const SceneThumbnailItem = React.memo(({ scene, setFfScenes, onOpenLibraryPicker }: { scene: any; setFfScenes: any; onOpenLibraryPicker?: any }) => {
+const SceneThumbnailItem = React.memo(({ scene, setFfScenes }: { scene: any; setFfScenes: any }) => {
     const [isHovered, setIsHovered] = React.useState(false);
     const [poster, setPoster] = React.useState(scene.poster || '');
     const [activeUrl, setActiveUrl] = React.useState<string | null>(scene.url && !scene.url.startsWith('idb://') ? scene.url : null);
@@ -116,14 +116,35 @@ const SceneThumbnailItem = React.memo(({ scene, setFfScenes, onOpenLibraryPicker
         };
     }, [scene.url, scene.idbKey, scene.poster]);
 
+    const handleFile = async (file: File) => {
+        if (!file) return;
+        const url = URL.createObjectURL(file);
+        const p = await generateVideoPoster(url);
+        setPoster(p);
+        setActiveUrl(url);
+        setHasError(false);
+        const idbKey = `ff_clip_${scene.role}_${scene.emotion}_${Date.now()}_${Math.floor(Math.random()*10000)}`;
+        setTimeout(() => { idb.set(idbKey, file).catch(err => console.warn('Lỗi lưu IDB:', err)); }, 50);
+        setFfScenes((prev: any) => prev.map((s: any) => s.id === scene.id ? { ...s, url: `idb://${idbKey}`, poster: p, idbKey } : s));
+    };
+
     return (
-        <div 
+        <label 
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            onClick={() => onOpenLibraryPicker ? onOpenLibraryPicker(scene.id) : null}
             className="w-16 h-16 rounded-md border border-dashed border-emerald-500/30 hover:border-emerald-500 flex flex-col items-center justify-center cursor-pointer relative overflow-hidden bg-slate-900 shrink-0 group transition-all"
-            title="Click để chọn video clip từ kho cho cảnh quay này"
+            title="Click vào khung + Thêm clip để chọn file video trực tiếp từ máy tính"
         >
+            <input 
+                type="file" 
+                accept="video/*" 
+                className="hidden" 
+                onChange={(e: any) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFile(file);
+                    e.target.value = '';
+                }} 
+            />
             {activeUrl && !hasError ? (
                 poster ? (
                     <div className="w-full h-full relative group">
@@ -147,7 +168,7 @@ const SceneThumbnailItem = React.memo(({ scene, setFfScenes, onOpenLibraryPicker
                     <span className="text-[7px] text-slate-500 font-bold">{hasError ? 'Lỗi file' : 'Thêm clip'}</span>
                 </div>
             )}
-        </div>
+        </label>
     );
 });
 // VideoCreatorModal: Modal xuất video pháp bảo
@@ -919,12 +940,16 @@ const VideoCreatorModal = () => {
                                             return (
                                                 <div key={scene.id} className="flex gap-2 items-center bg-slate-950 p-3 pt-4 rounded-lg border border-white/10 relative group mt-3">
                                                     {/* Badge số thứ tự cảnh quay (#1, #2, #3...) */}
-                                                    <div className="absolute -top-2.5 left-2 z-10 flex items-center gap-1 bg-slate-900 border border-emerald-500/50 px-2 py-0.5 rounded-md shadow-lg select-none">
-                                                        <span className="text-[10px] font-mono font-black text-emerald-400">
+                                                    <div 
+                                                        onClick={() => { setTargetPickerSceneId(scene.id); setShowLibraryModal(true); }}
+                                                        className="absolute -top-2.5 left-2 z-10 flex items-center gap-1 bg-slate-900 border border-emerald-500/50 hover:border-indigo-400 hover:bg-indigo-950 px-2 py-0.5 rounded-md shadow-lg select-none cursor-pointer transition-all group/badge"
+                                                        title="Click vào Cảnh để mở Kho Cảnh Quay và chọn video clip từ kho"
+                                                    >
+                                                        <span className="text-[10px] font-mono font-black text-emerald-400 group-hover/badge:text-indigo-300">
                                                             #{idx + 1}
                                                         </span>
-                                                        <span className="text-[9px] font-bold text-slate-300">
-                                                            Cảnh {idx + 1}
+                                                        <span className="text-[9px] font-bold text-slate-300 group-hover/badge:text-white flex items-center gap-1">
+                                                            Cảnh {idx + 1} <Film size={10} className="text-indigo-400 ml-0.5" />
                                                         </span>
                                                     </div>
                                             {/* Bảng điều khiển mini (Move & Delete) */}
@@ -960,7 +985,7 @@ const VideoCreatorModal = () => {
                                                 </div>
                                             </div>
                                             {/* Thumbnail Video - Lazy Unmounted để giải phóng RAM & GPU */}
-                                            <SceneThumbnailItem scene={scene} setFfScenes={setFfScenes} onOpenLibraryPicker={(sceneId: string) => { setTargetPickerSceneId(sceneId); setShowLibraryModal(true); }} />
+                                            <SceneThumbnailItem scene={scene} setFfScenes={setFfScenes} />
                                             {/* Settings Cảnh */}
                                             <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                                                 {/* Hiển thị tóm tắt câu thoại, sửa chữ và tạo/phát âm thanh trực tiếp */}
