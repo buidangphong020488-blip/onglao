@@ -689,6 +689,10 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     };
 
     const handleSaveScript = async (transitionToList: boolean | any = true) => {
+        if (!editingTitle.trim()) {
+            p.showToastMsg('Vui lòng nhập tiêu đề kịch bản! (Lưu không thành công)', 'error');
+            return;
+        }
         if (saving) return;
         const shouldTransition = transitionToList === true || typeof transitionToList !== 'boolean';
 
@@ -907,7 +911,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         const tempId = 'temp_' + Date.now();
         const newSession = {
             id: tempId,
-            title: "Kịch bản mới",
+            title: "",
             type: 'script',
             isPinned: false,
             messages: [],
@@ -916,7 +920,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         setSelectedScript(newSession);
         setEditingMessages([]);
         setEditingRawText('');
-        setEditingTitle('Kịch bản mới');
+        setEditingTitle('');
         setEditingLaoVoice(p.laoVoice || 'Algieba');
         setEditingLaoVoiceStyle('');
         setEditingUserVoice(p.userVoice || 'Aoede');
@@ -952,7 +956,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         setSelectedScript(newSession);
         setEditingMessages([]);
         setEditingRawText('');
-        setEditingTitle('Kịch bản mới');
+        setEditingTitle('');
         setEditingLaoVoice(p.laoVoice || 'Algieba');
         setEditingLaoVoiceStyle(p.laoVoiceStyle || 'Giọng ấm áp, mạnh mẽ, dứt khoát, miền nam việt nam, đúng chính tả, ngắt nhịp rõ ràng giữa các câu');
         setEditingUserVoice(p.userVoice || 'Aoede');
