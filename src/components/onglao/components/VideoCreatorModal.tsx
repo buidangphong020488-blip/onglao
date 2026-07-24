@@ -382,6 +382,70 @@ const VideoCreatorModal = () => {
   } = p;
 
   const [showLibraryModal, setShowLibraryModal] = React.useState(false);
+    const [selectedLibraryCategory, setSelectedLibraryCategory] = React.useState<string>('ALL');
+    const [stagedClips, setStagedClips] = React.useState<any[]>([]);
+    const [previewVideoUrl, setPreviewVideoUrl] = React.useState<string | null>(null);
+    const [showBatchUploadLibraryDrawer, setShowBatchUploadLibraryDrawer] = React.useState(false);
+    const [batchCategoryName, setBatchCategoryName] = React.useState('');
+    const [batchRoleTag, setBatchRoleTag] = React.useState('lao');
+    const [batchEmotionTag, setBatchEmotionTag] = React.useState('calm');
+    const libraryFileInputRef = React.useRef<HTMLInputElement>(null);
+
+    const handleStageClip = (clip: any) => {
+        const stageId = `stage_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+        setStagedClips(prev => [...prev, { ...clip, stageId }]);
+        if (p.showToastMsg) p.showToastMsg(`Đã thêm "${clip.name || 'Clip'}" vào danh sách chờ!`, 'info');
+    };
+
+    const handleUnstageClip = (stageId: string) => {
+        setStagedClips(prev => prev.filter(c => c.stageId !== stageId));
+    };
+
+    const handleConfirmStagedClips = () => {
+        if (!stagedClips || stagedClips.length === 0) return;
+        const newScenes = stagedClips.map((stg: any, idx: number) => ({
+            id: `scene_stg_${Date.now()}_${idx}`,
+            role: stg.role || 'lao',
+            emotion: stg.emotion || 'calm',
+            url: stg.url || null,
+            idbKey: stg.idbKey || null,
+            name: stg.name || `Cảnh quay ${idx + 1}`
+        }));
+        p.setFfScenes(newScenes);
+        setShowLibraryModal(false);
+        setStagedClips([]);
+        if (p.showToastMsg) p.showToastMsg(`Đã nạp ${newScenes.length} cảnh quay chọn từ kho vào kịch bản!`, 'success');
+    };
+
+    const handleBatchUploadToLibrary = async (files: FileList) => {
+        if (!files || files.length === 0) return;
+        try {
+            let addedCount = 0;
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const fileUrl = URL.createObjectURL(file);
+                const clipName = file.name.replace(/\.[^/.]+$/, "");
+                const newClip = {
+                    id: `batch_${Date.now()}_${i}`,
+                    name: `[${batchCategoryName || 'Kho Mới'}] ${clipName}`,
+                    category: batchCategoryName || 'Kho Mới',
+                    role: batchRoleTag,
+                    emotion: batchEmotionTag,
+                    url: fileUrl,
+                    aspect: p.videoAspectRatio === '9x16' ? 'doc' : 'ngang'
+                };
+                if (p.executeSaveFfClip) {
+                    await p.executeSaveFfClip(newClip);
+                    addedCount++;
+                }
+            }
+            if (p.showToastMsg) p.showToastMsg(`Đã nạp thành công ${addedCount} clip mới vào kho "${batchCategoryName || 'Kho Mới'}"!`, 'success');
+            setShowBatchUploadLibraryDrawer(false);
+        } catch (err) {
+            console.error(err);
+            if (p.showToastMsg) p.showToastMsg('Có lỗi khi upload clip vào kho!', 'error');
+        }
+    };
   const filteredHistory = React.useMemo(() => {
     if (!renderHistory) return [];
     if (!p.currentSessionId) return renderHistory;
@@ -567,14 +631,7 @@ const VideoCreatorModal = () => {
                                                     </optgroup>
                                                 )}
                                             </select>
-                                            <button 
-                                                type="button"
-                                                onClick={() => setShowLibraryModal(true)}
-                                                className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:to-purple-500 text-white px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 shadow-md border border-indigo-400/40 cursor-pointer shrink-0 hover:scale-[1.02]"
-                                                title="Chọn Từ Kho Cảnh Quay & Phân Mục (Nạp 1 Lần)"
-                                            >
-                                                <Film size={12}/> 🎬 Nạp Kho Cảnh
-                                            </button>
+                                            
                                         </div>
                                         <span className="text-[9px] text-slate-500 italic shrink-0">{messages?.length || 0} câu thoại</span>
                                     </div>
