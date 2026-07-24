@@ -36,6 +36,19 @@ interface ScriptModalProps {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+const normalizeEmotionCode = (emoStr: string) => {
+    const e = (emoStr || '').toLowerCase().trim();
+    if (['buon', 'sad'].includes(e)) return 'sad';
+    if (['vui', 'joy'].includes(e)) return 'joy';
+    if (['binhthuong', 'calm'].includes(e)) return 'calm';
+    if (['hook', 'intro', 'mao_dau'].includes(e)) return 'hook';
+    if (['tuc_gian', 'angry'].includes(e)) return 'angry';
+    if (['ngac_nhien', 'surprise'].includes(e)) return 'surprise';
+    if (['thiet_tha', 'earnest'].includes(e)) return 'earnest';
+    if (['nghiem_tuc', 'serious'].includes(e)) return 'serious';
+    if (['tinh_thuc', 'awakened'].includes(e)) return 'awakened';
+    return e || 'calm';
+};
 function parseToBlocks(
     text: string,
     laoName: string,
@@ -63,7 +76,7 @@ function parseToBlocks(
             const content = line.slice(aMatch[0].length).trim();
             blocks.push({
                 id: String(idx++), role: 'ai',
-                emotion: ['calm','sad','joy','hook'].includes(emotion) ? emotion : 'calm',
+                emotion: normalizeEmotionCode(emotion),
                 text: content,
             });
         } else if (uMatch) {
@@ -71,7 +84,7 @@ function parseToBlocks(
             const content = line.slice(uMatch[0].length).trim();
             blocks.push({
                 id: String(idx++), role: 'user',
-                emotion: ['calm','sad','joy','hook'].includes(emotion) ? emotion : 'calm',
+                emotion: normalizeEmotionCode(emotion),
                 text: content,
             });
         } else if (blocks.length) {
