@@ -589,12 +589,31 @@ const VideoCreatorModal = () => {
             // MERGE MODE: Apply video clips into existing dialogue scenes without destroying text or audio!
             const updatedScenes = currentScenes.map((scene: any, sIdx: number) => {
                 // Try finding matching clip by role and emotion first, or fallback to index matching
-                let matchedClip = resolvedStagedClips.find((c: any) => c.role === scene.role && c.emotion === scene.emotion);
+                const isRoleMatch = (r1: string, r2: string) => {
+                    const a = (r1 || '').toLowerCase().trim();
+                    const b = (r2 || '').toLowerCase().trim();
+                    if (a === b) return true;
+                    if (['lao', 'ai', 'assistant'].includes(a) && ['lao', 'ai', 'assistant'].includes(b)) return true;
+                    if (['user', 'con'].includes(a) && ['user', 'con'].includes(b)) return true;
+                    return false;
+                };
+
+                const isEmoMatch = (e1: string, e2: string) => {
+                    const a = (e1 || '').toLowerCase().trim();
+                    const b = (e2 || '').toLowerCase().trim();
+                    if (a === b) return true;
+                    if (['buon', 'sad'].includes(a) && ['buon', 'sad'].includes(b)) return true;
+                    if (['vui', 'joy'].includes(a) && ['vui', 'joy'].includes(b)) return true;
+                    if (['binhthuong', 'calm'].includes(a) && ['binhthuong', 'calm'].includes(b)) return true;
+                    return false;
+                };
+
+                let matchedClip = resolvedStagedClips.find((c: any) => isRoleMatch(c.role, scene.role) && isEmoMatch(c.emotion, scene.emotion));
                 if (!matchedClip) {
-                    matchedClip = resolvedStagedClips.find((c: any) => c.role === scene.role);
+                    matchedClip = resolvedStagedClips.find((c: any) => isRoleMatch(c.role, scene.role));
                 }
                 if (!matchedClip) {
-                    const isLaoScene = scene.role === 'lao' || scene.role === 'ai';
+                    const isLaoScene = isRoleMatch(scene.role, 'lao');
                     matchedClip = resolvedStagedClips.find((c: any) => {
                         const clipName = (c.name || c.fileName || '').toLowerCase();
                         if (isLaoScene) return clipName.includes('lao') || clipName.includes('lão') || clipName.includes('ai');
@@ -602,7 +621,10 @@ const VideoCreatorModal = () => {
                     });
                 }
                 if (!matchedClip) {
-                    matchedClip = resolvedStagedClips[sIdx % resolvedStagedClips.length];
+                    const sameRoleClips = resolvedStagedClips.filter((c: any) => isRoleMatch(c.role, scene.role));
+                    if (sameRoleClips.length > 0) {
+                        matchedClip = sameRoleClips[sIdx % sameRoleClips.length];
+                    }
                 }
                 
                 if (matchedClip) {
