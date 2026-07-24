@@ -1492,7 +1492,21 @@ const VideoCreatorModal = () => {
            )}
          
             {/* MODAL KHO CẢNH QUAY & PHÂN MỤC (LIBRARY PICKER MODAL) */}
-            {showLibraryModal && (
+            
+            {/* PREVIEW VIDEO PLAYER MODAL */}
+            {previewVideoUrl && (
+                <div className="fixed inset-0 z-[400] bg-black/90 backdrop-blur-md flex justify-center items-center p-4" onClick={() => setPreviewVideoUrl(null)}>
+                    <div className="relative bg-slate-900 border border-white/20 rounded-2xl p-3 max-w-2xl w-full flex flex-col items-center gap-3 shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+                        <div className="w-full flex justify-between items-center px-1">
+                            <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5"><Film size={15}/> 🎬 Xem Trước Video Clip</span>
+                            <button onClick={() => setPreviewVideoUrl(null)} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"><X size={18} /></button>
+                        </div>
+                        <video src={previewVideoUrl} controls autoPlay className="w-full max-h-[70vh] rounded-xl object-contain bg-black border border-white/10 shadow-inner" />
+                    </div>
+                </div>
+            )}
+
+{showLibraryModal && (
                 <div className="fixed inset-0 z-[350] bg-black/85 backdrop-blur-md flex justify-center items-center p-3 sm:p-5" onClick={() => setShowLibraryModal(false)}>
                     <div className="bg-slate-900 border border-indigo-500/30 rounded-3xl w-full max-w-6xl shadow-2xl flex flex-col h-[90vh] overflow-hidden animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
                         
@@ -1644,35 +1658,52 @@ const VideoCreatorModal = () => {
                                     })
                                     .map((clip: any, idx: number) => {
                                         const isSelected = stagedClips.some((s: any) => s.url === clip.url || (s.idbKey && s.idbKey === clip.idbKey));
+                                        const roleName = clip.role === 'lao' ? (p.customLaoName || 'Lão') : (clip.role === 'outro' ? 'Outro' : (p.customUserName || 'Con'));
+                                        const emotionName = clip.emotion === 'vui' || clip.emotion === 'joy' ? 'Vui Vẻ' : (clip.emotion === 'buon' || clip.emotion === 'sad' ? 'Buồn Bế Tắc' : (clip.emotion === 'hook' || clip.emotion === 'intro' ? 'Mào Đầu' : 'Bình Thường'));
+                                        const displayName = clip.name && clip.name.trim() ? clip.name : `${clip.packName ? '[' + clip.packName + '] ' : ''}${roleName} - ${emotionName} #${idx + 1}`;
+                                        const formattedUrl = clip.url ? (clip.url.includes('#') ? clip.url : `${clip.url}#t=0.5`) : null;
+
                                         return (
-                                            <div key={idx} className={`flex flex-col bg-slate-950/80 border rounded-2xl p-2.5 gap-2 relative transition-all group ${isSelected ? 'border-indigo-500 bg-indigo-950/30' : 'border-white/10 hover:border-white/20'}`}>
-                                                <div className="w-full aspect-video bg-black rounded-xl overflow-hidden relative flex items-center justify-center">
+                                            <div key={idx} className={`flex flex-col bg-slate-950/90 border rounded-2xl p-2.5 gap-2 relative transition-all group shadow-md ${isSelected ? 'border-indigo-500 bg-indigo-950/40 ring-1 ring-indigo-500/50' : 'border-white/10 hover:border-indigo-500/40'}`}>
+                                                <div 
+                                                    className="w-full aspect-video bg-slate-900 rounded-xl overflow-hidden relative flex items-center justify-center border border-white/5 cursor-pointer group/thumb"
+                                                    onClick={() => clip.url && setPreviewVideoUrl(clip.url)}
+                                                    title="Click để xem thử clip video này"
+                                                >
                                                     {clip.url ? (
-                                                        <video src={clip.url} className="w-full h-full object-cover" preload="metadata" />
+                                                        <video 
+                                                            src={formattedUrl} 
+                                                            preload="metadata" 
+                                                            onLoadedData={(e) => { e.currentTarget.currentTime = 0.5; }}
+                                                            className="w-full h-full object-cover" 
+                                                        />
                                                     ) : (
-                                                        <Film size={24} className="text-slate-600" />
+                                                        <div className="flex flex-col items-center justify-center gap-1 text-slate-500">
+                                                            <Film size={24} />
+                                                            <span className="text-[9px]">Chưa có video</span>
+                                                        </div>
                                                     )}
-                                                    <button 
-                                                        type="button" 
-                                                        onClick={() => setPreviewVideoUrl(clip.url)}
-                                                        className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity"
-                                                    >
-                                                        <Play size={20} />
-                                                    </button>
+                                                    {clip.url && (
+                                                        <div className="absolute inset-0 bg-black/30 group-hover/thumb:bg-black/50 transition-colors flex items-center justify-center">
+                                                            <span className="p-2 bg-indigo-600/90 hover:bg-indigo-500 rounded-full text-white shadow-xl transform group-hover/thumb:scale-110 transition-transform flex items-center justify-center">
+                                                                <Play size={16} fill="white" className="ml-0.5" />
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div className="flex flex-col gap-1">
-                                                    <span className="text-[11px] font-bold text-white truncate" title={clip.name}>{clip.name || `Clip ${idx+1}`}</span>
+                                                    <span className="text-[11px] font-bold text-white truncate" title={displayName}>{displayName}</span>
                                                     <div className="flex items-center gap-1">
-                                                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
-                                                            {clip.role === 'lao' ? 'Lão' : (clip.role === 'outro' ? 'Outro' : 'Con')}
+                                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${clip.role === 'lao' ? 'bg-orange-950/50 text-orange-400 border-orange-500/30' : (clip.role === 'outro' ? 'bg-purple-950/50 text-purple-400 border-purple-500/30' : 'bg-indigo-950/50 text-indigo-400 border-indigo-500/30')}`}>
+                                                            {roleName}
                                                         </span>
-                                                        <span className="text-[9px] text-slate-400 truncate">{clip.emotion || 'calm'}</span>
+                                                        <span className="text-[9px] text-slate-300 font-semibold truncate bg-slate-800/80 px-1.5 py-0.5 rounded border border-white/5">{emotionName}</span>
                                                     </div>
                                                 </div>
                                                 <button
                                                     type="button"
-                                                    onClick={() => handleStageClip(clip)}
-                                                    className={`w-full py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${isSelected ? 'bg-emerald-600 text-white' : 'bg-indigo-600/80 hover:bg-indigo-600 text-white'}`}
+                                                    onClick={() => handleStageClip({ ...clip, name: displayName })}
+                                                    className={`w-full py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${isSelected ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md' : 'bg-indigo-600/80 hover:bg-indigo-600 text-white shadow-sm'}`}
                                                 >
                                                     {isSelected ? <Check size={12} /> : <Plus size={12} />} {isSelected ? 'Đã Chọn' : '+ Thêm'}
                                                 </button>
