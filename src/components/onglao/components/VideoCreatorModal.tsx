@@ -457,6 +457,24 @@ const VideoCreatorModal = () => {
     const [selectedLibraryCategory, setSelectedLibraryCategory] = React.useState<string>('ALL');
     const [stagedClips, setStagedClips] = React.useState<any[]>([]);
     const [previewVideoUrl, setPreviewVideoUrl] = React.useState<string | null>(null);
+        const getSceneVideoDisplayName = (scene: any) => {
+        if (scene.name && !scene.name.startsWith('clip_') && !scene.name.startsWith('ff_clip_')) {
+            return scene.name;
+        }
+        if (scene.fileName) return scene.fileName;
+        if (scene.title) return scene.title;
+        
+        const roleLabel = scene.role === 'lao' || scene.role === 'ai' 
+            ? (p.customLaoName || 'Lão') 
+            : (scene.role === 'outro' ? 'Cảnh Kết' : (scene.role === 'hook' ? 'Mào đầu' : (p.customUserName || 'Con')));
+        
+        const emoState = dbCharacterStates.find((st: any) => st.id === scene.emotion || st.emotion === scene.emotion);
+        const rawName = emoState ? emoState.name.replace(/^[^wsÀ-ỹ]+/, '').trim() : (scene.emotion || '');
+        const cleanEmoName = rawName.split('(')[0].trim();
+
+        return `Video ${roleLabel}${cleanEmoName ? ` (${cleanEmoName})` : ''}`;
+    };
+
     const [showBatchUploadLibraryDrawer, setShowBatchUploadLibraryDrawer] = React.useState(false);
     const [batchCategoryName, setBatchCategoryName] = React.useState('');
     const [batchRoleTag, setBatchRoleTag] = React.useState('lao');
@@ -1008,11 +1026,11 @@ const VideoCreatorModal = () => {
                                                     </div>
 
                                                     {/* Badge hiển thị Tên Video clip đã nạp vào Cảnh */}
-                                                    {(scene.name || scene.fileName || scene.url || scene.idbKey) && (
-                                                        <div className="absolute -top-2.5 left-28 z-10 flex items-center gap-1 bg-slate-900 border border-indigo-500/40 px-2 py-0.5 rounded-md shadow-md text-[10px] font-mono text-indigo-300 max-w-[200px] truncate" title={scene.name || scene.fileName || scene.idbKey || 'Video clip'}>
+                                                    {(scene.url || scene.idbKey || scene.name) && (
+                                                        <div className="absolute -top-2.5 left-28 z-10 flex items-center gap-1 bg-slate-900 border border-indigo-500/40 px-2 py-0.5 rounded-md shadow-md text-[10px] font-mono text-indigo-300 max-w-[220px] truncate" title={getSceneVideoDisplayName(scene)}>
                                                             <Film size={9} className="text-indigo-400 shrink-0" />
                                                             <span className="truncate font-semibold">
-                                                                {scene.name || scene.fileName || (scene.idbKey ? `clip_${scene.idbKey.substring(0, 10)}` : 'Video clip')}
+                                                                {getSceneVideoDisplayName(scene)}
                                                             </span>
                                                         </div>
                                                     )}
