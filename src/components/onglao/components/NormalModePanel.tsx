@@ -161,9 +161,6 @@ const NormalModePanel = () => {
         </div>
       )}
 
-      {/* MODAL KHO TÀNG KỆ PHÁP */}
-      <PoemVaultModal />
-
       {/* MÀN HÌNH FULLSCREEN REVIEW VIDEO */}
       {isVideoFullscreen && (
         <div className="fixed inset-0 z-[9999] bg-black flex flex-col justify-center items-center">
