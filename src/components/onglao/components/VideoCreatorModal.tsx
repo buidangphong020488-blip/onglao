@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use client";
 import React from "react";
-import { X, Film, Check, Save, Sliders, Maximize, Minimize, RefreshCw, Loader2, Play, Pause, ChevronDown, Sparkles, FileText, Volume2, Plus, Info, Upload, PlayCircle, Eye, EyeOff, Music, Video, Archive, Share as ShareIcon, Copy, ChevronUp, Trash2, Palette, Music4, Wand2, XCircle, Undo2, Redo2, LayoutTemplate, Image as ImageIcon, Pencil, Mic } from "lucide-react";
+import { X, Film, Check, Save, Search, ChevronLeft, ChevronRight, Sliders, Maximize, Minimize, RefreshCw, Loader2, Play, Pause, ChevronDown, Sparkles, FileText, Volume2, Plus, Info, Upload, PlayCircle, Eye, EyeOff, Music, Video, Archive, Share as ShareIcon, Copy, ChevronUp, Trash2, Palette, Music4, Wand2, XCircle, Undo2, Redo2, LayoutTemplate, Image as ImageIcon, Pencil, Mic } from "lucide-react";
 import { useOngLaoContext } from "../context/OngLaoContext";
 import { idb } from "../constants";
 import { updateChatMessageContentAction, getChatMessagesAction } from "@/actions/chat";
@@ -382,6 +382,40 @@ const VideoCreatorModal = () => {
   } = p;
 
   const [showLibraryModal, setShowLibraryModal] = React.useState(false);
+
+    // TÂM AN THÊM: STATE CHO PHÂN TRANG VÀ TÌM KIẾM TRONG KHO CẢNH QUAY
+    const [librarySearchTerm, setLibrarySearchTerm] = React.useState('');
+    const [libraryPageSize, setLibraryPageSize] = React.useState<number>(10);
+    const [libraryCurrentPage, setLibraryCurrentPage] = React.useState<number>(1);
+
+    const filteredLibraryClips = React.useMemo(() => {
+        const allClips = [
+            ...(p.FULLFRAME_PACKS?.flatMap((pack: any) => pack.scenes.map((s: any) => ({ ...s, packName: pack.name }))) || []),
+            ...(p.localFfClips || [])
+        ];
+        return allClips.filter((clip: any) => {
+            if (selectedLibraryCategory !== 'ALL') {
+                const matchCat = clip.role === selectedLibraryCategory || clip.category === selectedLibraryCategory;
+                if (!matchCat) return false;
+            }
+            if (librarySearchTerm.trim()) {
+                const q = librarySearchTerm.toLowerCase().trim();
+                const roleName = clip.role === 'lao' ? (p.customLaoName || 'Lão') : (clip.role === 'outro' ? 'Outro' : (p.customUserName || 'Con'));
+                const emotionName = clip.emotion === 'vui' || clip.emotion === 'joy' ? 'Vui Vẻ' : (clip.emotion === 'buon' || clip.emotion === 'sad' ? 'Buồn Bế Tắc' : (clip.emotion === 'hook' || clip.emotion === 'intro' ? 'Mào Đầu' : 'Bình Thường'));
+                const nameStr = `${clip.name || ''} ${clip.packName || ''} ${roleName} ${emotionName} ${clip.role || ''} ${clip.emotion || ''}`.toLowerCase();
+                if (!nameStr.includes(q)) return false;
+            }
+            return true;
+        });
+    }, [p.FULLFRAME_PACKS, p.localFfClips, selectedLibraryCategory, librarySearchTerm, p.customLaoName, p.customUserName]);
+
+    const totalLibraryPages = Math.max(1, Math.ceil(filteredLibraryClips.length / libraryPageSize));
+
+    const paginatedLibraryClips = React.useMemo(() => {
+        const startIndex = (libraryCurrentPage - 1) * libraryPageSize;
+        return filteredLibraryClips.slice(startIndex, startIndex + libraryPageSize);
+    }, [filteredLibraryClips, libraryCurrentPage, libraryPageSize]);
+
     const [selectedLibraryCategory, setSelectedLibraryCategory] = React.useState<string>('ALL');
     const [stagedClips, setStagedClips] = React.useState<any[]>([]);
     const [previewVideoUrl, setPreviewVideoUrl] = React.useState<string | null>(null);
@@ -1639,78 +1673,166 @@ const VideoCreatorModal = () => {
                             </div>
 
                             {/* CENTER GRID: DANH SÁCH CLIP TRONG KHO */}
-                            <div className="flex-1 p-4 overflow-y-auto custom-scrollbar flex flex-col gap-4">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold text-slate-300">
-                                        Danh sách Video Clip ({selectedLibraryCategory})
+                            <div className="flex-1 p-4 overflow-y-auto custom-scrollbar flex flex-col gap-3">
+                                {/* SEARCH BAR & PAGE SIZE SELECTOR */}
+                                <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-950/60 p-2.5 rounded-2xl border border-white/5">
+                                    {/* Input tìm kiếm */}
+                                    <div className="flex items-center gap-2 flex-1 min-w-[200px] bg-slate-900 border border-white/10 px-3 py-1.5 rounded-xl focus-within:border-indigo-500 transition-colors">
+                                        <Search size={14} className="text-slate-400 shrink-0" />
+                                        <input 
+                                            type="text" 
+                                            value={librarySearchTerm} 
+                                            onChange={(e) => { setLibrarySearchTerm(e.target.value); setLibraryCurrentPage(1); }} 
+                                            placeholder="Tìm kiếm theo tên clip, nhân vật, cảm xúc..." 
+                                            className="w-full bg-transparent text-xs text-white outline-none placeholder:text-slate-500 font-medium" 
+                                        />
+                                        {librarySearchTerm && (
+                                            <button onClick={() => { setLibrarySearchTerm(''); setLibraryCurrentPage(1); }} className="text-slate-400 hover:text-white p-0.5">
+                                                <X size={13} />
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Selector số lượng dòng hiển thị */}
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <span className="text-[11px] text-slate-400 font-bold select-none">Hiển thị:</span>
+                                        <select 
+                                            value={libraryPageSize} 
+                                            onChange={(e) => { setLibraryPageSize(Number(e.target.value)); setLibraryCurrentPage(1); }} 
+                                            className="bg-slate-900 border border-white/10 text-white text-xs font-bold rounded-xl px-2.5 py-1.5 outline-none cursor-pointer focus:border-indigo-500"
+                                        >
+                                            <option value={5}>5 clip/trang</option>
+                                            <option value={10}>10 clip/trang</option>
+                                            <option value={25}>25 clip/trang</option>
+                                            <option value={50}>50 clip/trang</option>
+                                            <option value={100}>100 clip/trang</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between px-1">
+                                    <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                                        📁 Danh sách Video Clip ({filteredLibraryClips.length} kết quả)
                                     </span>
-                                    <span className="text-[10px] text-slate-500">Click "+ Thêm" để đưa clip vào danh sách chờ</span>
+                                    <span className="text-[10px] text-slate-400">Click "+ Thêm" để chọn clip vào danh sách chờ</span>
                                 </div>
 
-                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                                    {[
-                                        ...(p.FULLFRAME_PACKS?.flatMap((pack: any) => pack.scenes.map((s: any) => ({ ...s, packName: pack.name }))) || []),
-                                        ...(p.localFfClips || [])
-                                    ]
-                                    .filter((clip: any) => {
-                                        if (selectedLibraryCategory === 'ALL') return true;
-                                        return clip.role === selectedLibraryCategory || clip.category === selectedLibraryCategory;
-                                    })
-                                    .map((clip: any, idx: number) => {
-                                        const isSelected = stagedClips.some((s: any) => s.url === clip.url || (s.idbKey && s.idbKey === clip.idbKey));
-                                        const roleName = clip.role === 'lao' ? (p.customLaoName || 'Lão') : (clip.role === 'outro' ? 'Outro' : (p.customUserName || 'Con'));
-                                        const emotionName = clip.emotion === 'vui' || clip.emotion === 'joy' ? 'Vui Vẻ' : (clip.emotion === 'buon' || clip.emotion === 'sad' ? 'Buồn Bế Tắc' : (clip.emotion === 'hook' || clip.emotion === 'intro' ? 'Mào Đầu' : 'Bình Thường'));
-                                        const displayName = clip.name && clip.name.trim() ? clip.name : `${clip.packName ? '[' + clip.packName + '] ' : ''}${roleName} - ${emotionName} #${idx + 1}`;
-                                        const formattedUrl = clip.url ? (clip.url.includes('#') ? clip.url : `${clip.url}#t=0.5`) : null;
+                                {/* GRID CLIP */}
+                                {paginatedLibraryClips.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center py-12 text-slate-500 border border-dashed border-white/10 rounded-2xl gap-2">
+                                        <Film size={32} className="opacity-50" />
+                                        <span className="text-xs italic">Không tìm thấy video clip nào phù hợp.</span>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                                        {paginatedLibraryClips.map((clip: any, idx: number) => {
+                                            const isSelected = stagedClips.some((s: any) => s.url === clip.url || (s.idbKey && s.idbKey === clip.idbKey));
+                                            const roleName = clip.role === 'lao' ? (p.customLaoName || 'Lão') : (clip.role === 'outro' ? 'Outro' : (p.customUserName || 'Con'));
+                                            const emotionName = clip.emotion === 'vui' || clip.emotion === 'joy' ? 'Vui Vẻ' : (clip.emotion === 'buon' || clip.emotion === 'sad' ? 'Buồn Bế Tắc' : (clip.emotion === 'hook' || clip.emotion === 'intro' ? 'Mào Đầu' : 'Bình Thường'));
+                                            const globalIndex = (libraryCurrentPage - 1) * libraryPageSize + idx + 1;
+                                            const displayName = clip.name && clip.name.trim() ? clip.name : `${clip.packName ? '[' + clip.packName + '] ' : ''}${roleName} - ${emotionName} #${globalIndex}`;
+                                            const formattedUrl = clip.url ? (clip.url.includes('#') ? clip.url : `${clip.url}#t=0.5`) : null;
 
-                                        return (
-                                            <div key={idx} className={`flex flex-col bg-slate-950/90 border rounded-2xl p-2.5 gap-2 relative transition-all group shadow-md ${isSelected ? 'border-indigo-500 bg-indigo-950/40 ring-1 ring-indigo-500/50' : 'border-white/10 hover:border-indigo-500/40'}`}>
-                                                <div 
-                                                    className="w-full aspect-video bg-slate-900 rounded-xl overflow-hidden relative flex items-center justify-center border border-white/5 cursor-pointer group/thumb"
-                                                    onClick={() => clip.url && setPreviewVideoUrl(clip.url)}
-                                                    title="Click để xem thử clip video này"
-                                                >
-                                                    {clip.url ? (
-                                                        <video 
-                                                            src={formattedUrl} 
-                                                            preload="metadata" 
-                                                            onLoadedData={(e) => { e.currentTarget.currentTime = 0.5; }}
-                                                            className="w-full h-full object-cover" 
-                                                        />
-                                                    ) : (
-                                                        <div className="flex flex-col items-center justify-center gap-1 text-slate-500">
-                                                            <Film size={24} />
-                                                            <span className="text-[9px]">Chưa có video</span>
-                                                        </div>
-                                                    )}
-                                                    {clip.url && (
-                                                        <div className="absolute inset-0 bg-black/30 group-hover/thumb:bg-black/50 transition-colors flex items-center justify-center">
-                                                            <span className="p-2 bg-indigo-600/90 hover:bg-indigo-500 rounded-full text-white shadow-xl transform group-hover/thumb:scale-110 transition-transform flex items-center justify-center">
-                                                                <Play size={16} fill="white" className="ml-0.5" />
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="flex flex-col gap-1">
-                                                    <span className="text-[11px] font-bold text-white truncate" title={displayName}>{displayName}</span>
-                                                    <div className="flex items-center gap-1">
-                                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${clip.role === 'lao' ? 'bg-orange-950/50 text-orange-400 border-orange-500/30' : (clip.role === 'outro' ? 'bg-purple-950/50 text-purple-400 border-purple-500/30' : 'bg-indigo-950/50 text-indigo-400 border-indigo-500/30')}`}>
-                                                            {roleName}
-                                                        </span>
-                                                        <span className="text-[9px] text-slate-300 font-semibold truncate bg-slate-800/80 px-1.5 py-0.5 rounded border border-white/5">{emotionName}</span>
+                                            return (
+                                                <div key={clip.id || idx} className={`flex flex-col bg-slate-950/90 border rounded-2xl p-2.5 gap-2 relative transition-all group shadow-md ${isSelected ? 'border-indigo-500 bg-indigo-950/40 ring-1 ring-indigo-500/50' : 'border-white/10 hover:border-indigo-500/40'}`}>
+                                                    <div 
+                                                        className="w-full aspect-video bg-slate-900 rounded-xl overflow-hidden relative flex items-center justify-center border border-white/5 cursor-pointer group/thumb"
+                                                        onClick={() => clip.url && setPreviewVideoUrl(clip.url)}
+                                                        title="Click để xem thử clip video này"
+                                                    >
+                                                        {clip.url ? (
+                                                            <video 
+                                                                src={formattedUrl} 
+                                                                preload="metadata" 
+                                                                onLoadedData={(e) => { e.currentTarget.currentTime = 0.5; }}
+                                                                className="w-full h-full object-cover" 
+                                                            />
+                                                        ) : (
+                                                            <div className="flex flex-col items-center justify-center gap-1 text-slate-500">
+                                                                <Film size={24} />
+                                                                <span className="text-[9px]">Chưa có video</span>
+                                                            </div>
+                                                        )}
+                                                        {clip.url && (
+                                                            <div className="absolute inset-0 bg-black/30 group-hover/thumb:bg-black/50 transition-colors flex items-center justify-center">
+                                                                <span className="p-2 bg-indigo-600/90 hover:bg-indigo-500 rounded-full text-white shadow-xl transform group-hover/thumb:scale-110 transition-transform flex items-center justify-center">
+                                                                    <Play size={16} fill="white" className="ml-0.5" />
+                                                                </span>
+                                                            </div>
+                                                        )}
                                                     </div>
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className="text-[11px] font-bold text-white truncate" title={displayName}>{displayName}</span>
+                                                        <div className="flex items-center gap-1">
+                                                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${clip.role === 'lao' ? 'bg-orange-950/50 text-orange-400 border-orange-500/30' : (clip.role === 'outro' ? 'bg-purple-950/50 text-purple-400 border-purple-500/30' : 'bg-indigo-950/50 text-indigo-400 border-indigo-500/30')}`}>
+                                                                {roleName}
+                                                            </span>
+                                                            <span className="text-[9px] text-slate-300 font-semibold truncate bg-slate-800/80 px-1.5 py-0.5 rounded border border-white/5">{emotionName}</span>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleStageClip({ ...clip, name: displayName })}
+                                                        className={`w-full py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${isSelected ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md' : 'bg-indigo-600/80 hover:bg-indigo-600 text-white shadow-sm'}`}
+                                                    >
+                                                        {isSelected ? <Check size={12} /> : <Plus size={12} />} {isSelected ? 'Đã Chọn' : 'Thêm'}
+                                                    </button>
                                                 </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleStageClip({ ...clip, name: displayName })}
-                                                    className={`w-full py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${isSelected ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md' : 'bg-indigo-600/80 hover:bg-indigo-600 text-white shadow-sm'}`}
-                                                >
-                                                    {isSelected ? <Check size={12} /> : <Plus size={12} />} {isSelected ? 'Đã Chọn' : 'Thêm'}
-                                                </button>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                {/* PAGINATION CONTROLS FOOTER */}
+                                {filteredLibraryClips.length > 0 && (
+                                    <div className="flex flex-wrap items-center justify-between gap-2 mt-auto pt-3 border-t border-white/10 bg-slate-950/60 p-2.5 rounded-2xl">
+                                        <span className="text-[11px] text-slate-400 font-medium select-none">
+                                            Hiển thị <span className="font-bold text-white">{Math.min(filteredLibraryClips.length, (libraryCurrentPage - 1) * libraryPageSize + 1)} - {Math.min(filteredLibraryClips.length, libraryCurrentPage * libraryPageSize)}</span> / Tổng <span className="font-bold text-indigo-400">{filteredLibraryClips.length}</span> clip
+                                        </span>
+
+                                        <div className="flex items-center gap-1.5">
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setLibraryCurrentPage(1)} 
+                                                disabled={libraryCurrentPage <= 1} 
+                                                className="px-2 py-1 bg-slate-900 hover:bg-slate-800 disabled:opacity-30 text-slate-300 text-xs font-bold rounded-lg border border-white/5 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                                                title="Trang đầu"
+                                            >
+                                                «
+                                            </button>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setLibraryCurrentPage(prev => Math.max(1, prev - 1))} 
+                                                disabled={libraryCurrentPage <= 1} 
+                                                className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 disabled:opacity-30 text-slate-300 text-xs font-bold rounded-lg border border-white/5 transition-colors cursor-pointer disabled:cursor-not-allowed flex items-center gap-1"
+                                            >
+                                                <ChevronLeft size={13} /> Trước
+                                            </button>
+                                            
+                                            <span className="text-xs font-bold text-slate-300 px-2.5 py-1 bg-slate-900 border border-indigo-500/30 rounded-lg select-none">
+                                                {libraryCurrentPage} / {totalLibraryPages}
+                                            </span>
+
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setLibraryCurrentPage(prev => Math.min(totalLibraryPages, prev + 1))} 
+                                                disabled={libraryCurrentPage >= totalLibraryPages} 
+                                                className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 disabled:opacity-30 text-slate-300 text-xs font-bold rounded-lg border border-white/5 transition-colors cursor-pointer disabled:cursor-not-allowed flex items-center gap-1"
+                                            >
+                                                Sau <ChevronRight size={13} />
+                                            </button>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setLibraryCurrentPage(totalLibraryPages)} 
+                                                disabled={libraryCurrentPage >= totalLibraryPages} 
+                                                className="px-2 py-1 bg-slate-900 hover:bg-slate-800 disabled:opacity-30 text-slate-300 text-xs font-bold rounded-lg border border-white/5 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                                                title="Trang cuối"
+                                            >
+                                                »
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* RIGHT SIDEBAR: BẢNG DANH SÁCH ĐÃ CHỌN (STAGING LIST) */}
