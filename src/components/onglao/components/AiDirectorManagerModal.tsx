@@ -121,7 +121,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
             const url = new URL(window.location.href);
             let updated = false;
 
-            if (showCreator || p.showScriptModal) {
+            if (showCreator) {
                 if (url.searchParams.get('action') !== 'insert' || url.searchParams.get('type') !== 'ai') {
                     url.searchParams.set('modal', 'ai-director');
                     url.searchParams.set('action', 'insert');
@@ -198,12 +198,9 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
             const idParam = url.searchParams.get('id');
 
             if (modalParam === 'ai-director' && !restoredFromUrlRef.current) {
-                if (actionParam === 'insert' && typeParam === 'ai') {
-                    if (!showCreator) setShowCreator(true);
-                    if (p.setShowScriptModal) p.setShowScriptModal(true);
-                    restoredFromUrlRef.current = true;
-                } else if (actionParam === 'insert' && typeParam === 'manual') {
-                    if (!selectedScript) handleCreateManualScript();
+                if (actionParam === 'insert') {
+                    if (!selectedScript) handleCreateAIScript();
+                    if (p.setShowScriptModal) p.setShowScriptModal(false);
                     restoredFromUrlRef.current = true;
                 } else if (idParam) {
                     if (p.sessions.length > 0) {
@@ -212,7 +209,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                             if (selectedScript?.id !== idParam) handleStartEdit(script);
                             restoredFromUrlRef.current = true;
                         } else if (actionParam === 'insert') {
-                            if (!selectedScript) handleCreateManualScript();
+                            if (!selectedScript) handleCreateAIScript();
                             restoredFromUrlRef.current = true;
                         }
                     }
@@ -918,6 +915,8 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     };
 
     const handleCreateAIScript = () => {
+        setShowCreator(false);
+        if (p.setShowScriptModal) p.setShowScriptModal(false);
         const tempId = 'temp_' + Date.now();
         const newSession = {
             id: tempId,
@@ -952,6 +951,8 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     };
 
     const handleCreateManualScript = () => {
+        setShowCreator(false);
+        if (p.setShowScriptModal) p.setShowScriptModal(false);
         const tempId = 'temp_' + Date.now();
         const newSession = {
             id: tempId,
