@@ -408,7 +408,13 @@ export const useVideoExport = ({
     executeSaveFfPack,
     handleLoadPack,
     handleDeleteFfPack,
-    handleCopyFfScenesCode
+    handleCopyFfScenesCode,
+    customCategories,
+    setCustomCategories,
+    handleAddCustomCategory,
+    handleDeleteCustomCategory,
+    handleDeleteLibraryClip,
+    handleBatchDeleteLibraryClips
   } = useFullFrameScenes({
     showToastMsg,
     setConfirmDialog,
@@ -4215,7 +4221,12 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
     characterPresets,
     setCharacterPresets,
     downloadAllAudios,
-    downloadCombinedAudio
+    downloadCombinedAudio,
+    customCategories,
+    setCustomCategories,
+    handleAddCustomCategory,
+    handleDeleteCustomCategory,
+    handleDeleteLibraryClip,
+    handleBatchDeleteLibraryClips
   };
 };
-

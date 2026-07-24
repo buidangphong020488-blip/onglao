@@ -147,6 +147,10 @@ model CanhQuay {
   id          String   @id @default(uuid())
   userId      String?  
   name        String
+  category    String?  @default("lao")
+  role        String?  @default("lao")
+  emotion     String?  @default("calm")
+  url         String?
   assetsNgang Json?
   assetsDoc   Json?
   linkedIds   Json?

@@ -96,14 +96,108 @@ export const useFullFrameScenes = ({
   const [showSavePackModal, setShowSavePackModal] = useState(false);
   const [savePackData, setSavePackData] = useState({ name: '', aspect: 'ngang' });
 
-  // Load kho Video Dựng Sẵn cá nhân từ bộ nhớ máy
+  const [customCategories, setCustomCategories] = useState<any[]>([]);
+
+  // Load kho Video Dựng Sẵn cá nhân từ bộ nhớ máy & PostgreSQL DB
   useEffect(() => {
       const list = JSON.parse(localStorage.getItem('taman_local_ff_clips') || '[]');
       setLocalFfClips(list);
       
       const packList = JSON.parse(localStorage.getItem('taman_local_ff_packs') || '[]');
       setLocalFfPacks(packList);
+
+      const cats = JSON.parse(localStorage.getItem('taman_custom_categories') || '[]');
+      setCustomCategories(cats);
+
+      // Đồng bộ từ PostgreSQL Database
+      fetch('/api/user/canh-quay')
+        .then(res => res.json())
+        .then(dbList => {
+          if (Array.isArray(dbList) && dbList.length > 0) {
+            const dbClips = dbList.map((item: any) => ({
+              id: item.id,
+              name: item.name,
+              url: item.url,
+              role: item.role || 'lao',
+              category: item.category || item.role || 'lao',
+              emotion: item.emotion || 'calm',
+              idbKey: item.id,
+              isDb: true
+            }));
+            setLocalFfClips((prev: any[]) => {
+              const combined = [...dbClips];
+              prev.forEach((pClip: any) => {
+                if (!combined.some((c: any) => c.id === pClip.id || (c.idbKey && c.idbKey === pClip.idbKey))) {
+                  combined.push(pClip);
+                }
+              });
+              return combined;
+            });
+          }
+        })
+        .catch(err => console.warn('Lỗi đồng bộ CanhQuay từ PostgreSQL DB:', err));
   }, []);
+
+  const handleAddCustomCategory = (name: string) => {
+    if (!name.trim()) return;
+    const catId = `cat_${Date.now()}_${Math.floor(Math.random()*1000)}`;
+    const newCat = { id: catId, name: name.trim() };
+    const updated = [...customCategories, newCat];
+    setCustomCategories(updated);
+    localStorage.setItem('taman_custom_categories', JSON.stringify(updated));
+  };
+
+  const handleDeleteCustomCategory = async (catId: string) => {
+    const targetCat = customCategories.find((c: any) => c.id === catId || c.name === catId);
+    const catName = targetCat ? targetCat.name : catId;
+    
+    // 1. Xóa khỏi state & LocalStorage
+    const updatedCats = customCategories.filter((c: any) => c.id !== catId && c.name !== catId);
+    setCustomCategories(updatedCats);
+    localStorage.setItem('taman_custom_categories', JSON.stringify(updatedCats));
+
+    // 2. Xóa các clip thuộc category này khỏi localFfClips & PostgreSQL DB
+    setLocalFfClips((prev: any[]) => prev.filter((clip: any) => clip.category !== catId && clip.category !== catName));
+    
+    try {
+      await fetch(`/api/user/canh-quay?category=${encodeURIComponent(catName)}`, { method: 'DELETE' });
+    } catch (err) {
+      console.warn('Lỗi xóa category trên DB:', err);
+    }
+  };
+
+  const handleDeleteLibraryClip = async (clipId: string) => {
+    setLocalFfClips((prev: any[]) => {
+      const updated = prev.filter((c: any) => c.id !== clipId && c.idbKey !== clipId);
+      localStorage.setItem('taman_local_ff_clips', JSON.stringify(updated));
+      return updated;
+    });
+
+    try {
+      await fetch(`/api/user/canh-quay?id=${encodeURIComponent(clipId)}`, { method: 'DELETE' });
+    } catch (err) {
+      console.warn('Lỗi xóa clip trên DB:', err);
+    }
+  };
+
+  const handleBatchDeleteLibraryClips = async (clipIds: string[]) => {
+    if (!clipIds || clipIds.length === 0) return;
+    setLocalFfClips((prev: any[]) => {
+      const updated = prev.filter((c: any) => !clipIds.includes(c.id) && !clipIds.includes(c.idbKey));
+      localStorage.setItem('taman_local_ff_clips', JSON.stringify(updated));
+      return updated;
+    });
+
+    try {
+      await fetch('/api/user/canh-quay', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: clipIds })
+      });
+    } catch (err) {
+      console.warn('Lỗi xóa batch clips trên DB:', err);
+    }
+  };
 
   // Load trước Video Dựng Sẵn vào RAM
   useEffect(() => {
@@ -539,6 +633,12 @@ ${sceneCodes.join(',\n')}
     executeSaveFfPack,
     handleLoadPack,
     handleDeleteFfPack,
-    handleCopyFfScenesCode
+    handleCopyFfScenesCode,
+    customCategories,
+    setCustomCategories,
+    handleAddCustomCategory,
+    handleDeleteCustomCategory,
+    handleDeleteLibraryClip,
+    handleBatchDeleteLibraryClips
   };
 };
