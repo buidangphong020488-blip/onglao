@@ -784,7 +784,7 @@ const VideoCreatorModal = () => {
                                                   onClick={() => setShowLibraryModal(true)}
                                                   className="col-span-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:to-purple-500 text-white px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg border border-indigo-400/40 cursor-pointer hover:scale-[1.01]"
                                               >
-                                                  <Film size={14}/> Chọn Từ Kho Cảnh Quay & Phân Mục (Nạp 1 Lần)
+                                                  <Film size={14}/> Chọn kho cảnh quay
                                               </button>
                                               
                                              <button 
