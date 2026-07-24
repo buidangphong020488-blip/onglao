@@ -455,8 +455,8 @@ const PoemVaultModal = ({ isAdminMode = false, inline = false }: { isAdminMode?:
               </div>
           )}
 
-          {/* THANH TAB CHUYỂN ĐỔI: Luôn hiện khi ở trang độc lập (!inline) hoặc trong admin */}
-          {(!inline || isAdminMode) && (
+          {/* THANH TAB CHUYỂN ĐỔI: Chỉ hiện khi là Admin */}
+          {isAdminMode && (
               <div className="flex border-b border-white/10 bg-slate-950 shrink-0">
                   <button onClick={() => setPoemModalTab('poems')} className={`flex-1 py-3 text-[10px] md:text-sm font-bold tracking-wider transition-all border-b-2 ${poemModalTab === 'poems' ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Kho Kệ Pháp</button>
                   <button onClick={() => setPoemModalTab('greetings')} className={`flex-1 py-3 text-[10px] md:text-sm font-bold tracking-wider transition-all border-b-2 ${poemModalTab === 'greetings' ? 'border-orange-500 text-orange-400 bg-orange-500/10' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Mào Đầu (Tiếp đón)</button>

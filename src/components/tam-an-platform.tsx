@@ -13676,11 +13676,13 @@ ${movieInstruction}${knowledgeInstruction}${liveContext}`;
                 </div>
 
                 {/* THANH TAB CHUYỂN ĐỔI */}
-                <div className="flex border-b border-white/10 bg-slate-900 shrink-0">
-                    <button onClick={() => setPoemModalTab('poems')} className={`flex-1 py-3 text-[10px] md:text-sm font-bold tracking-wider transition-all border-b-2 ${poemModalTab === 'poems' ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Kho Kệ Pháp</button>
-                    <button onClick={() => setPoemModalTab('greetings')} className={`flex-1 py-3 text-[10px] md:text-sm font-bold tracking-wider transition-all border-b-2 ${poemModalTab === 'greetings' ? 'border-orange-500 text-orange-400 bg-orange-500/10' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Mào Đầu (Tiếp đón)</button>
-                    <button onClick={() => setPoemModalTab('rag')} className={`flex-1 py-3 text-[10px] md:text-sm font-bold tracking-wider transition-all border-b-2 ${poemModalTab === 'rag' ? 'border-indigo-500 text-indigo-400 bg-indigo-500/10' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Kho Trí Tuệ (Huấn luyện)</button>
-                </div>
+                {isAdminMode && (
+                    <div className="flex border-b border-white/10 bg-slate-900 shrink-0">
+                        <button onClick={() => setPoemModalTab('poems')} className={`flex-1 py-3 text-[10px] md:text-sm font-bold tracking-wider transition-all border-b-2 ${poemModalTab === 'poems' ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Kho Kệ Pháp</button>
+                        <button onClick={() => setPoemModalTab('greetings')} className={`flex-1 py-3 text-[10px] md:text-sm font-bold tracking-wider transition-all border-b-2 ${poemModalTab === 'greetings' ? 'border-orange-500 text-orange-400 bg-orange-500/10' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Mào Đầu (Tiếp đón)</button>
+                        <button onClick={() => setPoemModalTab('rag')} className={`flex-1 py-3 text-[10px] md:text-sm font-bold tracking-wider transition-all border-b-2 ${poemModalTab === 'rag' ? 'border-indigo-500 text-indigo-400 bg-indigo-500/10' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Kho Trí Tuệ (Huấn luyện)</button>
+                    </div>
+                )}
                 
                 {/* NỘI DUNG TAB KHO KỆ PHÁP */}
                 {poemModalTab === 'poems' && (
