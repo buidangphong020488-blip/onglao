@@ -230,17 +230,25 @@ export const ChatHistorySidebar = () => {
                  <button onClick={(e: any) => { 
                     e.stopPropagation(); 
                     setIsDownloadingAllLocal(true);
-                    if (typeof downloadAllAudios === 'function') downloadAllAudios();
-                    else if (p.downloadAllAudios) p.downloadAllAudios();
-                    setTimeout(() => setIsDownloadingAllLocal(false), messages.length * 400 + 1000);
+                    const fn = downloadAllAudios || p.downloadAllAudios;
+                    if (typeof fn === 'function') {
+                      try { fn(); } catch (err) { console.warn('Download all error:', err); }
+                    } else if (p.showToastMsg) {
+                      p.showToastMsg('Vui lòng làm mới trang (F5) để tải tệp âm thanh!', 'warning');
+                    }
+                    setTimeout(() => setIsDownloadingAllLocal(false), (messages?.length || 1) * 400 + 1000);
                  }} disabled={isDownloadingAllLocal} className="text-[10px] p-2 hover:bg-slate-700 rounded text-left text-white font-medium flex items-center gap-1.5 disabled:opacity-50">
                     {isDownloadingAllLocal ? <Loader2 size={10} className="animate-spin" /> : <FileText size={10} />}
                     {isDownloadingAllLocal ? 'Đang chuẩn bị...' : 'Từng đoạn rời rạc'}
                  </button>
-                 <button onClick={(e: any) => { 
+                 <button onClick={async (e: any) => { 
                     e.stopPropagation(); 
-                    if (typeof downloadCombinedAudio === 'function') downloadCombinedAudio();
-                    else if (p.downloadCombinedAudio) p.downloadCombinedAudio();
+                    const fn = downloadCombinedAudio || p.downloadCombinedAudio;
+                    if (typeof fn === 'function') {
+                      try { await fn(); } catch (err) { console.warn('Download combined error:', err); }
+                    } else if (p.showToastMsg) {
+                      p.showToastMsg('Vui lòng làm mới trang (F5) để gộp tệp âm thanh!', 'warning');
+                    }
                  }} disabled={isPreparingGlobal} className="text-[10px] p-2 hover:bg-slate-700 rounded text-left text-emerald-400 font-medium flex items-center gap-1.5 disabled:opacity-50">
                     {isPreparingGlobal ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10}/>}
                     {isPreparingGlobal ? 'Đang xử lý...' : 'Gộp 1 file chung'}
