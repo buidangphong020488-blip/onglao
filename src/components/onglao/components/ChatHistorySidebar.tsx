@@ -98,7 +98,7 @@ export const ChatHistorySidebar = () => {
     if (!scriptTitle.trim()) return;
     setIsSavingScript(true);
     try {
-       const title = `[Thủ công] ${scriptTitle.trim()}`;
+       const title = scriptTitle.trim();
        const res = await updateChatSessionTypeAction(currentSessionId, 'chat|script', title);
        
        if (res.success) {

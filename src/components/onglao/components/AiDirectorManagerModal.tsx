@@ -361,8 +361,6 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     // Filter sessions
     const scripts = p.sessions.filter((s: any) => {
         if (s.type !== 'script' && s.type !== 'chat|script') return false;
-        if (filterType === 'ai' && s.title.includes('[Thủ công]')) return false;
-        if (filterType === 'manual' && !s.title.includes('[Thủ công]')) return false;
         if (searchTerm && !s.title.toLowerCase().includes(searchTerm.toLowerCase())) return false;
         return true;
     });
@@ -731,12 +729,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
             let finalDate: Date | undefined = undefined;
             let finalDateStr = selectedScript.updatedAt;
             if (editingTitle.trim() && editingDate) {
-                const prefix = selectedScript.title.startsWith('[AI]') 
-                    ? '[AI] ' 
-                    : selectedScript.title.startsWith('[Thủ công]') 
-                        ? '[Thủ công] ' 
-                        : '';
-                finalTitle = `${prefix}${editingTitle.trim()}`;
+                finalTitle = editingTitle.trim().replace(/^\[(AI|Thủ công)\]\s*/i, '');
                 finalDate = new Date(editingDate);
                 finalDateStr = finalDate.toISOString();
             }
@@ -746,13 +739,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
             let isNewSession = false;
             if (realSessionId.startsWith('temp_')) {
                 const targetUserId = p.currentUser?.id || p.user?.uid;
-                const prefix = selectedScript.title.startsWith('[AI]') 
-                    ? '[AI] ' 
-                    : selectedScript.title.startsWith('[Thủ công]') 
-                        ? '[Thủ công] ' 
-                        : '';
-                const baseTitle = editingTitle.trim() || 'Kịch bản mới';
-                const createdTitle = `${prefix}${baseTitle}`;
+                const createdTitle = (editingTitle.trim() || 'Kịch bản mới').replace(/^\[(AI|Thủ công)\]\s*/i, '');
                 const createdDate = editingDate ? new Date(editingDate) : new Date();
 
                 const createRes = await createChatSessionAction(targetUserId, createdTitle, "script", createdDate);
@@ -956,7 +943,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         const tempId = 'temp_' + Date.now();
         const newSession = {
             id: tempId,
-            title: "[Thủ công] Kịch bản mới",
+            title: "Kịch bản mới",
             type: 'script',
             isPinned: false,
             messages: [],
@@ -1489,25 +1476,14 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                 </div>
                             </div>
 
-                            {/* BỘ LỌC VÀ TÌM KIẾM */}
+                            {/* TÌM KIẾM KỊCH BẢN */}
                             <div className="flex flex-col sm:flex-row gap-4 sm:items-center bg-slate-900/50 p-3 rounded-2xl border border-white/5">
-                                <div className="flex gap-4 items-center text-sm shrink-0">
-                                    <label className="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white transition-colors">
-                                        <input type="radio" checked={filterType === 'all'} onChange={() => setFilterType('all')} className="accent-indigo-500" /> Tất cả
-                                    </label>
-                                    <label className="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white transition-colors">
-                                        <input type="radio" checked={filterType === 'ai'} onChange={() => setFilterType('ai')} className="accent-indigo-500" /> Kịch bản AI
-                                    </label>
-                                    <label className="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white transition-colors">
-                                        <input type="radio" checked={filterType === 'manual'} onChange={() => setFilterType('manual')} className="accent-indigo-500" /> Thủ công
-                                    </label>
-                                </div>
                                 <input 
                                     type="text" 
-                                    placeholder="Tìm theo tiêu đề..." 
+                                    placeholder="Tìm theo tiêu đề kịch bản..." 
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="flex-1 w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:border-indigo-500 outline-none"
+                                    className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:border-indigo-500 outline-none"
                                 />
                             </div>
 
@@ -1574,7 +1550,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                                         className="w-4 h-4 accent-indigo-500 cursor-pointer shrink-0"
                                                     />
                                                     <div className="min-w-0">
-                                                    <span className="font-bold text-sm text-slate-200 block truncate">{script.title}</span>
+                                                    <span className="font-bold text-sm text-slate-200 block truncate">{script.title ? script.title.replace(/^\[(AI|Thủ công)\]\s*/i, '') : 'Kịch bản mới'}</span>
                                                     <span className="text-[10px] text-slate-500 block mt-0.5">
                                                         Cập nhật: {(() => {
                                                             const d = script.updatedAt ? new Date(script.updatedAt) : new Date();
