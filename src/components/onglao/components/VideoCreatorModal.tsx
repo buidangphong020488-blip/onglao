@@ -1077,9 +1077,9 @@ const VideoCreatorModal = () => {
                                                                 onChange={(e: any) => setFfScenes((prev: any) => prev.map((s: any) => s.id === scene.id ? {...s, emotion: e.target.value} : s))}
                                                                 className="flex-1 bg-slate-800 border border-white/10 rounded px-1.5 py-1 text-[9px] text-white outline-none h-7 min-w-0"
                                                             >
-                                                                <option value="calm">😐 Bình thường</option>
-                                                                <option value="sad">😢 Buồn / Bế tắc</option>
-                                                                <option value="joy">😊 Vui / Hạnh phúc</option>
+                                                                {dbCharacterStates.map((st: any) => (
+                                                                    <option key={st.id} value={st.id}>{st.name}</option>
+                                                                ))}
                                                             </select>
                                                             {/* 2 nút Play/Refresh nằm kế bên phải combobox trạng thái */}
                                                             {msg && (
