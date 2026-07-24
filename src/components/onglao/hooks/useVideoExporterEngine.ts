@@ -164,6 +164,7 @@ export const useVideoExporterEngine = ({
   setIsPreviewFullscreen,
 
   setShowVideoExportModal,
+  setShowAiManager,
 
   setExportTab,
 
