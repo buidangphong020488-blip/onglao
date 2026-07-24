@@ -1733,7 +1733,7 @@ const VideoCreatorModal = () => {
                                             const formattedUrl = clip.url ? (clip.url.includes('#') ? clip.url : `${clip.url}#t=0.5`) : null;
 
                                             return (
-                                                <div key={clip.id || idx} className={`flex flex-col bg-slate-950/90 border rounded-2xl p-2.5 gap-2 relative transition-all group shadow-md ${isSelected ? 'border-indigo-500 bg-indigo-950/40 ring-1 ring-indigo-500/50' : 'border-white/10 hover:border-indigo-500/40'}`}>
+                                                <div key={`${clip.id || 'clip'}_${clip.packName || ''}_${idx}`} className={`flex flex-col bg-slate-950/90 border rounded-2xl p-2.5 gap-2 relative transition-all group shadow-md ${isSelected ? 'border-indigo-500 bg-indigo-950/40 ring-1 ring-indigo-500/50' : 'border-white/10 hover:border-indigo-500/40'}`}>
                                                     <div 
                                                         className="w-full aspect-video bg-slate-900 rounded-xl overflow-hidden relative flex items-center justify-center border border-white/5 cursor-pointer group/thumb"
                                                         onClick={() => clip.url && setPreviewVideoUrl(clip.url)}
