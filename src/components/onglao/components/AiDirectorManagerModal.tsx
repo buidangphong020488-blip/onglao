@@ -1784,7 +1784,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                             value={editingTitle}
                                             onChange={(e) => setEditingTitle(e.target.value)}
                                             placeholder="Nhập tiêu đề kịch bản..."
-                                            className="w-full bg-slate-950 border border-white/10 rounded-xl p-2.5 text-xs text-white focus:border-indigo-500 outline-none"
+                                            className="w-full bg-slate-950 border border-white/10 rounded-xl p-2 text-[11px] text-white focus:border-indigo-500 outline-none"
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1.5">
@@ -1865,15 +1865,15 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                         <div className="flex gap-2">
                                             <div className="flex-[1.5] flex flex-col gap-1">
                                                 <span className="text-[9px] text-slate-500">Tên hiển thị:</span>
-                                                <input type="text" value={localUserName} onChange={e=>setLocalUserName(e.target.value)} onBlur={()=>p.setCustomUserName?.(localUserName)} placeholder="Tên (VD: Con, Anh Hào...)" className="w-full bg-slate-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-indigo-500 outline-none"/>
+                                                <input type="text" value={localUserName} onChange={e=>setLocalUserName(e.target.value)} onBlur={()=>p.setCustomUserName?.(localUserName)} placeholder="Tên (VD: Con, Anh Hào...)" className="w-full bg-slate-950 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-indigo-500 outline-none"/>
                                             </div>
                                             <div className="flex-[1] flex flex-col gap-1">
                                                 <span className="text-[9px] text-slate-500">Tự xưng là:</span>
-                                                <input type="text" value={localUserSelf} onChange={e=>setLocalUserSelf(e.target.value)} onBlur={()=>p.setUserSelfCall?.(localUserSelf)} placeholder="Tự xưng (Con, Anh...)" className="w-full bg-slate-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-indigo-500 outline-none"/>
+                                                <input type="text" value={localUserSelf} onChange={e=>setLocalUserSelf(e.target.value)} onBlur={()=>p.setUserSelfCall?.(localUserSelf)} placeholder="Tự xưng (Con, Anh...)" className="w-full bg-slate-950 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-indigo-500 outline-none"/>
                                             </div>
                                             <div className="flex-[1] flex flex-col gap-1">
                                                 <span className="text-[9px] text-slate-500">Gọi đối phương:</span>
-                                                <input type="text" value={localUserCallL} onChange={e=>setLocalUserCallL(e.target.value)} onBlur={()=>p.setUserCallLao?.(localUserCallL)} placeholder="Gọi kia (Lão, Em Đu...)" className="w-full bg-slate-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-indigo-500 outline-none"/>
+                                                <input type="text" value={localUserCallL} onChange={e=>setLocalUserCallL(e.target.value)} onBlur={()=>p.setUserCallLao?.(localUserCallL)} placeholder="Gọi kia (Lão, Em Đu...)" className="w-full bg-slate-950 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-indigo-500 outline-none"/>
                                             </div>
                                         </div>
                                     </div>
@@ -1897,21 +1897,21 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                         {/* Giọng Lão */}
                                         <div className="flex flex-col gap-2 p-3 bg-orange-950/20 border border-orange-500/20 rounded-xl">
                                             <span className="text-xs font-bold text-orange-400">🎙️ Giọng đọc của Lão:</span>
-                                            <select value={editingLaoVoice} onChange={e=>setEditingLaoVoice(e.target.value)} className="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-xs text-white outline-none">
+                                            <select value={editingLaoVoice} onChange={e=>setEditingLaoVoice(e.target.value)} className="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-[11px] text-white outline-none">
                                                <optgroup label="🎙️ Giọng Nam">{VOICES_MALE.map(v=><option key={v} value={v}>{v}</option>)}</optgroup>
                                                <optgroup label="🎙️ Giọng Nữ">{VOICES_FEMALE.map(v=><option key={v} value={v}>{v}</option>)}</optgroup>
                                             </select>
-                                            <textarea key={`lao-style-${selectedScript?.id}`} value={editingLaoVoiceStyle} onChange={e=>setEditingLaoVoiceStyle(e.target.value)} placeholder="Phong cách (VD: Giọng ấm áp...)" className="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-xs text-white outline-none h-12 resize-none" />
+                                            <textarea key={`lao-style-${selectedScript?.id}`} value={editingLaoVoiceStyle} onChange={e=>setEditingLaoVoiceStyle(e.target.value)} placeholder="Phong cách (VD: Giọng ấm áp...)" className="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-[11px] text-white outline-none h-12 resize-none" />
                                         </div>
  
                                         {/* Giọng Con */}
                                         <div className="flex flex-col gap-2 p-3 bg-indigo-950/20 border border-indigo-500/20 rounded-xl">
                                             <span className="text-xs font-bold text-indigo-400">🎙️ Giọng đọc của Con:</span>
-                                            <select value={editingUserVoice} onChange={e=>setEditingUserVoice(e.target.value)} className="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-xs text-white outline-none">
+                                            <select value={editingUserVoice} onChange={e=>setEditingUserVoice(e.target.value)} className="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-[11px] text-white outline-none">
                                                <optgroup label="🎙️ Giọng Nữ">{VOICES_FEMALE.map(v=><option key={v} value={v}>{v}</option>)}</optgroup>
                                                <optgroup label="🎙️ Giọng Nam">{VOICES_MALE.map(v=><option key={v} value={v}>{v}</option>)}</optgroup>
                                             </select>
-                                            <textarea key={`user-style-${selectedScript?.id}`} value={editingUserVoiceStyle} onChange={e=>setEditingUserVoiceStyle(e.target.value)} placeholder="Phong cách giọng..." className="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-xs text-white outline-none h-12 resize-none" />
+                                            <textarea key={`user-style-${selectedScript?.id}`} value={editingUserVoiceStyle} onChange={e=>setEditingUserVoiceStyle(e.target.value)} placeholder="Phong cách giọng..." className="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-[11px] text-white outline-none h-12 resize-none" />
                                         </div>
                                     </div>
                                 )}
@@ -1935,7 +1935,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                             <div className="flex flex-col gap-4 pt-3 border-t border-white/5 animate-in slide-in-from-top-2 duration-200">
                                                 <div className="flex flex-col gap-1.5">
                                                    <label className="text-xs font-bold text-slate-400">Ngôn ngữ kịch bản:</label>
-                                                   <select value={editingLanguage} onChange={e => setEditingLanguage(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-xl outline-none text-sm focus:border-indigo-500">
+                                                   <select value={editingLanguage} onChange={e => setEditingLanguage(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2 rounded-xl outline-none text-[11px] focus:border-indigo-500">
                                                       <option value="vi">Tiếng Việt</option>
                                                       <option value="en">Tiếng Anh (English)</option>
                                                    </select>
@@ -1943,13 +1943,13 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
  
                                                 <div className="flex flex-col gap-1.5">
                                                    <label className="text-xs font-bold text-slate-400">Chủ đề vướng mắc / Nỗi khổ của {p.customUserName || 'Con'}:</label>
-                                                   <textarea key={`topic-${selectedScript?.id}`} value={editingTopic} onChange={(e: any) => setEditingTopic(e.target.value)} placeholder="Ví dụ: Con đang gặp áp lực nợ nần, mất phương hướng, thất tình..." disabled={isRegenerating} className="w-full h-20 bg-slate-950 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-indigo-500 outline-none resize-none font-mono"/>
+                                                   <textarea key={`topic-${selectedScript?.id}`} value={editingTopic} onChange={(e: any) => setEditingTopic(e.target.value)} placeholder="Ví dụ: Con đang gặp áp lực nợ nần, mất phương hướng, thất tình..." disabled={isRegenerating} className="w-full h-20 bg-slate-950 border border-white/10 rounded-xl p-2 text-[11px] text-white focus:border-indigo-500 outline-none resize-none"/>
                                                 </div>
 
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                    <div className="flex flex-col gap-1.5">
                                                       <label className="text-xs font-bold text-slate-400">Độ dài kịch bản:</label>
-                                                      <select value={editingLength} onChange={e => setEditingLength(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-xl outline-none text-sm focus:border-indigo-500">
+                                                      <select value={editingLength} onChange={e => setEditingLength(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2 rounded-xl outline-none text-[11px] focus:border-indigo-500">
                                                          <option value="Khoảng 4-6 câu">Khoảng 4-6 câu (Chớp nhoáng)</option>
                                                          <option value="Khoảng 6-10 câu">Khoảng 6-10 câu (Vừa phải)</option>
                                                          <option value="Khoảng 10-15 câu">Khoảng 10-15 câu (Phân tích sâu)</option>
@@ -1958,7 +1958,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                                    </div>
                                                    <div className="flex flex-col gap-1.5">
                                                       <label className="text-xs font-bold text-slate-400">Phong cách của Lão:</label>
-                                                      <select value={editingLaoStyle} onChange={e => setEditingLaoStyle(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-xl outline-none text-sm focus:border-indigo-500">
+                                                      <select value={editingLaoStyle} onChange={e => setEditingLaoStyle(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2 rounded-xl outline-none text-[11px] focus:border-indigo-500">
                                                          <option value="Sắc bén, đốn giáo, thẳng thắn đánh thức mộng ảo">Sắc bén, đốn giáo</option>
                                                          <option value="Từ bi, ôn hòa, dắt dụ từng bước">Từ bi, ôn hòa</option>
                                                          <option value="Hài hước, châm biếm thâm thúy cõi trần">Hài hước, châm biếm thâm thúy</option>
@@ -1989,7 +1989,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
 
                                                 <div className="flex flex-col gap-1.5">
                                                    <label className="text-xs font-bold text-slate-400">Hành trình biến đổi cảm xúc của Con:</label>
-                                                   <select value={editingUserEmotionArc} onChange={e => setEditingUserEmotionArc(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-xl outline-none text-sm focus:border-indigo-500">
+                                                   <select value={editingUserEmotionArc} onChange={e => setEditingUserEmotionArc(e.target.value)} disabled={isRegenerating} className="w-full bg-slate-950 border border-white/10 text-white p-2 rounded-xl outline-none text-[11px] focus:border-indigo-500">
                                                       <option value="Từ đau khổ/bế tắc chuyển dần sang an lạc/bừng sáng">Đau khổ, bế tắc ➡️ An lạc, bừng sáng</option>
                                                       <option value="Từ tức giận/đổ lỗi chuyển sang tự nhìn nhận lại chính mình">Tức giận, đổ lỗi ➡️ Tự phản tỉnh</option>
                                                       <option value="Từ kiêu ngạo/ngộ nhận chuyển sang khiêm nhường/thấy rõ mộng">Kiêu ngạo, ngộ nhận ➡️ Khiêm nhường, tỉnh mộng</option>
