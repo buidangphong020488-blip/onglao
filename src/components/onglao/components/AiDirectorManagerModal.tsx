@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, X, Pencil, Trash2, Plus, Play, Pause, Music, Loader2, Save, RefreshCw, ChevronLeft, ChevronRight, ArrowRight, Volume2, Film, Mic, Info, Video } from 'lucide-react';
+import { Sparkles, X, Pencil, Trash2, Plus, Play, Pause, Music, Loader2, Save, RefreshCw, ChevronLeft, ChevronRight, ArrowRight, Volume2, Film, Mic, Info, Video, Layers } from 'lucide-react';
 import AiDirectorModal from './AiDirectorModal';
 import ScriptModal, { ScriptModalHandle } from './ScriptModal';
 import {
@@ -1988,26 +1988,54 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                             Chỉnh sửa nội dung Kịch bản:
                                         </p>
                                         
-                                        {/* Nút chèn vai nhanh */}
-                                        <div className="flex items-center justify-between mt-1 mb-3">
-                                            <div className="flex items-center gap-1.5">
+                                        {/* Nút chèn vai & cảm xúc nhanh */}
+                                        <div className="flex flex-wrap items-center justify-between gap-2 mt-1 mb-3 bg-slate-950/60 p-2.5 rounded-xl border border-white/5">
+                                            <div className="flex flex-wrap items-center gap-1.5">
                                                 <span className="text-[11px] text-slate-400 font-bold select-none">Chèn nhanh:</span>
                                                 <button 
                                                     type="button" 
-                                                    onClick={() => handleInsertRole(p.customLaoName || 'Lão')} 
-                                                    className="text-[11px] font-bold text-orange-400 hover:text-orange-300 bg-orange-950/20 border border-orange-500/20 px-2 py-1 rounded-md transition-colors cursor-pointer"
+                                                    onClick={() => handleInsertRole(p.customLaoName || 'Lão', 'calm')} 
+                                                    className="text-[10px] font-bold text-orange-300 hover:text-white bg-orange-950/30 border border-orange-500/30 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
                                                 >
-                                                    🎙️ {p.customLaoName || 'Lão'}:
+                                                    🎙️ {p.customLaoName || 'Lão'}: [bình thường]
                                                 </button>
                                                 <button 
                                                     type="button" 
-                                                    onClick={() => handleInsertRole(p.customUserName || 'Con')} 
-                                                    className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-950/20 border border-indigo-500/20 px-2 py-1 rounded-md transition-colors cursor-pointer"
+                                                    onClick={() => handleInsertRole(p.customLaoName || 'Lão', 'vui')} 
+                                                    className="text-[10px] font-bold text-orange-400 hover:text-white bg-orange-950/40 border border-orange-500/40 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
                                                 >
-                                                    🎙️ {p.customUserName || 'Con'}:
+                                                    😊 {p.customLaoName || 'Lão'}: [vui]
+                                                </button>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => handleInsertRole(p.customLaoName || 'Lão', 'buồn')} 
+                                                    className="text-[10px] font-bold text-amber-400 hover:text-white bg-amber-950/40 border border-amber-500/40 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
+                                                >
+                                                    😢 {p.customLaoName || 'Lão'}: [buồn]
+                                                </button>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => handleInsertRole(p.customUserName || 'Con', 'calm')} 
+                                                    className="text-[10px] font-bold text-indigo-300 hover:text-white bg-indigo-950/30 border border-indigo-500/30 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
+                                                >
+                                                    🎙️ {p.customUserName || 'Con'}: [bình thường]
+                                                </button>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => handleInsertRole(p.customUserName || 'Con', 'buồn')} 
+                                                    className="text-[10px] font-bold text-indigo-400 hover:text-white bg-indigo-950/40 border border-indigo-500/40 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
+                                                >
+                                                    😢 {p.customUserName || 'Con'}: [buồn]
+                                                </button>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => handleInsertRole('Outro', 'calm')} 
+                                                    className="text-[10px] font-bold text-purple-400 hover:text-white bg-purple-950/40 border border-purple-500/40 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
+                                                >
+                                                    🎬 Outro: [kết thúc]
                                                 </button>
                                             </div>
-                                            <span className="text-[10px] text-slate-500 hidden sm:inline">Đặt con trỏ chuột vào vị trí cần chèn rồi click vai nói.</span>
+                                            <span className="text-[10px] text-slate-500 hidden sm:inline">Click chèn nhanh cú pháp thoại kèm cờ cảm xúc.</span>
                                         </div>
 
                                         <ScriptModal
@@ -2024,6 +2052,85 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                             onImport={() => {}}
                                             onClose={() => {}}
                                         />
+
+                                        {/* GIAO DIỆN CÁC BLOCK THOẠI TRỰC QUAN ĐƯỢC BÓC TÁCH */}
+                                        <div className="flex flex-col gap-2.5 mt-4 bg-slate-950/40 p-3 rounded-2xl border border-white/10">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5 select-none">
+                                                    <Layers size={14} className="text-indigo-400" />
+                                                    Danh Sách Block Thoại Đã Phân Tách ({editingMessages?.length || 0} câu)
+                                                </span>
+                                                <span className="text-[10px] text-slate-400">Đồng bộ 2 chiều tự động với Textarea</span>
+                                            </div>
+
+                                            <div className="flex flex-col gap-2.5 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">
+                                                {editingMessages && editingMessages.map((b: any, idx: number) => {
+                                                    const isLao = b.role === 'ai';
+                                                    const isOutro = b.role === 'outro';
+                                                    const roleName = isLao ? (p.customLaoName || 'Lão') : (isOutro ? 'Outro' : (p.customUserName || 'Con'));
+                                                    return (
+                                                        <div key={b.id || idx} className={`flex flex-col gap-2 p-3 rounded-xl border transition-all ${isLao ? 'bg-orange-950/20 border-orange-500/20' : (isOutro ? 'bg-purple-950/20 border-purple-500/20' : 'bg-indigo-950/20 border-indigo-500/20')}`}>
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${isLao ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' : (isOutro ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30')}`}>
+                                                                        {roleName}
+                                                                    </span>
+                                                                    {/* Dropdown Trạng thái cảm xúc bóc tách */}
+                                                                    <select 
+                                                                        value={b.emotion || 'calm'} 
+                                                                        onChange={(e) => {
+                                                                            const newEmo = e.target.value;
+                                                                            setEditingMessages((prev: any[]) => prev.map((msg, i) => i === idx ? { ...msg, emotion: newEmo } : msg));
+                                                                        }}
+                                                                        className="bg-slate-900 border border-white/10 text-slate-200 text-[11px] font-bold rounded-md px-2 py-1 outline-none cursor-pointer focus:border-indigo-500"
+                                                                    >
+                                                                        <option value="calm">😐 Bình thường (Calm)</option>
+                                                                        <option value="joy">😊 Vui vẻ / Hạnh phúc (Joy)</option>
+                                                                        <option value="sad">😢 Buồn / Bế tắc (Sad)</option>
+                                                                        <option value="hook">🔥 Mào đầu (Hook/Intro)</option>
+                                                                    </select>
+                                                                </div>
+                                                                {/* Nút Audio cho từng Block */}
+                                                                <div className="flex items-center gap-1.5">
+                                                                    {b.audioUrl ? (
+                                                                        <button 
+                                                                            type="button" 
+                                                                            onClick={() => {
+                                                                                if (b.audioUrl) {
+                                                                                    const a = new Audio(b.audioUrl);
+                                                                                    a.play().catch(err => console.warn('Lỗi phát audio:', err));
+                                                                                }
+                                                                            }}
+                                                                            className="text-[11px] font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-2 py-1 rounded-md hover:bg-emerald-900/50 flex items-center gap-1 transition-colors cursor-pointer"
+                                                                        >
+                                                                            <Play size={11} /> Nghe
+                                                                        </button>
+                                                                    ) : null}
+                                                                    <button 
+                                                                        type="button" 
+                                                                        onClick={() => handleGenerateAudioInEditView(false)}
+                                                                        disabled={generatingAudio || saving}
+                                                                        className="text-[11px] font-bold text-slate-300 bg-slate-800 border border-white/10 px-2.5 py-1 rounded-md hover:bg-slate-700 disabled:opacity-50 flex items-center gap-1 transition-colors cursor-pointer"
+                                                                    >
+                                                                        <Mic size={11} /> {b.audioUrl ? 'Tạo lại' : 'Tạo Audio'}
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            {/* Khung sửa câu thoại sạch */}
+                                                            <textarea 
+                                                                value={b.text}
+                                                                onChange={(e) => {
+                                                                    const newTxt = e.target.value;
+                                                                    setEditingMessages((prev: any[]) => prev.map((msg, i) => i === idx ? { ...msg, text: newTxt } : msg));
+                                                                }}
+                                                                className="w-full bg-slate-950/80 border border-white/10 rounded-lg p-2.5 text-xs text-white outline-none focus:border-indigo-500 resize-none h-14 font-sans"
+                                                                placeholder="Nội dung câu thoại sạch..."
+                                                            />
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
