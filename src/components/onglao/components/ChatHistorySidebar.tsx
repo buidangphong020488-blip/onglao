@@ -132,8 +132,15 @@ export const ChatHistorySidebar = () => {
   return (
     <aside className="fixed inset-y-0 right-0 z-[60] w-full sm:w-80 md:w-[350px] bg-[#0a0f1e]/98 backdrop-blur-3xl border-l border-white/5 flex flex-col shadow-2xl transition-transform duration-500 md:relative md:translate-x-0">
       <div className="p-5 border-b border-white/5 flex justify-between items-center bg-slate-900/40">
-        <div className="flex items-center gap-3 font-black text-[11px] tracking-widest text-orange-400">
-          <MessageSquare size={16} /> Pháp bảo khai thị
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-3 font-black text-[11px] tracking-widest text-orange-400">
+            <MessageSquare size={16} /> Pháp bảo khai thị
+          </div>
+          {currentSession?.title && (
+            <span className="text-[10px] text-emerald-400 font-bold truncate max-w-[220px]" title={currentSession.title}>
+              📖 {currentSession.title.replace(/^(\[AI\]|\[Thủ công\])?\s*/i, '').trim()}
+            </span>
+          )}
         </div>
         <button onClick={() => setShowHistory(false)} className="p-1 text-slate-400 hover:text-white transition-colors">
           <X size={20} />
@@ -156,8 +163,15 @@ export const ChatHistorySidebar = () => {
              )}
           </button>
           {currentSession?.type?.includes('script') ? (
-            <div className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[10px] font-black border border-emerald-800 bg-emerald-950/60 text-emerald-500 cursor-default select-none">
-               <Check size={12} /> Đã lưu kịch bản
+            <div className="w-full flex flex-col items-center justify-center gap-0.5 py-1.5 px-2 rounded-xl text-[10px] font-black border border-emerald-800/80 bg-emerald-950/80 text-emerald-400 cursor-default select-none shadow-sm">
+               <div className="flex items-center gap-1 text-emerald-400 font-bold">
+                  <Check size={12} className="text-emerald-400 shrink-0" /> Đã lưu kịch bản
+               </div>
+               {currentSession?.title && (
+                  <span className="text-[9px] font-bold text-amber-300 truncate max-w-full italic px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded-md" title={currentSession.title}>
+                     📖 {currentSession.title.replace(/^(\[AI\]|\[Thủ công\])?\s*/i, '').trim()}
+                  </span>
+               )}
             </div>
           ) : (
             <button onClick={() => setShowSaveScriptModal(true)} className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[10px] font-black border border-emerald-700 bg-emerald-900/40 text-emerald-400 hover:text-emerald-300 transition-all shadow-lg">
