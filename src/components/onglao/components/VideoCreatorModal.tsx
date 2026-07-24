@@ -105,6 +105,9 @@ const SceneThumbnailItem = React.memo(({ scene, setFfScenes }: { scene: any; set
                     const p = await generateVideoPoster(scene.url);
                     if (p && isMounted) setPoster(p);
                 }
+            } else if (!scene.url) {
+                setActiveUrl(null);
+                setPoster('');
             }
         };
 
@@ -128,6 +131,18 @@ const SceneThumbnailItem = React.memo(({ scene, setFfScenes }: { scene: any; set
         setFfScenes((prev: any) => prev.map((s: any) => s.id === scene.id ? { ...s, url: `idb://${idbKey}`, poster: p, idbKey } : s));
     };
 
+    const handleClearClip = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (scene.url && scene.url.startsWith('blob:')) {
+            URL.revokeObjectURL(scene.url);
+        }
+        setPoster('');
+        setActiveUrl(null);
+        setHasError(false);
+        setFfScenes((prev: any[]) => prev.map((s: any) => s.id === scene.id ? { ...s, url: null, poster: null, idbKey: null } : s));
+    };
+
     return (
         <label 
             onMouseEnter={() => setIsHovered(true)}
@@ -145,6 +160,16 @@ const SceneThumbnailItem = React.memo(({ scene, setFfScenes }: { scene: any; set
                     e.target.value = '';
                 }} 
             />
+            {activeUrl && !hasError && (
+                <button
+                    type="button"
+                    onClick={handleClearClip}
+                    className="absolute top-0.5 right-0.5 z-20 bg-rose-600/90 hover:bg-rose-500 text-white rounded-full p-0.5 shadow-md transition-all cursor-pointer hover:scale-110 flex items-center justify-center"
+                    title="Xóa video clip khỏi khung cảnh này"
+                >
+                    <X size={10} />
+                </button>
+            )}
             {activeUrl && !hasError ? (
                 poster ? (
                     <div className="w-full h-full relative group">
