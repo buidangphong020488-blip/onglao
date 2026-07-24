@@ -381,6 +381,7 @@ const VideoCreatorModal = () => {
     renderHistory, setRenderHistory, deleteRenderHistoryItem
   } = p;
 
+  const [showLibraryModal, setShowLibraryModal] = React.useState(false);
   const filteredHistory = React.useMemo(() => {
     if (!renderHistory) return [];
     if (!p.currentSessionId) return renderHistory;
@@ -573,7 +574,13 @@ const VideoCreatorModal = () => {
                                      <div className="grid grid-cols-2 gap-2 my-1.5">
                                               <button 
                                                   type="button"
-                                                  onClick={() => setShowLibraryModal(true)}
+                                                  onClick={() => {
+                                                      if (typeof showUploadGuide === 'function') {
+                                                          showUploadGuide();
+                                                      } else {
+                                                          setShowLibraryModal(true);
+                                                      }
+                                                  }}
                                                   className="col-span-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:to-purple-500 text-white px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg border border-indigo-400/40 cursor-pointer hover:scale-[1.01]"
                                               >
                                                   <Film size={14}/> 🎬 Chọn Từ Kho Cảnh Quay & Phân Mục (Nạp 1 Lần)
@@ -754,7 +761,16 @@ const VideoCreatorModal = () => {
                                             const isRedundant = hasMsgScenes && !scene.msgId && scene.role !== 'outro';
                                             if (isRedundant) return null;
                                             return (
-                                                <div key={scene.id} className="flex gap-2 items-center bg-slate-950 p-2 rounded-lg border border-white/5 relative group mt-1">
+                                                <div key={scene.id} className="flex gap-2 items-center bg-slate-950 p-3 pt-4 rounded-lg border border-white/10 relative group mt-3">
+                                                    {/* Badge số thứ tự cảnh quay (#1, #2, #3...) */}
+                                                    <div className="absolute -top-2.5 left-2 z-10 flex items-center gap-1 bg-slate-900 border border-emerald-500/50 px-2 py-0.5 rounded-md shadow-lg select-none">
+                                                        <span className="text-[10px] font-mono font-black text-emerald-400">
+                                                            #{idx + 1}
+                                                        </span>
+                                                        <span className="text-[9px] font-bold text-slate-300">
+                                                            Cảnh {idx + 1}
+                                                        </span>
+                                                    </div>
                                             {/* Bảng điều khiển mini (Move & Delete) */}
                                             <div className="absolute -top-3 -right-2 flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                                                 <div className="flex gap-0.5 bg-slate-800 p-1 rounded-md shadow-lg border border-white/10">
