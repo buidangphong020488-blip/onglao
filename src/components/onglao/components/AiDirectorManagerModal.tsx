@@ -978,6 +978,44 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         p.showToastMsg('Đã khởi tạo kịch bản trống. Vui lòng soạn thảo và bấm "Lưu kịch bản"!', 'info');
     };
 
+    
+    const handleGenerateSingleBlockAudio = async (msg: any, index: number) => {
+        if (!msg.id || !msg.text.trim()) return;
+        setGeneratingAudio(true);
+        setAudioProgress({ current: 1, total: 1, percent: 100 });
+        try {
+            if (editingRawText.trim().length > 0) {
+                await handleSaveScript(false);
+            }
+            p.showToastMsg(`🎙️ Đang tạo audio thoại câu số ${index + 1}...`, 'loading');
+            const targetRole = msg.role === 'ai' ? 'ai' : 'user';
+            const targetVoice = targetRole === 'ai' ? (editingLaoVoice || p.laoVoice || 'Algieba') : (editingUserVoice || p.userVoice || 'Aoede');
+            const targetStyle = targetRole === 'ai' ? (editingLaoVoiceStyle || p.laoVoiceStyle || '') : (editingUserVoiceStyle || p.userVoiceStyle || '');
+            const success = await p.generateVoice(msg.id, msg.text, targetRole, selectedScript.id, true, null, null, false, targetVoice, targetStyle);
+            if (success) {
+                const res = await getChatMessagesAction(selectedScript.id);
+                if (res.success && res.data) {
+                    const mapped = res.data.map((m: any) => ({
+                        id: m.id,
+                        role: m.role.toLowerCase() === 'user' ? 'user' : 'ai',
+                        text: m.content,
+                        audioUrl: m.audioUrl,
+                        emotion: m.emotion || 'calm'
+                    }));
+                    setEditingMessages(mapped);
+                }
+                p.showToastMsg(`Đã tạo xong audio thoại câu số ${index + 1}!`, 'success');
+            } else {
+                p.showToastMsg(`Lỗi tạo audio thoại câu số ${index + 1}.`, 'error');
+            }
+        } catch (err: any) {
+            p.showToastMsg(`Lỗi tạo audio: ${err?.message || 'Không thể tạo âm thanh'}`, 'error');
+        } finally {
+            setGeneratingAudio(false);
+            setAudioProgress(null);
+        }
+    };
+
     // Tạo audio trực tiếp trong edit view, tự động lưu trước
     const handleGenerateAudioInEditView = async (forceAll: boolean = false) => {
         setGeneratingAudio(true);
@@ -2121,6 +2159,9 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                                         <div key={b.id || idx} className={`flex flex-col gap-2 p-3 rounded-xl border transition-all ${isLao ? 'bg-orange-950/20 border-orange-500/20' : (isOutro ? 'bg-purple-950/20 border-purple-500/20' : 'bg-indigo-950/20 border-indigo-500/20')}`}>
                                                             <div className="flex items-center justify-between gap-2">
                                                                 <div className="flex items-center gap-2">
+                                                                    <span className="text-xs font-mono font-black text-slate-400 bg-slate-900 border border-white/10 px-1.5 py-0.5 rounded-md select-none">
+                                                                        #{idx + 1}
+                                                                    </span>
                                                                     <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${isLao ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' : (isOutro ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30')}`}>
                                                                         {roleName}
                                                                     </span>
@@ -2157,7 +2198,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                                                     ) : null}
                                                                     <button 
                                                                         type="button" 
-                                                                        onClick={() => handleGenerateAudioInEditView(false)}
+                                                                        onClick={() => handleGenerateSingleBlockAudio(b, idx)}
                                                                         disabled={generatingAudio || saving}
                                                                         className="text-[11px] font-bold text-slate-300 bg-slate-800 border border-white/10 px-2.5 py-1 rounded-md hover:bg-slate-700 disabled:opacity-50 flex items-center gap-1 transition-colors cursor-pointer"
                                                                     >
