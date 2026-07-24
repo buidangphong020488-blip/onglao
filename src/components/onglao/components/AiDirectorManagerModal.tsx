@@ -112,7 +112,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     const [editingLaoStyle, setEditingLaoStyle] = useState('Từ bi, ôn hòa, dắt dụ từng bước');
     const [editingUserEmotionArc, setEditingUserEmotionArc] = useState('Từ đau khổ/bế tắc chuyển dần sang an lạc/bừng sáng');
     const [editingLanguage, setEditingLanguage] = useState('vi');
-    const [editingIncludePoem, setEditingIncludePoem] = useState<boolean>(true);
+    const [editingIncludePoem, setEditingIncludePoem] = useState<boolean>(false);
     const [isRegenerating, setIsRegenerating] = useState(false);
 
     // Đồng bộ hoá action (insert/update), type (manual/ai) và id lên URL slug khi tạo mới hoặc sửa kịch bản
@@ -1457,9 +1457,6 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                             Đã chọn {selectedIds.size}
                                         </span>
                                     )}
-                                    <button onClick={handleCreateAIScript} disabled={saving} className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 px-5 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg border border-indigo-500/50 hover:scale-105 disabled:opacity-50 cursor-pointer">
-                                        <Plus size={15} /> + Tạo kịch bản
-                                    </button>
                                 </div>
                                 <div className="flex gap-2 items-center flex-wrap">
                                     {/* Bulk action buttons */}
@@ -1485,6 +1482,9 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                             </button>
                                         </>
                                     )}
+                                    <button onClick={handleCreateAIScript} disabled={saving} className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg border border-indigo-500/50 hover:scale-105 disabled:opacity-50 cursor-pointer">
+                                        <Plus size={14} /> Tạo kịch bản
+                                    </button>
                                 </div>
                             </div>
 
