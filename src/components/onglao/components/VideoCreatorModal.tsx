@@ -382,6 +382,14 @@ const VideoCreatorModal = () => {
   } = p;
 
   const [showLibraryModal, setShowLibraryModal] = React.useState(false);
+    const [selectedLibraryCategory, setSelectedLibraryCategory] = React.useState<string>('ALL');
+    const [stagedClips, setStagedClips] = React.useState<any[]>([]);
+    const [previewVideoUrl, setPreviewVideoUrl] = React.useState<string | null>(null);
+    const [showBatchUploadLibraryDrawer, setShowBatchUploadLibraryDrawer] = React.useState(false);
+    const [batchCategoryName, setBatchCategoryName] = React.useState('');
+    const [batchRoleTag, setBatchRoleTag] = React.useState('lao');
+    const [batchEmotionTag, setBatchEmotionTag] = React.useState('calm');
+    const libraryFileInputRef = React.useRef<HTMLInputElement>(null);
 
     // TÂM AN THÊM: STATE CHO PHÂN TRANG VÀ TÌM KIẾM TRONG KHO CẢNH QUAY
     const [librarySearchTerm, setLibrarySearchTerm] = React.useState('');
@@ -415,15 +423,6 @@ const VideoCreatorModal = () => {
         const startIndex = (libraryCurrentPage - 1) * libraryPageSize;
         return filteredLibraryClips.slice(startIndex, startIndex + libraryPageSize);
     }, [filteredLibraryClips, libraryCurrentPage, libraryPageSize]);
-
-    const [selectedLibraryCategory, setSelectedLibraryCategory] = React.useState<string>('ALL');
-    const [stagedClips, setStagedClips] = React.useState<any[]>([]);
-    const [previewVideoUrl, setPreviewVideoUrl] = React.useState<string | null>(null);
-    const [showBatchUploadLibraryDrawer, setShowBatchUploadLibraryDrawer] = React.useState(false);
-    const [batchCategoryName, setBatchCategoryName] = React.useState('');
-    const [batchRoleTag, setBatchRoleTag] = React.useState('lao');
-    const [batchEmotionTag, setBatchEmotionTag] = React.useState('calm');
-    const libraryFileInputRef = React.useRef<HTMLInputElement>(null);
 
     const handleStageClip = (clip: any) => {
         const stageId = `stage_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
