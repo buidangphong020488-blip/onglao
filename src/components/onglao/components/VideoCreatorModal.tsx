@@ -437,10 +437,10 @@ const VideoCreatorModal = () => {
     const handleConfirmStagedClips = () => {
         if (!stagedClips || stagedClips.length === 0) return;
         const newScenes = stagedClips.map((stg: any, idx: number) => ({
-            id: `scene_stg_${Date.now()}_${idx}`,
+            id: `scene_stg_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 4)}`,
             role: stg.role || 'lao',
             emotion: stg.emotion || 'calm',
-            url: stg.url || null,
+            url: stg.idbKey ? `idb://${stg.idbKey}` : stg.url,
             idbKey: stg.idbKey || null,
             name: stg.name || `Cảnh quay ${idx + 1}`
         }));
