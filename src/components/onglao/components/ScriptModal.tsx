@@ -53,6 +53,7 @@ function parseToBlocks(
     text: string,
     laoName: string,
     userName: string,
+    characterStatesArr: any[] = []
 ): ScriptBlockFull[] {
     const lines = text.split('\n').filter(l => l.trim());
     if (!lines.length) return [{ id: '0', role: 'user', emotion: 'calm', text: '' }];
@@ -218,7 +219,13 @@ const ScriptModalInner = (
         if (scriptText === lastParsedRef.current) return;
         lastParsedRef.current = scriptText;
 
-        const parsed = parseToBlocks(scriptText, laoName, userName);
+        let statesArr: any[] = [];
+        try {
+            if (publicSettings?.characterStates) {
+                statesArr = typeof publicSettings.characterStates === 'string' ? JSON.parse(publicSettings.characterStates) : publicSettings.characterStates;
+            }
+        } catch {}
+        const parsed = parseToBlocks(scriptText, laoName, userName, statesArr);
 
         // Khởi tạo initialTexts và tạo refs mới
         const newTexts: Record<string, string> = {};

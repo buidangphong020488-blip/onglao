@@ -438,7 +438,19 @@ const VideoCreatorModal = () => {
     renderHistory, setRenderHistory, deleteRenderHistoryItem
   } = p;
 
-  const [showLibraryModal, setShowLibraryModal] = React.useState(false);
+      const [dbCharacterStates, setDbCharacterStates] = React.useState<any[]>([]);
+
+    React.useEffect(() => {
+        fetch('/api/public/character-states')
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data) && data.length > 0) {
+                    setDbCharacterStates(data);
+                }
+            })
+            .catch(err => console.error('Lỗi fetch character states:', err));
+    }, []);
+    const [showLibraryModal, setShowLibraryModal] = React.useState(false);
     const [targetPickerSceneId, setTargetPickerSceneId] = React.useState<string | null>(null);
     const [selectedLibraryCategory, setSelectedLibraryCategory] = React.useState<string>('ALL');
     const [stagedClips, setStagedClips] = React.useState<any[]>([]);
