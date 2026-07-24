@@ -1,15 +1,31 @@
-# 🛠 KĨ THUẬT XỬ LÝ LUỒNG ĐÀM THOẠI, TẠO KỊCH BẢN & DỰNG VIDEO PHÁP BẢO (TECHNICAL PIPELINE SPECIFICATION)
+# 🛠 KĨ THUẬT XỬ LÝ LUỒNG ĐÀM THOẠI, CHAT GIÁC NGỘ AI, TẠO KỊCH BẢN & DỰNG VIDEO PHÁP BẢO (TECHNICAL PIPELINE SPECIFICATION)
 
 Tài liệu mô tả chi tiết toàn bộ kiến trúc kĩ thuật, quy trình xử lý dữ liệu và luồng âm thanh/hình ảnh khi hệ thống **Ông Lão** thực hiện:
 1. **Luồng Đàm thoại trực tiếp (Live Conversation Step)**
-2. **Luồng Đạo diễn & Sáng tạo Kịch bản AI (AI Director Script Pipeline)**
-3. **Luồng Dựng & Render Video Pháp Bảo Toàn Cảnh (FullFrame Video Creator Pipeline)**
+2. **Mô-đun Chat Giác Ngộ AI & Sinh Nội Dung (GiacNgo Chat Engine & Content Generation)**
+3. **Luồng Đạo diễn & Sáng tạo Kịch bản AI (AI Director Script Pipeline)**
+4. **Luồng Dựng & Render Video Pháp Bảo Toàn Cảnh (FullFrame Video Creator Pipeline)**
 
 ---
 
-## 📌 1. KIẾN TRÚC TỔNG QUAN (TECHNICAL ARCHITECTURE)
+## 📌 1. KIẾN TRÚC TỔNG QUAN HỆ THỐNG (SYSTEM ARCHITECTURE)
 
-Một lượt đàm thoại & dựng video tiêu chuẩn gồm **3 thành phần âm thanh & văn bản** kết hợp nối tiếp nhau:
+Hệ thống **Ông Lão** được tích hợp chặt chẽ với **Hệ sinh thái Giác Ngộ AI Backend** theo mô hình N-Tier:
+
+```text
+┌─────────────────────────┐       ┌─────────────────────────┐       ┌─────────────────────────┐
+│     ÔNG LÃO CLIENT      │  ──►  │ NEXT.JS API PROXY ROUTE │  ──►  │    GIÁC NGỘ CORE AI     │
+│  React Canvas/Video UI  │       │  /api/giacngo/* Routes  │       │  https://giac.ngo/api  │
+└─────────────────────────┘       └─────────────────────────┘       └─────────────────────────┘
+            │                                 │                                 │
+            ▼                                 ▼                                 ▼
+┌─────────────────────────┐       ┌─────────────────────────┐       ┌─────────────────────────┐
+│  MÀO ĐẦU & KỆ PHÁP DB   │       │   GEMINI 2.5 FLASH TTS  │       │  POSTGRESQL DATABASE    │
+│  Audio MP3 (Độ trễ 0s)  │       │   Synthesize WAV Voice  │       │  Sessions, Msgs, Clips  │
+└─────────────────────────┘       └─────────────────────────┘       └─────────────────────────┘
+```
+
+Một lượt đàm thoại tiêu chuẩn gồm **3 thành phần âm thanh & văn bản** kết hợp nối tiếp nhau:
 
 ```text
 ┌────────────────────────┐      ┌────────────────────────┐      ┌────────────────────────┐
@@ -21,7 +37,37 @@ Một lượt đàm thoại & dựng video tiêu chuẩn gồm **3 thành phần
 
 ---
 
-## ⚙️ 2. QUY TRÌNH THỰC THI CHI TIẾT 4 BƯỚC ĐÀM THOẠI
+## 🤖 2. MÔ-ĐUN CHAT GIÁC NGỘ AI & SINH NỘI DUNG (GIACNGO CHAT ENGINE)
+
+Mô-đun **GiacNgo Chat Engine** đảm nhận việc giao tiếp với trí tuệ nhân tạo để sinh câu trả lời triết lý, nội dung kịch bản và kiến thức Phật pháp.
+
+### 2.1. Cấu Trúc API Routes Middleware (`/api/giacngo/*`)
+Hệ thống Ông Lão sử dụng Next.js API Routes làm màng lọc bảo mật (Proxy Server-Side) tới server **GiacNgo Core**:
+
+- `POST /api/giacngo/chat`: Gửi câu hỏi đàm thoại, nhận phản hồi dạng JSON hoàn chỉnh.
+- `POST /api/giacngo/chat/stream`: Forward trực tiếp dòng dữ liệu dạng Server-Sent Events (SSE) để hiển thị chữ chạy thời gian thực trên giao diện.
+- `GET /api/giacngo/public-ais`: Lấy danh sách nhân dạng AI agents có sẵn trên hệ thống.
+- `GET /api/giacngo/library`: Kết nối kho tài liệu tri thức RAG Giác Ngộ.
+
+### 2.2. Cơ Chế Xác Thực & Mã Service Token
+- **Service Token (`GIACNGO_SERVICE_TOKEN`)**: Trường hợp người dùng chưa đăng nhập, hệ thống tự động sử dụng Token dịch vụ cấp quyền cao nhất của ứng dụng Ông Lão để gọi AI mà không làm gián đoạn trải nghiệm người dùng.
+- **User JWT Bearer Token**: Khi người dùng đã đăng nhập, Token của người dùng sẽ được gửi qua Header `Authorization: Bearer <token>` để cá nhân hóa lịch sử trò chuyện và lưu vết trong `spaceId`.
+
+### 2.3. Quy Trình Gọi AI Sinh Nội Dung (`giacNgoChat.sendJson`)
+```typescript
+const result = await giacNgoChat.sendJson(
+  aiConfigId,     // ID cấu hình nhân dạng Ông Lão (VD: 1)
+  message,        // Tin nhắn / Trăn trở của người dùng
+  token,          // Authorization Token
+  language,       // Tiếng Việt ('vi') hoặc Tiếng Anh ('en')
+  userPersona,    // Thông tin nhân dạng người hỏi
+  spaceId         // ID Không gian tri thức Giác Ngộ (VD: 1)
+);
+```
+
+---
+
+## ⚙️ 3. QUY TRÌNH THỰC THI CHI TIẾT 4 BƯỚC ĐÀM THOẠI
 
 ### BƯỚC 1: XỬ LÝ CÂU MÀO ĐẦU (OPENING PHRASE / GREETING)
 1. **Phân loại Ngữ cảnh (Category Mapping)**:
@@ -54,8 +100,8 @@ Một lượt đàm thoại & dựng video tiêu chuẩn gồm **3 thành phần
 
 Trong lúc 2 âm thanh mào đầu & kệ đang phát, hệ thống chạy **Worker ngầm (Background Prefetch)** để xử lý phần giải đáp:
 
-1. **Sinh Văn Bản Giải Đáp (LLM Generation)**:
-   - Gửi Prompt sang Gemini API kèm ngữ cảnh cuộc trò chuyện.
+1. **Sinh Văn Bản Giải Đáp Qua GiacNgo Engine**:
+   - Gửi yêu cầu tới `/api/giacngo/chat` kèm ngữ cảnh cuộc trò chuyện.
    - AI trả về văn bản kèm nhãn cảm xúc ở đầu dòng (VD: `[vui] An lạc vốn dĩ ở trong tâm con...`).
 2. **Làm Sạch Văn Bản Cho TTS (`cleanTextForTTS`)**:
    - Loại bỏ các ký tự đặc biệt, nhãn tag `[vui]`, `[buon]`.
@@ -95,23 +141,23 @@ Trong lúc 2 âm thanh mào đầu & kệ đang phát, hệ thống chạy **Wor
 
 ---
 
-## 📝 5. LUỒNG KĨ THUẬT TẠO KỊCH BẢN ĐẠO DIỄN (AI DIRECTOR SCRIPT PIPELINE)
+## 📝 4. LUỒNG KĨ THUẬT TẠO KỊCH BẢN ĐẠO DIỄN (AI DIRECTOR SCRIPT PIPELINE)
 
 ```text
 ┌────────────────────────────────┐       ┌────────────────────────────────┐       ┌────────────────────────────────┐
-│  AI PROMPT / NHẬP THỦ CÔNG     │  ──►  │   BÓC TÁCH THOẠI & EMOTION     │  ──►  │  LƯU DB (ChatSession/Message)  │
+│  GIÁC NGỘ AI PROMPT / NHẬP     │  ──►  │   BÓC TÁCH THOẠI & EMOTION     │  ──►  │  LƯU DB (ChatSession/Message)  │
 │  Topic, Role, Emotion Arc      │       │   Con [buon], Lão [vui]        │       │  laoVoice, userVoice, emotion  │
 └────────────────────────────────┘       └────────────────────────────────┘       └────────────────────────────────┘
 ```
 
-### 5.1. Chế Độ 1: AI Tự Động Soạn Kịch Bản (AI Auto Generator)
+### 4.1. Chế Độ 1: AI Tự Động Soạn Kịch Bản (AI Auto Generator)
 1. **Tham Số Đầu Vào**:
    - `topic`: Chủ đề kịch bản (VD: *"Vượt qua áp lực công danh"*).
    - `length`: Số cặp câu thoại (VD: *"Khoảng 6-10 câu"*).
    - `laoStyle`: Phong cách giảng đạo của Lão (VD: *"Từ bi, ôn hòa, dắt dụ từng bước"*).
    - `userEmotionArc`: Mạch cảm xúc người hỏi (VD: *"Từ đau khổ/bế tắc chuyển dần sang an lạc/bừng sáng"*).
-2. **Gọi AI Prompt Engineering**:
-   - Gửi yêu cầu tới Gemini API kèm System Prompt quy định rõ cấu pháp output:
+2. **Gọi GiacNgo Chat API & Prompt Engineering**:
+   - Gửi yêu cầu tới `/api/giacngo/chat` kèm System Prompt quy định rõ cấu pháp output:
      ```text
      Con [buon]: Lão ơi, con thấy không vui chút nào cả.
      Lão [vui]: Cái "không vui" ấy, con thấy nó đến từ đâu?
@@ -123,7 +169,7 @@ Trong lúc 2 âm thanh mào đầu & kệ đang phát, hệ thống chạy **Wor
      - `userVoice`: `"Aoede"` | `userVoiceStyle`: *"Giọng thanh niên, thắc mắc..."*
    - Gọi `saveChatMessageAction` cho từng câu thoại kèm nhãn cảm xúc (`emotion: "buon"`, `emotion: "vui"`).
 
-### 5.2. Chế Độ 2: Bóc Tách Kịch Bản Thủ Công (`parseToBlocks` & `handleImportScript`)
+### 4.2. Chế Độ 2: Bóc Tách Kịch Bản Thủ Công (`parseToBlocks` & `handleImportScript`)
 1. **Regex Phân Tách Dòng**:
    - Phân tích chuỗi văn bản đầu vào theo từng dòng thoại:
      - Dòng bắt đầu bằng `Con:`, `Hỏi:` $\rightarrow$ `role = "user"`
@@ -138,7 +184,7 @@ Trong lúc 2 âm thanh mào đầu & kệ đang phát, hệ thống chạy **Wor
 
 ---
 
-## 🎬 6. LUỒNG KĨ THUẬT DỰNG & RENDER VIDEO PHÁP BẢO (VIDEO CREATOR PIPELINE)
+## 🎬 5. LUỒNG KĨ THUẬT DỰNG & RENDER VIDEO PHÁP BẢO (VIDEO CREATOR PIPELINE)
 
 ```text
 ┌────────────────────────────────┐       ┌────────────────────────────────┐       ┌────────────────────────────────┐
@@ -147,7 +193,7 @@ Trong lúc 2 âm thanh mào đầu & kệ đang phát, hệ thống chạy **Wor
 └────────────────────────────────┘       └────────────────────────────────┘       └────────────────────────────────┘
 ```
 
-### 6.1. Giai Đoạn 1: Tự Động Khớp Cảnh Quay & Video Clip (`autoScenes`)
+### 5.1. Giai Đoạn 1: Tự Động Khớp Cảnh Quay & Video Clip (`autoScenes`)
 1. **Tạo Danh Sách Cảnh (`ffScenes`) Từ Kịch Bản**:
    - Mỗi câu thoại `ChatMessage` được chuyển đổi thành 1 Thẻ Cảnh Quay (`Scene Card`):
      - `targetRole`: `"lao"` (nếu role thoại là `ai`/`ASSISTANT`), `"user"` (nếu role thoại là `user`), hoặc `"outro"`.
@@ -161,14 +207,14 @@ Trong lúc 2 âm thanh mào đầu & kệ đang phát, hệ thống chạy **Wor
 3. **Kiểm Tra & Loại Bỏ Xung Đột Góc Máy (Role Conflict Safeguard)**:
    - Nếu cảnh mang vai `"user"` (Máy quay Con) nhưng clip mang tên chứa `lao` $\rightarrow$ Tự động xóa bỏ URL lệch góc máy, trả về khung chờ clip chuẩn cho Con.
 
-### 6.2. Giai Đoạn 2: Tổng Hợp Âm Thanh & Nhạc Nền (Multi-Speaker TTS & BGM Mixing)
+### 5.2. Giai Đoạn 2: Tổng Hợp Âm Thanh & Nhạc Nền (Multi-Speaker TTS & BGM Mixing)
 1. **Kiểm Tra & Tạo Âm Thanh Thiếu**:
    - Hệ thống quét danh sách cảnh thoại. Nếu câu thoại nào chưa có `audioUrl`, tự động gọi `generateVoice()` với đúng `voiceName` và `voiceStyle` cấu hình của kịch bản.
 2. **Hòa Âm Nhạc Nền (BGM Mixing)**:
    - Nạp file âm thanh nhạc nền BGM (`bgmAudioData`).
    - Thiết lập âm lượng nhạc nền qua `AudioNode.gain.value` (mặc định `0.15 - 0.25`) để nhạc chạy ngầm dưới giọng đọc thoại.
 
-### 6.3. Giai Đoạn 3: Render & Xuất File Video MP4 (Canvas Composite & FFmpeg / MediaRecorder)
+### 5.3. Giai Đoạn 3: Render & Xuất File Video MP4 (Canvas Composite & FFmpeg / MediaRecorder)
 1. **Compositing Trên Offscreen Canvas**:
    - Vẽ video clip nền tương ứng với tỷ lệ `9:16` (1080x1920) hoặc `16:9` (1920x1080).
    - Đè lớp Phụ đề mẫu (Subtitle Overlays) ngắt câu chuẩn.
@@ -181,41 +227,44 @@ Trong lúc 2 âm thanh mào đầu & kệ đang phát, hệ thống chạy **Wor
 
 ---
 
-## 📊 7. SƠ ĐỒ LUỒNG DỮ LIỆU ĐÀM THOẠI & DỰNG VIDEO (MERMAID SEQUENCE DIAGRAM)
+## 📊 6. SƠ ĐỒ LUỒNG DỮ LIỆU TỔNG THỂ (MERMAID SEQUENCE DIAGRAM)
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor User as Người dùng
     participant UI as Giao diện Client
-    participant Server as Next.js API Server
+    participant Proxy as Next.js API Proxy (/api/giacngo)
+    participant Core as GiacNgo Core AI Backend
     participant DB as PostgreSQL DB
     participant TTS as Gemini 2.5 Flash TTS
 
     User->>UI: 1. Nhập câu hỏi đàm thoại / Tạo kịch bản AI
-    UI->>Server: POST /api/giacngo/chat (Sinh thoại & Tag Cảm xúc)
-    Server->>DB: Lưu ChatSession (laoVoice, userVoice) & ChatMessage (emotion)
-    DB-->>UI: Trả về Danh sách thoại + Emotion Tags
+    UI->>Proxy: POST /api/giacngo/chat (kèm aiConfigId & spaceId)
+    Proxy->>Core: POST /api/v1/chat (Forward request với Bearer Token)
+    Core-->>Proxy: Trả về Nội dung phản hồi + Emotion Tags
+    Proxy-->>UI: Forward JSON Response
+    UI->>DB: Lưu ChatSession (laoVoice, userVoice) & ChatMessage (emotion)
     
     User->>UI: 2. Nhấn nút "Tạo Video" (Mở VideoCreatorModal)
     UI->>UI: autoScenes đối chiếu Role & Emotion với Kho Clip
     UI->>UI: Khớp clip "con_buon.mp4" cho Con, "lao_vui.mp4" cho Lão
     
     User->>UI: 3. Nhấn nút "Bắt Đầu Render"
-    UI->>Server: Gọi TTS cho các thoại thiếu (Algieba cho Lão, Aoede cho Con)
-    Server->>TTS: Request Audio (voiceConfig riêng từng vai)
-    TTS-->>Server: Base64 Audio Content
-    Server-->>UI: Audio WAV Blobs
+    UI->>Proxy: Gọi TTS cho các thoại thiếu (Algieba cho Lão, Aoede cho Con)
+    Proxy->>TTS: Request Audio (POST /api/tts với voiceConfig từng vai)
+    TTS-->>Proxy: Base64 Audio Content
+    Proxy-->>UI: Audio WAV Blobs
     
     UI->>UI: Composite Video Clip + Audio + Subtitle + Logo trên Canvas
-    UI->>Server: Gửi Stream xuất MP4 (hoặc MediaRecorder local)
-    Server-->>UI: Trả về File Video MP4 1080p
+    UI->>Proxy: Gửi Stream xuất MP4 (hoặc MediaRecorder local)
+    Proxy-->>UI: Trả về File Video MP4 1080p
     UI-->>User: Tải Video thành công & Lưu Lịch Sử
 ```
 
 ---
 
-## 🗄️ 8. BẢNG DỮ LIỆU THAM CHIẾU (DATABASE SCHEMAS)
+## 🗄️ 7. BẢNG DỮ LIỆU THAM CHIẾU (DATABASE SCHEMAS)
 
 - **`OpeningPhrase`**: `id`, `text`, `audioUrl`, `category`, `tags`.
 - **`Stanza`**: `id`, `poemId`, `content`, `meaning`, `audioUrl`.
