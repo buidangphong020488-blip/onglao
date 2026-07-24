@@ -426,8 +426,9 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                 // Tạo raw text cho 1 textbox
                 const raw = mapped.map((m: any) => {
                     const prefix = m.role === 'ai' ? (p.customLaoName || 'Lão') : (m.role === 'outro' ? 'Outro' : (p.customUserName || 'Con'));
-                    return `${prefix}: ${m.text}`;
-                }).join('\n\n');
+                    const emoTag = m.emotion && m.emotion !== 'calm' ? `[${m.emotion === 'joy' ? 'vui' : (m.emotion === 'sad' ? 'buồn' : (m.emotion === 'hook' ? 'hook' : m.emotion))}] ` : '';
+                    return `${prefix}: ${emoTag}${m.text}`;
+                }).join('\n');
                 setEditingRawText(raw);
 
                 setView('edit');
@@ -2092,7 +2093,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                             <textarea
                                                 value={editingRawText}
                                                 onChange={(e) => setEditingRawText(e.target.value)}
-                                                placeholder={`Dán hoặc gõ kịch bản thủ công tại đây...\n\nVí dụ:\n${p.customLaoName || 'Lão'}: [vui] Nghe ${p.customLaoName || 'Lão'} nói đây, mọi khổ đau đều từ chấp thủ mà ra...\n${p.customUserName || 'Con'}: [buồn] ${p.customUserName || 'Con'} cảm ơn ${p.customLaoName || 'Lão'} đã khai thị...\nOutro: [kết thúc] Sư Cha Tam Vô đã hướng dẫn...`}
+                                                placeholder={`Dán hoặc gõ kịch bản thủ công tại đây...\nVí dụ:\n${p.customLaoName || 'Lão'}: [vui] Nghe ${p.customLaoName || 'Lão'} nói đây, mọi khổ đau đều từ chấp thủ mà ra...\n${p.customUserName || 'Con'}: [buồn] ${p.customUserName || 'Con'} cảm ơn ${p.customLaoName || 'Lão'} đã khai thị...\nOutro: [kết thúc] Sư Cha Tam Vô đã hướng dẫn...`}
                                                 className="w-full h-44 bg-slate-950 border border-indigo-500/30 rounded-2xl p-3 text-[11px] sm:text-xs text-white focus:border-indigo-500 outline-none resize-y font-mono leading-relaxed placeholder:text-slate-600 shadow-inner"
                                             />
                                         </div>
