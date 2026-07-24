@@ -383,6 +383,19 @@ const VideoCreatorModal = () => {
       }
     }
   }, [p.showVideoExportModal, p.currentSessionId, p.renderHistory]);
+  const [dbCharacterStates, setDbCharacterStates] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+      fetch('/api/public/character-states')
+          .then(res => res.json())
+          .then(data => {
+              if (Array.isArray(data) && data.length > 0) {
+                  setDbCharacterStates(data);
+              }
+          })
+          .catch(err => console.error('Lỗi fetch character states:', err));
+  }, []);
+
   // Tự động chia cảnh theo từng câu thoại khi mở modal (nếu chưa có scene gán message cụ thể)
   React.useEffect(() => {
     if (!p.showVideoExportModal) return;
@@ -438,18 +451,7 @@ const VideoCreatorModal = () => {
     renderHistory, setRenderHistory, deleteRenderHistoryItem
   } = p;
 
-      const [dbCharacterStates, setDbCharacterStates] = React.useState<any[]>([]);
 
-    React.useEffect(() => {
-        fetch('/api/public/character-states')
-            .then(res => res.json())
-            .then(data => {
-                if (Array.isArray(data) && data.length > 0) {
-                    setDbCharacterStates(data);
-                }
-            })
-            .catch(err => console.error('Lỗi fetch character states:', err));
-    }, []);
     const [showLibraryModal, setShowLibraryModal] = React.useState(false);
     const [targetPickerSceneId, setTargetPickerSceneId] = React.useState<string | null>(null);
     const [selectedLibraryCategory, setSelectedLibraryCategory] = React.useState<string>('ALL');
