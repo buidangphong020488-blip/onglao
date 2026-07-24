@@ -1122,10 +1122,12 @@ const VideoCreatorModal = () => {
                                                     );
                                                 })()}
                                                 {(() => {
-                                                    const msg = scene.msgId ? messages?.find((m: any) => m.id === scene.msgId) : null;
-                                                    const hasAudio = msg ? !!msg.audioUrl : false;
-                                                    const isAudioPlaying = msg ? (playingMsgId === scene.msgId) : false;
-                                                    const isAudioGenerating = msg ? (!!generatingMsgIds[scene.msgId]) : false;
+                                                    const msg = (scene.msgId || scene.textSnippet) ? messages?.find((m: any) => (scene.msgId && String(m.id) === String(scene.msgId)) || (scene.textSnippet && m.text && m.text.trim() === scene.textSnippet.trim())) : null;
+                                                    const audioUrl = msg?.audioUrl || scene.audioUrl;
+                                                    const hasAudio = !!audioUrl;
+                                                    const targetMsgId = scene.msgId || msg?.id || scene.id;
+                                                    const isAudioPlaying = targetMsgId ? (playingMsgId === targetMsgId) : false;
+                                                    const isAudioGenerating = targetMsgId ? (!!generatingMsgIds[targetMsgId]) : false;
                                                     return (
                                                         <div className="flex gap-1.5 w-full items-center">
                                                             <select 
@@ -1147,19 +1149,21 @@ const VideoCreatorModal = () => {
                                                                 ))}
                                                             </select>
                                                             {/* 2 nút Play/Refresh nằm kế bên phải combobox trạng thái */}
-                                                            {msg && (
+                                                            {(scene.msgId || msg || scene.textSnippet) && (
                                                                 <div className="flex items-center gap-1 shrink-0">
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => {
-                                                                            if (hasAudio) {
-                                                                                handlePlayMsgAudio(scene.msgId, msg.audioUrl);
+                                                                            const audioUrl = msg?.audioUrl || scene.audioUrl;
+                                                                            const targetMsgId = scene.msgId || msg?.id || scene.id;
+                                                                            if (hasAudio && audioUrl) {
+                                                                                handlePlayMsgAudio(targetMsgId, audioUrl);
                                                                             }
                                                                         }}
                                                                         disabled={!hasAudio}
                                                                         className={`w-7 h-7 rounded flex items-center justify-center transition-colors border border-white/5 ${
                                                                             hasAudio 
-                                                                                ? 'bg-slate-800 hover:bg-slate-700 text-indigo-400 hover:text-indigo-300 cursor-pointer' 
+                                                                                ? 'bg-slate-800 hover:bg-slate-700 text-indigo-400 hover:text-indigo-300 cursor-pointer shadow-md' 
                                                                                 : 'bg-slate-800/40 text-slate-600 cursor-not-allowed opacity-40'
                                                                         }`}
                                                                         title={hasAudio ? "Nghe thử giọng đọc" : "Chưa có audio"}
@@ -1168,7 +1172,11 @@ const VideoCreatorModal = () => {
                                                                     </button>
                                                                     <button
                                                                         type="button"
-                                                                        onClick={() => handleGenerateSingleAudio(scene.msgId, msg.text, scene.role)}
+                                                                        onClick={() => {
+                                                                            const targetMsgId = scene.msgId || msg?.id || scene.id;
+                                                                            const targetText = msg?.text || scene.textSnippet || '';
+                                                                            handleGenerateSingleAudio(targetMsgId, targetText, scene.role);
+                                                                        }}
                                                                         disabled={isAudioGenerating}
                                                                         className={`w-7 h-7 rounded transition-colors flex items-center justify-center cursor-pointer border border-white/5 ${
                                                                             isAudioGenerating 
