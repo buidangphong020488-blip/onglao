@@ -453,32 +453,63 @@ const VideoCreatorModal = () => {
     const handleBatchUploadToLibrary = async (files: FileList) => {
         if (!files || files.length === 0) return;
         try {
+            if (p.showToastMsg) p.showToastMsg(`Đang xử lý và nạp ${files.length} file video vào kho...`, 'loading', 0);
             let addedCount = 0;
+            const newClipsToAdd: any[] = [];
+
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                const fileUrl = URL.createObjectURL(file);
                 const clipName = file.name.replace(/\.[^/.]+$/, "");
+                
+                const fileNameLower = file.name.toLowerCase();
+                let detectedRole = 'lao';
+                if (fileNameLower.includes('user') || fileNameLower.includes('con')) detectedRole = 'user';
+                else if (fileNameLower.includes('outro') || fileNameLower.includes('ket')) detectedRole = 'outro';
+
+                let detectedEmotion = 'calm';
+                if (fileNameLower.includes('joy') || fileNameLower.includes('vui')) detectedEmotion = 'joy';
+                else if (fileNameLower.includes('sad') || fileNameLower.includes('buon')) detectedEmotion = 'sad';
+                else if (fileNameLower.includes('hook') || fileNameLower.includes('intro')) detectedEmotion = 'hook';
+
+                const idbKey = `ff_clip_${detectedRole}_${detectedEmotion}_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 4)}`;
+                await idb.set(idbKey, file);
+
+                const fileBlobUrl = URL.createObjectURL(file);
+
                 const newClip = {
-                    id: `batch_${Date.now()}_${i}`,
-                    name: `[${batchCategoryName || 'Kho Mới'}] ${clipName}`,
-                    category: batchCategoryName || 'Kho Mới',
-                    role: batchRoleTag,
-                    emotion: batchEmotionTag,
-                    url: fileUrl,
-                    aspect: p.videoAspectRatio === '9x16' ? 'doc' : 'ngang'
+                    id: idbKey,
+                    name: clipName,
+                    role: detectedRole,
+                    emotion: detectedEmotion,
+                    url: fileBlobUrl,
+                    idbKey: idbKey,
+                    category: 'Tải Lên'
                 };
-                if (p.executeSaveFfClip) {
-                    await p.executeSaveFfClip(newClip);
-                    addedCount++;
-                }
+
+                newClipsToAdd.push(newClip);
+                addedCount++;
             }
-            if (p.showToastMsg) p.showToastMsg(`Đã nạp thành công ${addedCount} clip mới vào kho "${batchCategoryName || 'Kho Mới'}"!`, 'success');
-            setShowBatchUploadLibraryDrawer(false);
+
+            const currentList = p.localFfClips || [];
+            const updatedList = [...currentList, ...newClipsToAdd];
+            if (p.setLocalFfClips) p.setLocalFfClips(updatedList);
+            localStorage.setItem('taman_local_ff_clips', JSON.stringify(updatedList.map(c => ({
+                id: c.id,
+                name: c.name,
+                role: c.role,
+                emotion: c.emotion,
+                idbKey: c.idbKey,
+                category: c.category,
+                url: c.idbKey ? `idb://${c.idbKey}` : c.url
+            }))));
+
+            if (p.showToastMsg) p.showToastMsg(`Đã nạp thành công ${addedCount} clip mới vào kho video!`, 'success');
         } catch (err) {
-            console.error(err);
-            if (p.showToastMsg) p.showToastMsg('Có lỗi khi upload clip vào kho!', 'error');
+            console.error('Lỗi nạp clip:', err);
+            if (p.showToastMsg) p.showToastMsg('Có lỗi khi lưu file video vào bộ nhớ trình duyệt!', 'error');
         }
     };
+
   const filteredHistory = React.useMemo(() => {
     if (!renderHistory) return [];
     if (!p.currentSessionId) return renderHistory;
@@ -1674,64 +1705,20 @@ const VideoCreatorModal = () => {
                                             const emotionName = clip.emotion === 'vui' || clip.emotion === 'joy' ? 'Vui Vẻ' : (clip.emotion === 'buon' || clip.emotion === 'sad' ? 'Buồn Bế Tắc' : (clip.emotion === 'hook' || clip.emotion === 'intro' ? 'Mào Đầu' : 'Bình Thường'));
                                             const globalIndex = (libraryCurrentPage - 1) * libraryPageSize + idx + 1;
                                             const displayName = clip.name && clip.name.trim() ? clip.name : `${clip.packName ? '[' + clip.packName + '] ' : ''}${roleName} - ${emotionName} #${globalIndex}`;
-                                            const formattedUrl = clip.url ? (clip.url.includes('#') ? clip.url : `${clip.url}#t=0.5`) : null;
 
                                             return (
-                                                <div key={`${clip.id || 'clip'}_${clip.packName || ''}_${idx}`} className={`flex flex-col bg-slate-950/90 border rounded-2xl p-2.5 gap-2 relative transition-all group shadow-md ${isSelected ? 'border-indigo-500 bg-indigo-950/40 ring-1 ring-indigo-500/50' : 'border-white/10 hover:border-indigo-500/40'}`}>
-                                                    <div 
-                                                        className="w-full aspect-video bg-slate-900 rounded-xl overflow-hidden relative flex items-center justify-center border border-white/5 cursor-pointer group/thumb"
-                                                        onClick={() => clip.url && setPreviewVideoUrl(clip.url)}
-                                                        title="Click để xem thử clip video này"
-                                                    >
-                                                        {clip.url ? (
-                                                            <video 
-                                                                src={formattedUrl} 
-                                                                preload="metadata" 
-                                                                onLoadedData={(e) => { e.currentTarget.currentTime = 0.5; }}
-                                                                onError={(e) => {
-                                                                    // Thẻ video bị lỗi 404 do file không tồn tại trên đĩa
-                                                                    e.currentTarget.style.display = 'none';
-                                                                    const parentDiv = e.currentTarget.parentElement;
-                                                                    if (parentDiv && !parentDiv.querySelector('.video-err-fallback')) {
-                                                                        const errDiv = document.createElement('div');
-                                                                        errDiv.className = 'video-err-fallback flex flex-col items-center justify-center p-2 text-amber-400 text-center gap-1 w-full h-full bg-slate-950/80';
-                                                                        errDiv.innerHTML = '<span style="font-size:10px;font-weight:bold;">⚠️ File video không có sẵn</span><span style="font-size:8px;color:#94a3b8;">Vui lòng bấm "Nạp Thêm" để nạp file mới</span>';
-                                                                        parentDiv.appendChild(errDiv);
-                                                                    }
-                                                                }}
-                                                                className="w-full h-full object-cover" 
-                                                            />
-                                                        ) : (
-                                                            <div className="flex flex-col items-center justify-center gap-1 text-slate-500">
-                                                                <Film size={24} />
-                                                                <span className="text-[9px]">Chưa có video</span>
-                                                            </div>
-                                                        )}
-                                                        {clip.url && (
-                                                            <div className="absolute inset-0 bg-black/30 group-hover/thumb:bg-black/50 transition-colors flex items-center justify-center">
-                                                                <span className="p-2 bg-indigo-600/90 hover:bg-indigo-500 rounded-full text-white shadow-xl transform group-hover/thumb:scale-110 transition-transform flex items-center justify-center">
-                                                                    <Play size={16} fill="white" className="ml-0.5" />
-                                                                </span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <div className="flex flex-col gap-1">
-                                                        <span className="text-[11px] font-bold text-white truncate" title={displayName}>{displayName}</span>
-                                                        <div className="flex items-center gap-1">
-                                                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${clip.role === 'lao' ? 'bg-orange-950/50 text-orange-400 border-orange-500/30' : (clip.role === 'outro' ? 'bg-purple-950/50 text-purple-400 border-purple-500/30' : 'bg-indigo-950/50 text-indigo-400 border-indigo-500/30')}`}>
-                                                                {roleName}
-                                                            </span>
-                                                            <span className="text-[9px] text-slate-300 font-semibold truncate bg-slate-800/80 px-1.5 py-0.5 rounded border border-white/5">{emotionName}</span>
-                                                        </div>
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleStageClip({ ...clip, name: displayName })}
-                                                        className={`w-full py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${isSelected ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md' : 'bg-indigo-600/80 hover:bg-indigo-600 text-white shadow-sm'}`}
-                                                    >
-                                                        {isSelected ? <Check size={12} /> : <Plus size={12} />} {isSelected ? 'Đã Chọn' : 'Thêm'}
-                                                    </button>
-                                                </div>
+                                                <LibraryClipCard 
+                                                    key={`${clip.id || 'clip'}_${clip.packName || ''}_${idx}`}
+                                                    clip={clip}
+                                                    idx={idx}
+                                                    globalIndex={globalIndex}
+                                                    isSelected={isSelected}
+                                                    roleName={roleName}
+                                                    emotionName={emotionName}
+                                                    displayName={displayName}
+                                                    handleStageClip={handleStageClip}
+                                                    setPreviewVideoUrl={setPreviewVideoUrl}
+                                                />
                                             );
                                         })}
                                     </div>
@@ -1841,4 +1828,90 @@ const VideoCreatorModal = () => {
 </div>
   );
 };
+
+// SUBCOMPONENT: LIBRARY CLIP CARD (RESOLVES IDB BLOB URLS AND HANDLES 404 ONERROR)
+const LibraryClipCard = ({ clip, idx, globalIndex, isSelected, roleName, emotionName, displayName, handleStageClip, setPreviewVideoUrl }: any) => {
+    const [blobUrl, setBlobUrl] = React.useState<string | null>(clip.url && !clip.url.startsWith('idb://') ? clip.url : null);
+    const [videoError, setVideoError] = React.useState(false);
+
+    React.useEffect(() => {
+        let isMounted = true;
+        let createdUrl: string | null = null;
+
+        const loadVideoBlob = async () => {
+            const keyToFetch = clip.idbKey || (clip.url && clip.url.startsWith('idb://') ? clip.url.replace('idb://', '') : null);
+            if (keyToFetch) {
+                try {
+                    const blob = await idb.get(keyToFetch);
+                    if (blob && isMounted) {
+                        createdUrl = URL.createObjectURL(blob);
+                        setBlobUrl(createdUrl);
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            } else if (clip.url && !clip.url.startsWith('idb://') && isMounted) {
+                setBlobUrl(clip.url);
+            }
+        };
+
+        loadVideoBlob();
+
+        return () => {
+            isMounted = false;
+            if (createdUrl) URL.revokeObjectURL(createdUrl);
+        };
+    }, [clip.url, clip.idbKey]);
+
+    const formattedUrl = blobUrl ? (blobUrl.includes('#') ? blobUrl : `${blobUrl}#t=0.5`) : null;
+
+    return (
+        <div className={`flex flex-col bg-slate-950/90 border rounded-2xl p-2.5 gap-2 relative transition-all group shadow-md ${isSelected ? 'border-indigo-500 bg-indigo-950/40 ring-1 ring-indigo-500/50' : 'border-white/10 hover:border-indigo-500/40'}`}>
+            <div 
+                className="w-full aspect-video bg-slate-900 rounded-xl overflow-hidden relative flex items-center justify-center border border-white/5 cursor-pointer group/thumb"
+                onClick={() => blobUrl && setPreviewVideoUrl(blobUrl)}
+                title="Click để xem thử clip video này"
+            >
+                {blobUrl && !videoError ? (
+                    <video 
+                        src={formattedUrl} 
+                        preload="metadata" 
+                        onLoadedData={(e) => { e.currentTarget.currentTime = 0.5; }}
+                        onError={() => setVideoError(true)}
+                        className="w-full h-full object-cover" 
+                    />
+                ) : (
+                    <div className="flex flex-col items-center justify-center gap-1 text-amber-500/80 p-2 text-center">
+                        <Film size={22} className="opacity-60" />
+                        <span className="text-[9px] font-semibold">{videoError ? 'File video không có sẵn' : 'Chưa có video'}</span>
+                    </div>
+                )}
+                {blobUrl && !videoError && (
+                    <div className="absolute inset-0 bg-black/30 group-hover/thumb:bg-black/50 transition-colors flex items-center justify-center">
+                        <span className="p-2 bg-indigo-600/90 hover:bg-indigo-500 rounded-full text-white shadow-xl transform group-hover/thumb:scale-110 transition-transform flex items-center justify-center">
+                            <Play size={16} fill="white" className="ml-0.5" />
+                        </span>
+                    </div>
+                )}
+            </div>
+            <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold text-white truncate" title={displayName}>{displayName}</span>
+                <div className="flex items-center gap-1">
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${clip.role === 'lao' ? 'bg-orange-950/50 text-orange-400 border-orange-500/30' : (clip.role === 'outro' ? 'bg-purple-950/50 text-purple-400 border-purple-500/30' : 'bg-indigo-950/50 text-indigo-400 border-indigo-500/30')}`}>
+                        {roleName}
+                    </span>
+                    <span className="text-[9px] text-slate-300 font-semibold truncate bg-slate-800/80 px-1.5 py-0.5 rounded border border-white/5">{emotionName}</span>
+                </div>
+            </div>
+            <button
+                type="button"
+                onClick={() => handleStageClip({ ...clip, url: blobUrl || clip.url, name: displayName })}
+                className={`w-full py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${isSelected ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md' : 'bg-indigo-600/80 hover:bg-indigo-600 text-white shadow-sm'}`}
+            >
+                {isSelected ? <Check size={12} /> : <Plus size={12} />} {isSelected ? 'Đã Chọn' : 'Thêm'}
+            </button>
+        </div>
+    );
+};
+
 export default VideoCreatorModal;
