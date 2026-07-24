@@ -1705,7 +1705,7 @@ const VideoCreatorModal = () => {
                                                     onClick={() => handleStageClip({ ...clip, name: displayName })}
                                                     className={`w-full py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${isSelected ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md' : 'bg-indigo-600/80 hover:bg-indigo-600 text-white shadow-sm'}`}
                                                 >
-                                                    {isSelected ? <Check size={12} /> : <Plus size={12} />} {isSelected ? 'Đã Chọn' : '+ Thêm'}
+                                                    {isSelected ? <Check size={12} /> : <Plus size={12} />} {isSelected ? 'Đã Chọn' : 'Thêm'}
                                                 </button>
                                             </div>
                                         );
