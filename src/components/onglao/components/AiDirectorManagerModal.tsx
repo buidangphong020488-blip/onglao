@@ -585,6 +585,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                 if (lower.includes('vui') || lower.includes('joy') || lower.includes('cuoi') || lower.includes('cười') || lower.includes('hạnh phúc')) return 'joy';
                 if (lower.includes('buon') || lower.includes('buồn') || lower.includes('sad') || lower.includes('khoc') || lower.includes('khóc') || lower.includes('bế tắc')) return 'sad';
                 if (lower.includes('hook') || lower.includes('mào đầu') || lower.includes('intro')) return 'hook';
+                if (lower.includes('outro') || lower.includes('kết') || lower.includes('end')) return 'outro';
                 if (lower.includes('calm') || lower.includes('binhthuong') || lower.includes('bình thường')) return 'calm';
             }
             if (text) {
@@ -2229,6 +2230,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                                                         <option value="joy">😊 Vui vẻ / Hạnh phúc (Joy)</option>
                                                                         <option value="sad">😢 Buồn / Bế tắc (Sad)</option>
                                                                         <option value="hook">🔥 Mào đầu (Hook/Intro)</option>
+                                                                        <option value="outro">🎬 Outro / Kết thúc</option>
                                                                     </select>
                                                                 </div>
                                                                 {/* Nút Audio cho từng Block */}
