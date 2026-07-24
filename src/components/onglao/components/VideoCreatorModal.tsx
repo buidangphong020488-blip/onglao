@@ -572,19 +572,7 @@ const VideoCreatorModal = () => {
                                         <span className="text-[9px] text-slate-500 italic">{messages?.length || 0} câu thoại trong hội thoại</span>
                                     </div>
                                      <div className="grid grid-cols-2 gap-2 my-1.5">
-                                              <button 
-                                                  type="button"
-                                                  onClick={() => {
-                                                      if (typeof showUploadGuide === 'function') {
-                                                          showUploadGuide();
-                                                      } else {
-                                                          setShowLibraryModal(true);
-                                                      }
-                                                  }}
-                                                  className="col-span-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:to-purple-500 text-white px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg border border-indigo-400/40 cursor-pointer hover:scale-[1.01]"
-                                              >
-                                                  <Film size={14}/> 🎬 Chọn Từ Kho Cảnh Quay & Phân Mục (Nạp 1 Lần)
-                                              </button>
+                                              
                                              <button 
                                                  onClick={() => {
                                                      if (!messages || messages.length === 0) {
