@@ -88,6 +88,31 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     const [downloadingAudio, setDownloadingAudio] = useState(false);
     const [generatingAudio, setGeneratingAudio] = useState(false);
     const [audioProgress, setAudioProgress] = useState<{ current: number; total: number; percent: number } | null>(null);
+
+    // Từ điển Trạng thái Nhân vật động từ Database (Admin Panel)
+    const [dynamicCharacterStates, setDynamicCharacterStates] = useState<{ id: string; name: string }[]>([]);
+
+    useEffect(() => {
+        fetch('/api/public/character-states')
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data) && data.length > 0) {
+                    setDynamicCharacterStates(data);
+                }
+            })
+            .catch(err => console.warn('Lỗi tải từ điển trạng thái:', err));
+    }, []);
+
+    const activeStates = dynamicCharacterStates.length > 0
+        ? dynamicCharacterStates
+        : [
+            { id: 'vui', name: 'Vui' },
+            { id: 'buon', name: 'Buồn' },
+            { id: 'binhthuong', name: 'Bình thường' },
+            { id: 'intro', name: 'Intro' },
+            { id: 'outtro', name: 'Outtro' }
+        ];
+
     const [playingBlockId, setPlayingBlockId] = useState<string | null>(null);
     // Multi-select state
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -582,18 +607,21 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         const normalizeEmotionTag = (tag?: string, text?: string): string => {
             if (tag) {
                 const lower = tag.toLowerCase().trim();
-                if (lower.includes('vui') || lower.includes('joy') || lower.includes('cuoi') || lower.includes('cười') || lower.includes('hạnh phúc')) return 'joy';
-                if (lower.includes('buon') || lower.includes('buồn') || lower.includes('sad') || lower.includes('khoc') || lower.includes('khóc') || lower.includes('bế tắc')) return 'sad';
-                if (lower.includes('hook') || lower.includes('mào đầu') || lower.includes('intro')) return 'hook';
-                if (lower.includes('outro') || lower.includes('kết') || lower.includes('end')) return 'outro';
-                if (lower.includes('calm') || lower.includes('binhthuong') || lower.includes('bình thường')) return 'calm';
+                const exactMatch = activeStates.find(s => s.id.toLowerCase() === lower || s.name.toLowerCase() === lower);
+                if (exactMatch) return exactMatch.id;
+
+                if (lower === 'calm' || lower.includes('bình thường') || lower.includes('binhthuong')) return 'binhthuong';
+                if (lower === 'joy' || lower.includes('vui') || lower.includes('cười') || lower.includes('hạnh phúc')) return 'vui';
+                if (lower === 'sad' || lower.includes('buồn') || lower.includes('buon') || lower.includes('khóc') || lower.includes('bế tắc')) return 'buon';
+                if (lower === 'hook' || lower === 'intro' || lower.includes('mào đầu') || lower.includes('intro')) return 'intro';
+                if (lower === 'outro' || lower === 'outtro' || lower.includes('kết') || lower.includes('end')) return 'outtro';
             }
             if (text) {
                 const lowerTxt = text.toLowerCase();
-                if (lowerTxt.match(/khổ|buồn|bế tắc|khóc|lo lắng|áp lực|thất bại|vỡ nợ/)) return 'sad';
-                if (lowerTxt.match(/vui|hạnh phúc|an lạc|cười|biết ơn|tuyệt vời/)) return 'joy';
+                if (lowerTxt.match(/khổ|buồn|bế tắc|khóc|lo lắng|áp lực|thất bại|vỡ nợ/)) return 'buon';
+                if (lowerTxt.match(/vui|hạnh phúc|an lạc|cười|biết ơn|tuyệt vời/)) return 'vui';
             }
-            return 'calm';
+            return 'binhthuong';
         };
 
         lines.forEach((line, idx) => {
@@ -2219,18 +2247,18 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                                                     </span>
                                                                     {/* Dropdown Trạng thái cảm xúc bóc tách */}
                                                                     <select 
-                                                                        value={b.emotion || 'calm'} 
+                                                                        value={b.emotion || 'binhthuong'} 
                                                                         onChange={(e) => {
                                                                             const newEmo = e.target.value;
                                                                             setEditingMessages((prev: any[]) => prev.map((msg, i) => i === idx ? { ...msg, emotion: newEmo } : msg));
                                                                         }}
                                                                         className="bg-slate-900 border border-white/10 text-slate-200 text-[11px] font-bold rounded-md px-2 py-1 outline-none cursor-pointer focus:border-indigo-500"
                                                                     >
-                                                                        <option value="calm">😐 Bình thường (Calm)</option>
-                                                                        <option value="joy">😊 Vui vẻ / Hạnh phúc (Joy)</option>
-                                                                        <option value="sad">😢 Buồn / Bế tắc (Sad)</option>
-                                                                        <option value="hook">🔥 Mào đầu (Hook/Intro)</option>
-                                                                        <option value="outro">🎬 Outro / Kết thúc</option>
+                                                                        {activeStates.map((st: any) => (
+                                                                            <option key={st.id} value={st.id}>
+                                                                                {st.name} ({st.id})
+                                                                            </option>
+                                                                        ))}
                                                                     </select>
                                                                 </div>
                                                                 {/* Nút Audio cho từng Block */}
