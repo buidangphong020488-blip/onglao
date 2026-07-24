@@ -1011,7 +1011,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     
     
     const handlePlaySingleBlockAudio = (url: string, id: string) => {
-        if (!url) {
+        if (!url || !url.trim()) {
             p.showToastMsg('Thoại này chưa có dữ liệu audio.', 'info');
             return;
         }
@@ -1024,32 +1024,38 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         }
 
         try {
-            if (!audioRef.current) {
-                audioRef.current = new Audio();
-            } else {
+            if (audioRef.current) {
                 audioRef.current.pause();
+                audioRef.current.onended = null;
+                audioRef.current.onerror = null;
             }
 
             const formattedUrl = url.startsWith('http') || url.startsWith('/') || url.startsWith('data:') || url.startsWith('blob:')
                 ? url
                 : `/${url}`;
 
-            audioRef.current.src = formattedUrl;
-            audioRef.current.onended = () => {
+            const audio = new Audio(formattedUrl);
+            audioRef.current = audio;
+
+            audio.onended = () => {
                 setPlayingBlockId(null);
             };
-            audioRef.current.onerror = (e) => {
-                console.error('Audio playback error:', e);
-                p.showToastMsg('Không thể phát file âm thanh (Lỗi load URL: ' + formattedUrl + ')', 'error');
+
+            audio.onerror = () => {
+                const errCode = audio.error?.code;
+                if (errCode === 1) return; // Aborted, ignore
+                console.warn('Audio load warning code:', errCode, 'URL:', formattedUrl);
+                p.showToastMsg('Không thể nạp file âm thanh. Vui lòng thử bấm "Tạo lại" audio cho thoại này.', 'error');
                 setPlayingBlockId(null);
             };
 
             setPlayingBlockId(blockKey);
-            const playPromise = audioRef.current.play();
+            const playPromise = audio.play();
             if (playPromise !== undefined) {
                 playPromise.catch(err => {
-                    console.error('Play rejected:', err);
-                    p.showToastMsg('Không thể phát audio: ' + err.message, 'error');
+                    if (err.name === 'AbortError') return;
+                    console.warn('Play rejected:', err);
+                    p.showToastMsg('Không thể phát audio: ' + (err.message || 'Lỗi trình duyệt'), 'error');
                     setPlayingBlockId(null);
                 });
             }
@@ -2150,57 +2156,37 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                         <div className="flex flex-wrap items-center justify-between gap-2 mt-1 mb-3 bg-slate-950/60 p-2.5 rounded-xl border border-white/5">
                                             <div className="flex flex-wrap items-center gap-1.5">
                                                 <span className="text-[11px] text-slate-400 font-bold select-none">Chèn nhanh:</span>
+                                                {activeStates.map((st: any) => (
+                                                    <button 
+                                                        key={`lao-${st.id}`}
+                                                        type="button" 
+                                                        onClick={() => handleInsertRole(p.customLaoName || 'Lão', st.id)} 
+                                                        className="text-[10px] font-bold text-orange-300 hover:text-white bg-orange-950/30 border border-orange-500/30 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
+                                                        title={`Chèn thoại ${p.customLaoName || 'Lão'} [${st.name}]`}
+                                                    >
+                                                        🎙️ {p.customLaoName || 'Lão'}: [{st.id}]
+                                                    </button>
+                                                ))}
+                                                {activeStates.filter((s: any) => s.id === 'binhthuong' || s.id === 'buon' || s.id === 'vui' || s.id === 'calm' || s.id === 'sad' || s.id === 'joy').map((st: any) => (
+                                                    <button 
+                                                        key={`user-${st.id}`}
+                                                        type="button" 
+                                                        onClick={() => handleInsertRole(p.customUserName || 'Con', st.id)} 
+                                                        className="text-[10px] font-bold text-indigo-300 hover:text-white bg-indigo-950/30 border border-indigo-500/30 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
+                                                        title={`Chèn thoại ${p.customUserName || 'Con'} [${st.name}]`}
+                                                    >
+                                                        🎙️ {p.customUserName || 'Con'}: [{st.id}]
+                                                    </button>
+                                                ))}
                                                 <button 
                                                     type="button" 
-                                                    onClick={() => handleInsertRole(p.customLaoName || 'Lão', 'calm')} 
-                                                    className="text-[10px] font-bold text-orange-300 hover:text-white bg-orange-950/30 border border-orange-500/30 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
-                                                >
-                                                    🎙️ {p.customLaoName || 'Lão'}: [bình thường]
-                                                </button>
-                                                <button 
-                                                    type="button" 
-                                                    onClick={() => handleInsertRole(p.customLaoName || 'Lão', 'vui')} 
-                                                    className="text-[10px] font-bold text-orange-400 hover:text-white bg-orange-950/40 border border-orange-500/40 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
-                                                >
-                                                    😊 {p.customLaoName || 'Lão'}: [vui]
-                                                </button>
-                                                <button 
-                                                    type="button" 
-                                                    onClick={() => handleInsertRole(p.customLaoName || 'Lão', 'buồn')} 
-                                                    className="text-[10px] font-bold text-amber-400 hover:text-white bg-amber-950/40 border border-amber-500/40 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
-                                                >
-                                                    😢 {p.customLaoName || 'Lão'}: [buồn]
-                                                </button>
-                                                <button 
-                                                    type="button" 
-                                                    onClick={() => handleInsertRole(p.customLaoName || 'Lão', 'hook')} 
-                                                    className="text-[10px] font-bold text-rose-400 hover:text-white bg-rose-950/40 border border-rose-500/40 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
-                                                >
-                                                    🔥 {p.customLaoName || 'Lão'}: [hook]
-                                                </button>
-                                                <button 
-                                                    type="button" 
-                                                    onClick={() => handleInsertRole(p.customUserName || 'Con', 'calm')} 
-                                                    className="text-[10px] font-bold text-indigo-300 hover:text-white bg-indigo-950/30 border border-indigo-500/30 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
-                                                >
-                                                    🎙️ {p.customUserName || 'Con'}: [bình thường]
-                                                </button>
-                                                <button 
-                                                    type="button" 
-                                                    onClick={() => handleInsertRole(p.customUserName || 'Con', 'buồn')} 
-                                                    className="text-[10px] font-bold text-indigo-400 hover:text-white bg-indigo-950/40 border border-indigo-500/40 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
-                                                >
-                                                    😢 {p.customUserName || 'Con'}: [buồn]
-                                                </button>
-                                                <button 
-                                                    type="button" 
-                                                    onClick={() => handleInsertRole('Outro', 'calm')} 
+                                                    onClick={() => handleInsertRole('Outro', 'outtro')} 
                                                     className="text-[10px] font-bold text-purple-400 hover:text-white bg-purple-950/40 border border-purple-500/40 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
                                                 >
                                                     🎬 Outro: [kết thúc]
                                                 </button>
                                             </div>
-                                            <span className="text-[10px] text-slate-500 hidden sm:inline">Click chèn nhanh cú pháp thoại kèm cờ cảm xúc.</span>
+                                            <span className="text-[10px] text-slate-500 hidden sm:inline">Click chèn nhanh cú pháp thoại từ Database.</span>
                                         </div>
 
                                         {/* Ô NHẬP / DÁN KỊCH BẢN THỦ CÔNG TRỰC TIẾP */}

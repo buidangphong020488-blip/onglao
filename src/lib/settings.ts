@@ -31,6 +31,23 @@ const DEFAULT_SETTINGS: SystemSettings = {
   subscribeCodes: 'TAMVO2025,UNGDUNG888,THIENSUGD2025',
   freeLimit: '20',
   defaultAiConfigId: '1',
+  characterStates: JSON.stringify([
+    { id: 'binhthuong', name: 'Bình thường (Calm)' },
+    { id: 'calm', name: 'Calm (Bình thường)' },
+    { id: 'vui', name: 'Vui (Joy)' },
+    { id: 'joy', name: 'Joy (Vui vẻ)' },
+    { id: 'buon', name: 'Buồn (Sad)' },
+    { id: 'sad', name: 'Sad (Buồn)' },
+    { id: 'hook', name: 'Hook (Mào đầu)' },
+    { id: 'intro', name: 'Intro (Mào đầu)' },
+    { id: 'outro', name: 'Outro (Kết thúc)' },
+    { id: 'outtro', name: 'Outtro (Kết thúc)' },
+    { id: 'tuc_gian', name: 'Tức giận (Angry)' },
+    { id: 'ngac_nhien', name: 'Ngạc nhiên (Surprise)' },
+    { id: 'thiet_tha', name: 'Thiết tha (Earnest)' },
+    { id: 'nghiem_tuc', name: 'Nghiêm túc (Serious)' },
+    { id: 'tinh_thuc', name: 'Tỉnh thức (Awakened)' }
+  ]),
 };
 
 
