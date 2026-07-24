@@ -88,6 +88,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     const [downloadingAudio, setDownloadingAudio] = useState(false);
     const [generatingAudio, setGeneratingAudio] = useState(false);
     const [audioProgress, setAudioProgress] = useState<{ current: number; total: number; percent: number } | null>(null);
+    const [playingBlockId, setPlayingBlockId] = useState<string | null>(null);
     // Multi-select state
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [deleteConfirm, setDeleteConfirm] = useState<{ids: string[], count: number} | null>(null);
@@ -979,6 +980,56 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     };
 
     
+    
+    const handlePlaySingleBlockAudio = (url: string, id: string) => {
+        if (!url) {
+            p.showToastMsg('Thoại này chưa có dữ liệu audio.', 'info');
+            return;
+        }
+
+        const blockKey = id;
+        if (playingBlockId === blockKey && audioRef.current && !audioRef.current.paused) {
+            audioRef.current.pause();
+            setPlayingBlockId(null);
+            return;
+        }
+
+        try {
+            if (!audioRef.current) {
+                audioRef.current = new Audio();
+            } else {
+                audioRef.current.pause();
+            }
+
+            const formattedUrl = url.startsWith('http') || url.startsWith('/') || url.startsWith('data:') || url.startsWith('blob:')
+                ? url
+                : `/${url}`;
+
+            audioRef.current.src = formattedUrl;
+            audioRef.current.onended = () => {
+                setPlayingBlockId(null);
+            };
+            audioRef.current.onerror = (e) => {
+                console.error('Audio playback error:', e);
+                p.showToastMsg('Không thể phát file âm thanh (Lỗi load URL: ' + formattedUrl + ')', 'error');
+                setPlayingBlockId(null);
+            };
+
+            setPlayingBlockId(blockKey);
+            const playPromise = audioRef.current.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(err => {
+                    console.error('Play rejected:', err);
+                    p.showToastMsg('Không thể phát audio: ' + err.message, 'error');
+                    setPlayingBlockId(null);
+                });
+            }
+        } catch (err: any) {
+            p.showToastMsg('Lỗi phát âm thanh: ' + (err?.message || 'Lỗi không xác định'), 'error');
+            setPlayingBlockId(null);
+        }
+    };
+
     const handleGenerateSingleBlockAudio = async (msg: any, index: number) => {
         if (!msg.id || !msg.text.trim()) return;
         setGeneratingAudio(true);
@@ -2185,15 +2236,22 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                                                     {b.audioUrl ? (
                                                                         <button 
                                                                             type="button" 
-                                                                            onClick={() => {
-                                                                                if (b.audioUrl) {
-                                                                                    const a = new Audio(b.audioUrl);
-                                                                                    a.play().catch(err => console.warn('Lỗi phát audio:', err));
-                                                                                }
-                                                                            }}
-                                                                            className="text-[11px] font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-2 py-1 rounded-md hover:bg-emerald-900/50 flex items-center gap-1 transition-colors cursor-pointer"
+                                                                            onClick={() => handlePlaySingleBlockAudio(b.audioUrl, b.id || `msg-${idx}`)}
+                                                                            className={`text-[11px] font-bold px-2 py-1 rounded-md flex items-center gap-1 transition-all cursor-pointer ${
+                                                                                playingBlockId === (b.id || `msg-${idx}`)
+                                                                                    ? 'bg-amber-500 text-slate-950 border border-amber-400 font-extrabold animate-pulse'
+                                                                                    : 'text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 hover:bg-emerald-900/50'
+                                                                            }`}
                                                                         >
-                                                                            <Play size={11} /> Nghe
+                                                                            {playingBlockId === (b.id || `msg-${idx}`) ? (
+                                                                                <>
+                                                                                    <Pause size={11} className="fill-current" /> Dừng
+                                                                                </>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <Play size={11} className="fill-current" /> Nghe
+                                                                                </>
+                                                                            )}
                                                                         </button>
                                                                     ) : null}
                                                                     <button 
