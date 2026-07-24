@@ -689,13 +689,13 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         }
     };
 
-    const handleSaveScript = async (transitionToList: boolean | any = true) => {
+    const handleSaveScript = async (transitionToList: boolean | any = false) => {
         if (!editingTitle.trim()) {
             p.showToastMsg('Vui lòng nhập tiêu đề kịch bản! (Lưu không thành công)', 'error');
             return;
         }
         if (saving) return;
-        const shouldTransition = transitionToList === true || typeof transitionToList !== 'boolean';
+        const shouldTransition = transitionToList === true;
 
         const latestText = scriptModalRef.current?.getLatestText() ?? editingRawText;
 
