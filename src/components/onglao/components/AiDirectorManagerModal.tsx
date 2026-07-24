@@ -310,7 +310,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         const text = editingRawText;
         const tagStr = emotionTag ? `[${emotionTag}] ` : '';
         const prefixStr = `${roleName}: ${tagStr}`;
-        const actualPrefix = text.length === 0 || text.endsWith('\n') ? prefixStr : `\n\n${prefixStr}`;
+        const actualPrefix = text.length === 0 || text.endsWith('\n') ? prefixStr : `\n${prefixStr}`;
         setEditingRawText(text + actualPrefix);
     };
 
@@ -2093,7 +2093,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                                 value={editingRawText}
                                                 onChange={(e) => setEditingRawText(e.target.value)}
                                                 placeholder={`Dán hoặc gõ kịch bản thủ công tại đây...\n\nVí dụ:\n${p.customLaoName || 'Lão'}: [vui] Nghe ${p.customLaoName || 'Lão'} nói đây, mọi khổ đau đều từ chấp thủ mà ra...\n${p.customUserName || 'Con'}: [buồn] ${p.customUserName || 'Con'} cảm ơn ${p.customLaoName || 'Lão'} đã khai thị...\nOutro: [kết thúc] Sư Cha Tam Vô đã hướng dẫn...`}
-                                                className="w-full h-44 bg-slate-950 border border-indigo-500/30 rounded-2xl p-3.5 text-xs sm:text-sm text-white focus:border-indigo-500 outline-none resize-y font-mono leading-relaxed placeholder:text-slate-600 shadow-inner"
+                                                className="w-full h-44 bg-slate-950 border border-indigo-500/30 rounded-2xl p-3 text-[11px] sm:text-xs text-white focus:border-indigo-500 outline-none resize-y font-mono leading-relaxed placeholder:text-slate-600 shadow-inner"
                                             />
                                         </div>
 
