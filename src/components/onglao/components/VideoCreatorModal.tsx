@@ -434,16 +434,29 @@ const VideoCreatorModal = () => {
         setStagedClips(prev => prev.filter(c => c.stageId !== stageId));
     };
 
-    const handleConfirmStagedClips = () => {
+    const handleConfirmStagedClips = async () => {
         if (!stagedClips || stagedClips.length === 0) return;
-        const newScenes = stagedClips.map((stg: any, idx: number) => ({
-            id: `scene_stg_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 4)}`,
-            role: stg.role || 'lao',
-            emotion: stg.emotion || 'calm',
-            url: stg.idbKey ? `idb://${stg.idbKey}` : stg.url,
-            idbKey: stg.idbKey || null,
-            name: stg.name || `Cảnh quay ${idx + 1}`
+        const newScenes = await Promise.all(stagedClips.map(async (stg: any, idx: number) => {
+            let activeBlobUrl = stg.url && !stg.url.startsWith('idb://') ? stg.url : null;
+            const targetKey = stg.idbKey || (stg.url && stg.url.startsWith('idb://') ? stg.url.replace('idb://', '') : null);
+            if (targetKey) {
+                try {
+                    const blob = await idb.get(targetKey);
+                    if (blob) activeBlobUrl = URL.createObjectURL(blob);
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+            return {
+                id: `scene_stg_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 4)}`,
+                role: stg.role || 'lao',
+                emotion: stg.emotion || 'calm',
+                url: activeBlobUrl,
+                idbKey: targetKey || null,
+                name: stg.name || `Cảnh quay ${idx + 1}`
+            };
         }));
+
         p.setFfScenes(newScenes);
         setShowLibraryModal(false);
         setStagedClips([]);
