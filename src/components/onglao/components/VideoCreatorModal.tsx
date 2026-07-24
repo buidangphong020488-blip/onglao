@@ -350,7 +350,7 @@ const VideoCreatorModal = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlVideoId = urlParams.get('videoid');
     if (urlVideoId && p.renderHistory?.length > 0) {
-      const matchedVideo = p.renderHistory.find((v: any) => v.id === urlVideoId);
+      const matchedVideo = p.renderHistory.find((v: any) => v.id === urlVideoId && (!v.sessionId || !p.currentSessionId || v.sessionId === p.currentSessionId));
       if (matchedVideo) {
         p.setRenderedVideoUrl(matchedVideo.url);
         p.setRenderedVideoBlob?.(matchedVideo.blob || null);
