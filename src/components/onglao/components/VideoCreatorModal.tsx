@@ -1555,10 +1555,21 @@ const VideoCreatorModal = () => {
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
+                                <input 
+                                    ref={libraryFileInputRef} 
+                                    type="file" 
+                                    accept="video/*" 
+                                    multiple 
+                                    className="hidden" 
+                                    onChange={e => {
+                                        if (e.target.files) handleBatchUploadToLibrary(e.target.files);
+                                    }} 
+                                />
                                 <button
                                     type="button"
-                                    onClick={() => setShowBatchUploadLibraryDrawer(prev => !prev)}
+                                    onClick={() => libraryFileInputRef.current?.click()}
                                     className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                                    title="Bấm để chọn 1 hoặc nhiều file video từ máy tính nạp vào kho"
                                 >
                                     <Upload size={14} /> Nạp Thêm Clip Mới
                                 </button>
@@ -1567,73 +1578,6 @@ const VideoCreatorModal = () => {
                                 </button>
                             </div>
                         </div>
-
-                        {/* DRAWER UPLOAD BATCH MỚI VÀO KHO */}
-                        {showBatchUploadLibraryDrawer && (
-                            <div className="p-4 bg-indigo-950/40 border-b border-indigo-500/30 flex flex-col gap-3 animate-in slide-in-from-top-3">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold text-indigo-300">📤 Nạp Thêm Video Clip Mới Vào Kho Cảnh Quay (Batch Upload & Đặt Tên)</span>
-                                    <button onClick={() => setShowBatchUploadLibraryDrawer(false)} className="text-xs text-slate-400 hover:text-white"><X size={14} /></button>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                    <div className="flex flex-col gap-1">
-                                        <span className="text-[10px] text-slate-400 font-bold">Phân Mục / Tên Kho:</span>
-                                        <input 
-                                            type="text" 
-                                            value={batchCategoryName} 
-                                            onChange={e => setBatchCategoryName(e.target.value)} 
-                                            placeholder="VD: Cảnh Thiên Nhiên, Cảnh Đàm Đạo..."
-                                            className="bg-slate-950 border border-white/10 rounded-lg p-2 text-xs text-white outline-none" 
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <span className="text-[10px] text-slate-400 font-bold">Gán Vai Mặc Định:</span>
-                                        <select 
-                                            value={batchRoleTag} 
-                                            onChange={e => setBatchRoleTag(e.target.value)} 
-                                            className="bg-slate-950 border border-white/10 rounded-lg p-2 text-xs text-white outline-none"
-                                        >
-                                            <option value="lao">🎙️ Lão (Khai Thị)</option>
-                                            <option value="user">🎙️ Con (Người Hỏi)</option>
-                                            <option value="outro">🎬 Outro (Kết Thúc)</option>
-                                        </select>
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <span className="text-[10px] text-slate-400 font-bold">Gán Cảm Xúc Mặc Định:</span>
-                                        <select 
-                                            value={batchEmotionTag} 
-                                            onChange={e => setBatchEmotionTag(e.target.value)} 
-                                            className="bg-slate-950 border border-white/10 rounded-lg p-2 text-xs text-white outline-none"
-                                        >
-                                            <option value="calm">😐 Bình thường (Calm)</option>
-                                            <option value="joy">😊 Vui vẻ / Hạnh phúc (Joy)</option>
-                                            <option value="sad">😢 Buồn / Bế tắc (Sad)</option>
-                                            <option value="hook">🔥 Mào đầu (Hook)</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3 mt-1">
-                                    <input 
-                                        ref={libraryFileInputRef} 
-                                        type="file" 
-                                        accept="video/*" 
-                                        multiple 
-                                        className="hidden" 
-                                        onChange={e => {
-                                            if (e.target.files) handleBatchUploadToLibrary(e.target.files);
-                                        }} 
-                                    />
-                                    <button 
-                                        type="button"
-                                        onClick={() => libraryFileInputRef.current?.click()}
-                                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
-                                    >
-                                        <Upload size={14} /> Chọn File Máy Bắt Đầu Upload Vào Kho
-                                    </button>
-                                    <span className="text-[10px] text-slate-400">Chọn 1 hoặc nhiều file video cùng lúc.</span>
-                                </div>
-                            </div>
-                        )}
 
                         {/* BODY CONTENT MODAL */}
                         <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
