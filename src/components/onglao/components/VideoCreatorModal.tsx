@@ -511,7 +511,7 @@ const VideoCreatorModal = () => {
                             {isFullFrameMode && (
                                 <div className="flex flex-col gap-3 mt-2 bg-emerald-900/10 p-3 rounded-xl border border-emerald-500/20 animate-in slide-in-from-top-2 max-h-[350px] overflow-y-auto scrollbar-hide">
                                     <div className="flex items-center justify-between mb-1 gap-2 flex-wrap sm:flex-nowrap">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 flex-1 min-w-0">
                                             <span className="text-[10px] text-emerald-300 font-bold shrink-0">Kho cảnh quay:</span>
                                             <select
                                                 value={selectedFfPackId}
@@ -523,7 +523,6 @@ const VideoCreatorModal = () => {
                                                     if (pack) {
                                                         if (pack.aspect === 'doc' && setVideoAspectRatio) setVideoAspectRatio('9x16');
                                                         else if (pack.aspect === 'ngang' && setVideoAspectRatio) setVideoAspectRatio('16x9');
-                                                        // Nếu đang có các cảnh thoại (có msgId), chỉ cập nhật URL video mà không xóa cảnh thoại
                                                         const hasMessageScenes = ffScenes?.some((s: any) => s.msgId);
                                                         if (hasMessageScenes) {
                                                             setFfScenes((prev: any) => prev.map((scene: any) => {
@@ -540,7 +539,7 @@ const VideoCreatorModal = () => {
                                                         }
                                                     }
                                                 }}
-                                                className="bg-slate-900 border border-emerald-500/30 text-emerald-400 text-[10px] rounded px-2 py-1 outline-none cursor-pointer shadow-sm flex-1 min-w-[150px]"
+                                                className="bg-slate-900 border border-emerald-500/30 text-emerald-400 text-[10px] rounded px-2 py-1 outline-none cursor-pointer shadow-sm flex-1 min-w-[130px]"
                                             >
                                                 <option value="">-- Chọn Bộ Cảnh --</option>
                                                 {FULLFRAME_PACKS.length === 0 && (
@@ -568,10 +567,24 @@ const VideoCreatorModal = () => {
                                                     </optgroup>
                                                 )}
                                             </select>
+                                            <button 
+                                                type="button"
+                                                onClick={() => {
+                                                    if (typeof showUploadGuide === 'function') {
+                                                        showUploadGuide();
+                                                    } else {
+                                                        setShowLibraryModal(true);
+                                                    }
+                                                }}
+                                                className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:to-purple-500 text-white px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 shadow-md border border-indigo-400/40 cursor-pointer shrink-0 hover:scale-[1.02]"
+                                                title="Chọn Từ Kho Cảnh Quay & Phân Mục (Nạp 1 Lần)"
+                                            >
+                                                <Film size={12}/> 🎬 Nạp Kho Cảnh
+                                            </button>
                                         </div>
-                                        <span className="text-[9px] text-slate-500 italic">{messages?.length || 0} câu thoại trong hội thoại</span>
+                                        <span className="text-[9px] text-slate-500 italic shrink-0">{messages?.length || 0} câu thoại</span>
                                     </div>
-                                     <div className="grid grid-cols-2 gap-2 my-1.5">
+                                    <div className="grid grid-cols-2 gap-2 my-1.5">
                                               
                                              <button 
                                                  onClick={() => {
