@@ -2889,19 +2889,42 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
   };
 
   const downloadAllAudios = () => {
-    messages.forEach((msg: any, index: any) => {
+    const targetSession = latestSessionsRef.current?.find((s: any) => s.id === currentSessionIdRef.current) || latestSessionsRef.current?.[0];
+    const currentMsgs = targetSession?.messages || messages || [];
+    let count = 0;
+    currentMsgs.forEach((msg: any, index: any) => {
       if (msg.audioUrl) {
-        setTimeout(() => { downloadAudio(msg.audioUrl, `${msg.role === 'ai' ? 'Lao_day' : 'Con_thua'}_${msg.id}`); }, index * 400);
+        count++;
+        setTimeout(() => {
+          downloadAudio(msg.audioUrl, `${msg.role === 'ai' ? 'Lao_day' : 'Con_thua'}_${msg.id || index}`);
+        }, count * 400);
       }
     });
+    if (count === 0) {
+      showToastMsg('Kịch bản chưa có file MP3 nào để tải về.', 'warning');
+    } else {
+      showToastMsg(`Đang tải ${count} tệp âm thanh rời rạc...`, 'success');
+    }
     setShowDownloadMenu(false);
   };
 
   const downloadCombinedAudio = async () => {
-    setIsPreparingGlobal(true);
-    const url = await getCombinedAudioUrl();
-    setIsPreparingGlobal(false);
-    if (url) downloadAudio(url, `Khai_thi_Toan_bo_${currentSession?.title || "Hoi_thoai"}`);
+    try {
+      setIsPreparingGlobal(true);
+      showToastMsg('Đang gộp và chuẩn bị file âm thanh toàn bộ...', 'loading');
+      const url = await getCombinedAudioUrl();
+      setIsPreparingGlobal(false);
+      if (url) {
+        downloadAudio(url, `Khai_thi_Toan_bo_${currentSession?.title || "Hoi_thoai"}`);
+        showToastMsg('Tải file MP3 gộp thành công!', 'success');
+      } else {
+        showToastMsg('Kịch bản chưa có dữ liệu âm thanh để gộp. Vui lòng tạo audio trước!', 'warning');
+      }
+    } catch (err) {
+      console.error("Lỗi gộp audio:", err);
+      setIsPreparingGlobal(false);
+      showToastMsg('Lỗi khi gộp âm thanh.', 'error');
+    }
     setShowDownloadMenu(false);
   };
 
@@ -4186,7 +4209,9 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
     handleSaveCharacterToLocal,
     executeSaveCharacter,
     characterPresets,
-    setCharacterPresets
+    setCharacterPresets,
+    downloadAllAudios,
+    downloadCombinedAudio
   };
 };
 
