@@ -306,9 +306,11 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     }, [p.show, p.sessions]);
 
 
-    const handleInsertRole = (roleName: string) => {
+    const handleInsertRole = (roleName: string, emotionTag?: string) => {
         const text = editingRawText;
-        const actualPrefix = text.length === 0 || text.endsWith('\n') ? `${roleName}: ` : `\n\n${roleName}: `;
+        const tagStr = emotionTag ? `[${emotionTag}] ` : '';
+        const prefixStr = `${roleName}: ${tagStr}`;
+        const actualPrefix = text.length === 0 || text.endsWith('\n') ? prefixStr : `\n\n${prefixStr}`;
         setEditingRawText(text + actualPrefix);
     };
 
@@ -612,21 +614,12 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
             const userPattern = new RegExp(`^(${userNames.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\[(.*?)\\]|\\s*\\((.*?)\\))?\\s*:`, 'i');
             const outroPattern = new RegExp(`^(${outroNames.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\[(.*?)\\]|\\s*\\((.*?)\\))?\\s*:`, 'i');
 
-            const parseEmotionTag = (tag: string) => {
-               if (!tag) return 'calm';
-               const t = tag.toLowerCase().trim();
-               if (t.includes('vui') || t.includes('joy')) return 'joy';
-               if (t.includes('buồn') || t.includes('sad') || t.includes('khóc')) return 'sad';
-               if (t.includes('hook') || t.includes('sốc') || t.includes('chú ý')) return 'hook';
-               return 'calm';
-            };
-
             lines.forEach(line => {
                  const text = line.trim();
                  if (!text) return;
 
                  let role = null;
-                 let rawEmotion = 'calm';
+                 let emotion = 'calm';
                  let cleanText = text;
 
                  const userMatch = text.match(userPattern);
@@ -635,17 +628,17 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
 
                  if (userMatch) {
                     role = 'user';
-                    rawEmotion = userMatch[2] || userMatch[3] || 'calm';
+                    emotion = userMatch[2] || userMatch[3] || 'calm';
                     cleanText = text.replace(userMatch[0], '').trim();
                     currentRole = 'user';
                  } else if (laoMatch) {
                     role = 'ai';
-                    rawEmotion = laoMatch[2] || laoMatch[3] || 'calm';
+                    emotion = laoMatch[2] || laoMatch[3] || 'calm';
                     cleanText = text.replace(laoMatch[0], '').trim();
                     currentRole = 'ai';
                  } else if (outroMatch) {
                     role = 'outro';
-                    rawEmotion = outroMatch[2] || outroMatch[3] || 'calm';
+                    emotion = outroMatch[2] || outroMatch[3] || 'calm';
                     cleanText = text.replace(outroMatch[0], '').trim();
                     currentRole = 'outro';
                  } else {
@@ -656,14 +649,11 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                     return;
                  }
 
-                 // Nếu trong cleanText vẫn còn cờ [vui]/[buồn]/[calm]/[joy] ở ngay đầu câu
-                 const inlineEmotionMatch = cleanText.match(/^\[(vui|buồn|bình thường|binhthuong|calm|sad|joy|hook|sốc)\]\s*/i);
-                 if (inlineEmotionMatch) {
-                    rawEmotion = inlineEmotionMatch[1];
-                    cleanText = cleanText.replace(inlineEmotionMatch[0], '').trim();
+                 // Chuẩn hóa emotion
+                 emotion = emotion.toLowerCase().trim();
+                 if (!['calm', 'sad', 'joy', 'hook'].includes(emotion)) {
+                    emotion = 'calm';
                  }
-
-                 const emotion = parseEmotionTag(rawEmotion);
 
                  if (role && cleanText) {
                      newMsgs.push({ role, text: cleanText, emotion });

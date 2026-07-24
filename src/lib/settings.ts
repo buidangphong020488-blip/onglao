@@ -19,6 +19,14 @@ export interface SystemSettings {
   characterStates?: string | any;
 }
 
+export const DEFAULT_CHARACTER_STATES = [
+  { id: 'calm', name: '😐 Bình thường / Calm', aliases: ['calm', 'binhthuong', 'bình thường', 'thuong'] },
+  { id: 'sad', name: '😢 Buồn & Bế tắc / Sad', aliases: ['sad', 'buon', 'buồn', 'khoc', 'khóc', 'be_tac', 'bế tắc'] },
+  { id: 'joy', name: '😊 Vui vẻ & Hạnh phúc / Joy', aliases: ['joy', 'vui', 'vui vẻ', 'vui_ve', 'cuoi', 'cười', 'hanh_phuc'] },
+  { id: 'hook', name: '🔥 Cảnh Mào đầu / Intro (Hook)', aliases: ['hook', 'intro', 'mao_dau', 'mào đầu', 'bat_dau', 'bắt đầu'] },
+  { id: 'outro', name: '🎬 Cảnh Kết thúc / Outro (Ending)', aliases: ['outro', 'ending', 'kethuc', 'kết thúc', 'vailay', 'vái lạy'] }
+];
+
 const DEFAULT_SETTINGS: SystemSettings = {
   apiKey: process.env.GEMINI_API_KEY || '',
   modelName: 'gemini-2.5-flash-preview-09-2025',
@@ -31,6 +39,7 @@ const DEFAULT_SETTINGS: SystemSettings = {
   subscribeCodes: 'TAMVO2025,UNGDUNG888,THIENSUGD2025',
   freeLimit: '20',
   defaultAiConfigId: '1',
+  characterStates: JSON.stringify(DEFAULT_CHARACTER_STATES),
 };
 
 
@@ -47,6 +56,14 @@ export async function getSystemSettingsAsync(): Promise<SystemSettings> {
     }
     const dbMap: Record<string, string> = {};
     rows.forEach((r) => { dbMap[r.key] = r.value; });
+    if (!dbMap.characterStates || dbMap.characterStates === '[]') {
+      dbMap.characterStates = JSON.stringify(DEFAULT_CHARACTER_STATES);
+      await prisma.systemSetting.upsert({
+        where: { key: 'characterStates' },
+        update: { value: dbMap.characterStates },
+        create: { key: 'characterStates', value: dbMap.characterStates },
+      });
+    }
     return { ...DEFAULT_SETTINGS, ...dbMap } as SystemSettings;
   } catch (err) {
     console.error('[settings] DB error:', err);
