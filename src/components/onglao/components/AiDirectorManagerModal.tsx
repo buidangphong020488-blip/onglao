@@ -564,6 +564,111 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         }
     };
 
+    const parseRawTextToBlocks = (textInput: string) => {
+        if (!textInput || !textInput.trim()) return [];
+        const lines = textInput.split('\n');
+        const newMsgs: any[] = [];
+
+        const laoNames = ['lão', 'đáp', 'ai', 'người khai thị', 'lao', 'assistant', 'reply', 'answer'];
+        const userNames = ['con', 'người hỏi', 'hỏi', 'user', 'question', 'ask'];
+        const outroNames = ['outro', 'kết', 'kết thúc', 'end', 'ending'];
+        const customLao = p.customLaoName?.trim().toLowerCase();
+        const customUser = p.customUserName?.trim().toLowerCase();
+        if (customLao && !laoNames.includes(customLao)) laoNames.push(customLao);
+        if (customUser && !userNames.includes(customUser)) userNames.push(customUser);
+
+        const laoPattern = new RegExp(`^(${laoNames.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\[(.*?)\\]|\\s*\\((.*?)\\))?\\s*:`, 'i');
+        const userPattern = new RegExp(`^(${userNames.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\[(.*?)\\]|\\s*\\((.*?)\\))?\\s*:`, 'i');
+        const outroPattern = new RegExp(`^(${outroNames.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\[(.*?)\\]|\\s*\\((.*?)\\))?\\s*:`, 'i');
+
+        const normalizeEmotionTag = (tag?: string, text?: string): string => {
+            if (tag) {
+                const lower = tag.toLowerCase().trim();
+                if (lower.includes('vui') || lower.includes('joy') || lower.includes('cuoi') || lower.includes('cười') || lower.includes('hạnh phúc')) return 'joy';
+                if (lower.includes('buon') || lower.includes('buồn') || lower.includes('sad') || lower.includes('khoc') || lower.includes('khóc') || lower.includes('bế tắc')) return 'sad';
+                if (lower.includes('hook') || lower.includes('mào đầu') || lower.includes('intro')) return 'hook';
+                if (lower.includes('calm') || lower.includes('binhthuong') || lower.includes('bình thường')) return 'calm';
+            }
+            if (text) {
+                const lowerTxt = text.toLowerCase();
+                if (lowerTxt.match(/khổ|buồn|bế tắc|khóc|lo lắng|áp lực|thất bại|vỡ nợ/)) return 'sad';
+                if (lowerTxt.match(/vui|hạnh phúc|an lạc|cười|biết ơn|tuyệt vời/)) return 'joy';
+            }
+            return 'calm';
+        };
+
+        lines.forEach((line, idx) => {
+            const text = line.trim();
+            if (!text) return;
+
+            let role = null;
+            let emotion = 'calm';
+            let cleanText = text;
+
+            const userMatch = text.match(userPattern);
+            const laoMatch = text.match(laoPattern);
+            const outroMatch = text.match(outroPattern);
+
+            if (userMatch) {
+                role = 'user';
+                emotion = userMatch[2] || userMatch[3] || '';
+                cleanText = text.replace(userMatch[0], '').trim();
+            } else if (laoMatch) {
+                role = 'ai';
+                emotion = laoMatch[2] || laoMatch[3] || '';
+                cleanText = text.replace(laoMatch[0], '').trim();
+            } else if (outroMatch) {
+                role = 'outro';
+                emotion = outroMatch[2] || outroMatch[3] || '';
+                cleanText = text.replace(outroMatch[0], '').trim();
+            } else {
+                if (newMsgs.length > 0) {
+                    newMsgs[newMsgs.length - 1].text += '\n' + text;
+                }
+                return;
+            }
+
+            const afterColonMatch = cleanText.match(/^(?:\[(.*?)\]|\((.*?)\))\s*/);
+            if (afterColonMatch) {
+                if (!emotion) {
+                    emotion = afterColonMatch[1] || afterColonMatch[2] || '';
+                }
+                cleanText = cleanText.replace(afterColonMatch[0], '').trim();
+            }
+
+            emotion = normalizeEmotionTag(emotion, cleanText);
+
+            if (role && cleanText) {
+                newMsgs.push({
+                    id: `temp_msg_${idx}_${Date.now()}`,
+                    role,
+                    text: cleanText,
+                    emotion
+                });
+            }
+        });
+
+        return newMsgs;
+    };
+
+    // Tự động phân tách realtime khi gõ/dán văn bản vào editingRawText
+    useEffect(() => {
+        if (view !== 'edit') return;
+        if (!editingRawText || !editingRawText.trim()) return;
+        const parsed = parseRawTextToBlocks(editingRawText);
+        if (parsed.length > 0) {
+            setEditingMessages(prev => {
+                return parsed.map((pMsg, idx) => {
+                    const prevMsg = prev[idx];
+                    if (prevMsg && prevMsg.text === pMsg.text) {
+                        return { ...pMsg, id: prevMsg.id || pMsg.id, audioUrl: prevMsg.audioUrl };
+                    }
+                    return pMsg;
+                });
+            });
+        }
+    }, [editingRawText, p.customLaoName, p.customUserName, view]);
+
     // Trigger single delete modal
     const handleDeleteScript = (id: any) => {
         setDeleteConfirm({ ids: [id], count: 1 });
@@ -591,74 +696,11 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         if (saving) return;
         const shouldTransition = transitionToList === true || typeof transitionToList !== 'boolean';
 
-        // Đọc thẾảng DOM textarea — luôn là text mới nhất dù chưa blur
         const latestText = scriptModalRef.current?.getLatestText() ?? editingRawText;
 
         setSaving(true);
         try {
-            const lines = latestText.split('\n');
-
-            const newMsgs: any[] = [];
-            let currentRole = 'ai';
-
-            const laoNames = ['lão', 'đáp', 'ai', 'người khai thị', 'lao', 'assistant', 'reply', 'answer'];
-            const userNames = ['con', 'người hỏi', 'hỏi', 'user', 'question', 'ask'];
-            const outroNames = ['outro', 'kết', 'kết thúc', 'end', 'ending'];
-            const customLao = p.customLaoName?.trim().toLowerCase();
-            const customUser = p.customUserName?.trim().toLowerCase();
-            if (customLao && !laoNames.includes(customLao)) laoNames.push(customLao);
-            if (customUser && !userNames.includes(customUser)) userNames.push(customUser);
-            
-            // Xây dựng regex bắt TÊN: nội dung (có thể kèm [cảm xúc] hoặc (cảm xúc))
-            const laoPattern = new RegExp(`^(${laoNames.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\[(.*?)\\]|\\s*\\((.*?)\\))?\\s*:`, 'i');
-            const userPattern = new RegExp(`^(${userNames.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\[(.*?)\\]|\\s*\\((.*?)\\))?\\s*:`, 'i');
-            const outroPattern = new RegExp(`^(${outroNames.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\[(.*?)\\]|\\s*\\((.*?)\\))?\\s*:`, 'i');
-
-            lines.forEach(line => {
-                 const text = line.trim();
-                 if (!text) return;
-
-                 let role = null;
-                 let emotion = 'calm';
-                 let cleanText = text;
-
-                 const userMatch = text.match(userPattern);
-                 const laoMatch = text.match(laoPattern);
-                 const outroMatch = text.match(outroPattern);
-
-                 if (userMatch) {
-                    role = 'user';
-                    emotion = userMatch[2] || userMatch[3] || 'calm';
-                    cleanText = text.replace(userMatch[0], '').trim();
-                    currentRole = 'user';
-                 } else if (laoMatch) {
-                    role = 'ai';
-                    emotion = laoMatch[2] || laoMatch[3] || 'calm';
-                    cleanText = text.replace(laoMatch[0], '').trim();
-                    currentRole = 'ai';
-                 } else if (outroMatch) {
-                    role = 'outro';
-                    emotion = outroMatch[2] || outroMatch[3] || 'calm';
-                    cleanText = text.replace(outroMatch[0], '').trim();
-                    currentRole = 'outro';
-                 } else {
-                    // Dòng không có role prefix → nối vào message trước (multi-line)
-                    if (newMsgs.length > 0) {
-                        newMsgs[newMsgs.length - 1].text += '\n' + text;
-                    }
-                    return;
-                 }
-
-                 // Chuẩn hóa emotion
-                 emotion = emotion.toLowerCase().trim();
-                 if (!['calm', 'sad', 'joy', 'hook'].includes(emotion)) {
-                    emotion = 'calm';
-                 }
-
-                 if (role && cleanText) {
-                     newMsgs.push({ role, text: cleanText, emotion });
-                 }
-            });
+            const newMsgs = parseRawTextToBlocks(latestText);
 
             // So sánh với editingMessages cũ để giữ lại audioUrl nếu text không đổi
             const finalMsgs = newMsgs.map((newMsg, idx) => {
