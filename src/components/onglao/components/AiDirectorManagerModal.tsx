@@ -330,8 +330,8 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
     const [editingLaoVoiceStyle, setEditingLaoVoiceStyle] = useState('');
     const [editingUserVoice, setEditingUserVoice] = useState('Aoede');
     const [editingUserVoiceStyle, setEditingUserVoiceStyle] = useState('');
-    const [showVoiceSettings, setShowVoiceSettings] = useState(false);
-    const [showAiParams, setShowAiParams] = useState(false);
+    const [showVoiceSettings, setShowVoiceSettings] = useState(true);
+    const [showAiParams, setShowAiParams] = useState(true);
     const [isHoveringScripts, setIsHoveringScripts] = useState(false);
 
     // Local state cho nhân vật - không gọi context setter mỗi keystroke
@@ -389,7 +389,8 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         setEditingLaoVoiceStyle(script.laoVoiceStyle || p.laoVoiceStyle || 'Giọng ấm áp, mạnh mẽ, dứt khoát, miền nam việt nam, đúng chính tả, ngắt nhịp rõ ràng giữa các câu');
         setEditingUserVoice(script.userVoice || p.userVoice || 'Aoede');
         setEditingUserVoiceStyle(script.userVoiceStyle || p.userVoiceStyle || 'giọng thanh niên, phong cách đọc tỏ vẻ rối rắm, thắc mắc, chuẩn giọng miền Nam Việt Nam, đúng chính tả');
-        setShowVoiceSettings(false);
+        setShowVoiceSettings(true);
+        setShowAiParams(true);
 
         // Reset/init AI regeneration parameters
         setEditingTopic(script.topic || script.title.replace(/^(\[AI\]|\[Thủ công\])?\s*/i, '').trim());
@@ -922,9 +923,9 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
         setEditingRawText('');
         setEditingTitle('');
         setEditingLaoVoice(p.laoVoice || 'Algieba');
-        setEditingLaoVoiceStyle('');
+        setEditingLaoVoiceStyle(p.laoVoiceStyle || 'Giọng ấm áp, mạnh mẽ, dứt khoát, miền nam việt nam, đúng chính tả, ngắt nhịp rõ ràng giữa các câu');
         setEditingUserVoice(p.userVoice || 'Aoede');
-        setEditingUserVoiceStyle('');
+        setEditingUserVoiceStyle(p.userVoiceStyle || 'giọng thanh niên, phong cách đọc tỏ vẻ rối rắm, thắc mắc, chuẩn giọng miền Nam Việt Nam, đúng chính tả');
         p.setCustomUserName?.('Con');
         p.setCustomLaoName?.('Lão');
         p.setUserSelfCall?.('Con');
@@ -1558,7 +1559,13 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                                     <span className="text-[10px] text-slate-500 block mt-0.5">
                                                         Cập nhật: {(() => {
                                                             const d = script.updatedAt ? new Date(script.updatedAt) : new Date();
-                                                            return isNaN(d.getTime()) ? new Date().toLocaleString('vi-VN') : d.toLocaleString('vi-VN');
+                                                            if (isNaN(d.getTime())) return '';
+                                                            const day = String(d.getDate()).padStart(2, '0');
+                                                            const month = String(d.getMonth() + 1).padStart(2, '0');
+                                                            const year = d.getFullYear();
+                                                            const hours = String(d.getHours()).padStart(2, '0');
+                                                            const minutes = String(d.getMinutes()).padStart(2, '0');
+                                                            return `${day}/${month}/${year} ${hours}:${minutes}`;
                                                         })()}
                                                     </span>
                                                     </div>
@@ -1745,7 +1752,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
 
             {/* MODAL BIÊN TẬP KỊCH BẢN (CHỈ MỞ POPUP KHI CHỈNH SỬA) */}
             {view === 'edit' && (() => {
-                const isAiScript = selectedScript?.title ? !selectedScript.title.toLowerCase().includes('[thủ công]') : false;
+                const isAiScript = true;
                 const scriptTitle = selectedScript?.title || 'Kịch bản mới';
                 return (
                     <div className="fixed inset-0 z-[160] bg-black/80 backdrop-blur-sm flex justify-center items-center p-3 md:p-6 animate-in fade-in duration-200" onClick={(e) => e.stopPropagation()}>
@@ -1761,9 +1768,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <button onClick={handleGenerateAllAudio} disabled={saving || downloadingAudio} className="bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 font-bold py-1.5 px-3.5 rounded-xl text-xs flex items-center gap-1.5 transition-colors border border-amber-500/20 disabled:opacity-50 cursor-pointer">
-                                        <Music size={14} /> Tạo tất cả Audio
-                                    </button>
+                                    
                                     <button onClick={handleBackToList} className="text-slate-400 hover:text-white transition-colors p-2 rounded-xl hover:bg-slate-800 cursor-pointer" title="Đóng modal biên tập">
                                         <X size={20} />
                                     </button>
@@ -1791,7 +1796,17 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                         <label className="text-xs font-bold text-slate-400">Ngày đăng:</label>
                                         <input
                                             type="text"
-                                            value={editingDate ? new Date(editingDate).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                                            value={(() => {
+                                                if (!editingDate) return '';
+                                                const d = new Date(editingDate);
+                                                if (isNaN(d.getTime())) return '';
+                                                const day = String(d.getDate()).padStart(2, '0');
+                                                const month = String(d.getMonth() + 1).padStart(2, '0');
+                                                const year = d.getFullYear();
+                                                const hours = String(d.getHours()).padStart(2, '0');
+                                                const minutes = String(d.getMinutes()).padStart(2, '0');
+                                                return `${day}/${month}/${year} ${hours}:${minutes}`;
+                                            })()}
                                             readOnly
                                             className="w-full bg-slate-950 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none cursor-default"
                                         />
@@ -1998,7 +2013,7 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                                          className="w-full sm:w-auto px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer border border-indigo-400/30"
                                                      >
                                                          {isRegenerating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                                                         {isRegenerating ? 'Đang viết kịch bản...' : '✨ Tạo bằng AI'}
+                                                         {isRegenerating ? 'Đang viết kịch bản...' : 'Tạo bằng AI'}
                                                      </button>
                                                   </div>
                                              </div>
@@ -2037,6 +2052,13 @@ const AiDirectorManagerModal = (p: AiDirectorManagerModalProps) => {
                                                     className="text-[10px] font-bold text-amber-400 hover:text-white bg-amber-950/40 border border-amber-500/40 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
                                                 >
                                                     😢 {p.customLaoName || 'Lão'}: [buồn]
+                                                </button>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => handleInsertRole(p.customLaoName || 'Lão', 'hook')} 
+                                                    className="text-[10px] font-bold text-rose-400 hover:text-white bg-rose-950/40 border border-rose-500/40 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
+                                                >
+                                                    🔥 {p.customLaoName || 'Lão'}: [hook]
                                                 </button>
                                                 <button 
                                                     type="button" 
