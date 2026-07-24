@@ -99,6 +99,21 @@ async function main() {
     }
   })
 
+  // 8. Seed SystemSetting: characterStates
+  console.log('Seeding SystemSetting: characterStates...')
+  const defaultStates = [
+    { id: 'calm', name: '😐 Bình thường / Calm', aliases: ['calm', 'binhthuong', 'bình thường', 'thuong'] },
+    { id: 'sad', name: '😢 Buồn & Bế tắc / Sad', aliases: ['sad', 'buon', 'buồn', 'khoc', 'khóc', 'be_tac', 'bế tắc'] },
+    { id: 'joy', name: '😊 Vui vẻ & Hạnh phúc / Joy', aliases: ['joy', 'vui', 'vui vẻ', 'vui_ve', 'cuoi', 'cười', 'hanh_phuc'] },
+    { id: 'hook', name: '🔥 Cảnh Mào đầu / Intro (Hook)', aliases: ['hook', 'intro', 'mao_dau', 'mào đầu', 'bat_dau', 'bắt đầu'] },
+    { id: 'outro', name: '🎬 Cảnh Kết thúc / Outro (Ending)', aliases: ['outro', 'ending', 'kethuc', 'kết thúc', 'vailay', 'vái lạy'] }
+  ];
+  await prisma.systemSetting.upsert({
+    where: { key: 'characterStates' },
+    update: { value: JSON.stringify(defaultStates) },
+    create: { key: 'characterStates', value: JSON.stringify(defaultStates) }
+  });
+
   console.log('Seed process completed successfully!')
 }
 
