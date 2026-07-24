@@ -574,67 +574,6 @@ const VideoCreatorModal = () => {
                             {/* Kho Tải Video Dựng Sẵn (Chỉ hiện khi bật Chế độ) */}
                             {isFullFrameMode && (
                                 <div className="flex flex-col gap-3 mt-2 bg-emerald-900/10 p-3 rounded-xl border border-emerald-500/20 animate-in slide-in-from-top-2 max-h-[350px] overflow-y-auto scrollbar-hide">
-                                    <div className="flex items-center justify-between mb-1 gap-2 flex-wrap sm:flex-nowrap">
-                                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                                            <span className="text-[10px] text-emerald-300 font-bold shrink-0">Kho cảnh quay:</span>
-                                            <select
-                                                value={selectedFfPackId}
-                                                onChange={(e) => {
-                                                    const packId = e.target.value;
-                                                    setSelectedFfPackId(packId);
-                                                    if (!packId) return;
-                                                    const pack = FULLFRAME_PACKS.find((p: any) => p.id === packId);
-                                                    if (pack) {
-                                                        if (pack.aspect === 'doc' && setVideoAspectRatio) setVideoAspectRatio('9x16');
-                                                        else if (pack.aspect === 'ngang' && setVideoAspectRatio) setVideoAspectRatio('16x9');
-                                                        const hasMessageScenes = ffScenes?.some((s: any) => s.msgId);
-                                                        if (hasMessageScenes) {
-                                                            setFfScenes((prev: any) => prev.map((scene: any) => {
-                                                                const match = pack.scenes.find((x: any) => x.role === scene.role && x.emotion === scene.emotion) 
-                                                                            || pack.scenes.find((x: any) => x.role === scene.role && x.emotion === 'calm');
-                                                                if (match) {
-                                                                    return { ...scene, url: match.url, idbKey: match.idbKey };
-                                                                }
-                                                                return scene;
-                                                            }));
-                                                            if (p.showToastMsg) p.showToastMsg(`Đã áp dụng ${pack.name} vào các cảnh thoại!`, 'success');
-                                                        } else {
-                                                            handleLoadPack(pack.id);
-                                                        }
-                                                    }
-                                                }}
-                                                className="bg-slate-900 border border-emerald-500/30 text-emerald-400 text-[10px] rounded px-2 py-1 outline-none cursor-pointer shadow-sm flex-1 min-w-[130px]"
-                                            >
-                                                <option value="">-- Chọn Bộ Cảnh --</option>
-                                                {FULLFRAME_PACKS.length === 0 && (
-                                                    <option value="" disabled>-- Bạn chưa có Bộ Cảnh nào --</option>
-                                                )}
-                                                {FULLFRAME_PACKS.filter((p: any) => p.aspect === 'ngang').length > 0 && (
-                                                    <optgroup label="🌐 Cảnh Mặc Định (16:9)">
-                                                        {FULLFRAME_PACKS.filter((p: any) => p.aspect === 'ngang').map((pack: any) => (
-                                                            <option key={pack.id} value={pack.id}>{pack.name}</option>
-                                                        ))}
-                                                    </optgroup>
-                                                )}
-                                                {FULLFRAME_PACKS.filter((p: any) => p.aspect === 'doc').length > 0 && (
-                                                    <optgroup label="📱 Cảnh Mặc Định (9:16)">
-                                                        {FULLFRAME_PACKS.filter((p: any) => p.aspect === 'doc').map((pack: any) => (
-                                                            <option key={pack.id} value={pack.id}>{pack.name}</option>
-                                                        ))}
-                                                    </optgroup>
-                                                )}
-                                                {localFfPacks && localFfPacks.length > 0 && (
-                                                    <optgroup label="📁 Bộ Cảnh Của Con">
-                                                        {localFfPacks.map((pack: any) => (
-                                                            <option key={pack.id} value={pack.id}>{pack.name}</option>
-                                                        ))}
-                                                    </optgroup>
-                                                )}
-                                            </select>
-                                            
-                                        </div>
-                                        <span className="text-[9px] text-slate-500 italic shrink-0">{messages?.length || 0} câu thoại</span>
-                                    </div>
                                     <div className="grid grid-cols-2 gap-2 my-1.5">
                                               <button 
                                                   type="button"
