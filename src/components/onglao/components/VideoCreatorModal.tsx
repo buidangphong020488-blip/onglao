@@ -128,7 +128,7 @@ const SceneThumbnailItem = React.memo(({ scene, setFfScenes }: { scene: any; set
         setHasError(false);
         const idbKey = `ff_clip_${scene.role}_${scene.emotion}_${Date.now()}_${Math.floor(Math.random()*10000)}`;
         setTimeout(() => { idb.set(idbKey, file).catch(err => console.warn('Lỗi lưu IDB:', err)); }, 50);
-        setFfScenes((prev: any) => prev.map((s: any) => s.id === scene.id ? { ...s, url: `idb://${idbKey}`, poster: p, idbKey } : s));
+        setFfScenes((prev: any) => prev.map((s: any) => s.id === scene.id ? { ...s, url: `idb://${idbKey}`, poster: p, idbKey, name: file.name } : s));
     };
 
     const handleClearClip = (e: React.MouseEvent) => {
@@ -529,7 +529,8 @@ const VideoCreatorModal = () => {
                     ...s,
                     url: activeBlobUrl,
                     idbKey: targetKey || null,
-                    poster: posterImg || s.poster
+                    poster: posterImg || s.poster,
+                    name: clip.name || clip.title || clip.fileName || s.name || null
                 };
             }
             return s;
@@ -570,14 +571,28 @@ const VideoCreatorModal = () => {
             // MERGE MODE: Apply video clips into existing dialogue scenes without destroying text or audio!
             const updatedScenes = currentScenes.map((scene: any, sIdx: number) => {
                 // Try finding matching clip by role and emotion first, or fallback to index matching
-                const matchedClip = resolvedStagedClips.find((c: any) => c.role === scene.role && c.emotion === scene.emotion)
-                                  || resolvedStagedClips[sIdx % resolvedStagedClips.length];
+                let matchedClip = resolvedStagedClips.find((c: any) => c.role === scene.role && c.emotion === scene.emotion);
+                if (!matchedClip) {
+                    matchedClip = resolvedStagedClips.find((c: any) => c.role === scene.role);
+                }
+                if (!matchedClip) {
+                    const isLaoScene = scene.role === 'lao' || scene.role === 'ai';
+                    matchedClip = resolvedStagedClips.find((c: any) => {
+                        const clipName = (c.name || c.fileName || '').toLowerCase();
+                        if (isLaoScene) return clipName.includes('lao') || clipName.includes('lão') || clipName.includes('ai');
+                        return clipName.includes('con') || clipName.includes('user');
+                    });
+                }
+                if (!matchedClip) {
+                    matchedClip = resolvedStagedClips[sIdx % resolvedStagedClips.length];
+                }
                 
                 if (matchedClip) {
                     return {
                         ...scene,
                         url: matchedClip.activeBlobUrl,
-                        idbKey: matchedClip.targetKey || scene.idbKey || null
+                        idbKey: matchedClip.targetKey || scene.idbKey || null,
+                        name: matchedClip.name || matchedClip.title || matchedClip.fileName || scene.name || null
                     };
                 }
                 return scene;
@@ -991,6 +1006,16 @@ const VideoCreatorModal = () => {
                                                             Cảnh {idx + 1} <Film size={10} className="text-indigo-400 ml-0.5" />
                                                         </span>
                                                     </div>
+
+                                                    {/* Badge hiển thị Tên Video clip đã nạp vào Cảnh */}
+                                                    {(scene.name || scene.fileName || scene.url || scene.idbKey) && (
+                                                        <div className="absolute -top-2.5 left-28 z-10 flex items-center gap-1 bg-slate-900 border border-indigo-500/40 px-2 py-0.5 rounded-md shadow-md text-[10px] font-mono text-indigo-300 max-w-[200px] truncate" title={scene.name || scene.fileName || scene.idbKey || 'Video clip'}>
+                                                            <Film size={9} className="text-indigo-400 shrink-0" />
+                                                            <span className="truncate font-semibold">
+                                                                {scene.name || scene.fileName || (scene.idbKey ? `clip_${scene.idbKey.substring(0, 10)}` : 'Video clip')}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                             {/* Bảng điều khiển mini (Move & Delete) */}
                                             <div className="absolute -top-3 -right-2 flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                                                 <div className="flex gap-0.5 bg-slate-800 p-1 rounded-md shadow-lg border border-white/10">
