@@ -36,19 +36,6 @@ interface ScriptModalProps {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-const normalizeEmotionCode = (emoStr: string) => {
-    const e = (emoStr || '').toLowerCase().trim();
-    if (['buon', 'sad'].includes(e)) return 'sad';
-    if (['vui', 'joy'].includes(e)) return 'joy';
-    if (['binhthuong', 'calm'].includes(e)) return 'calm';
-    if (['hook', 'intro', 'mao_dau'].includes(e)) return 'hook';
-    if (['tuc_gian', 'angry'].includes(e)) return 'angry';
-    if (['ngac_nhien', 'surprise'].includes(e)) return 'surprise';
-    if (['thiet_tha', 'earnest'].includes(e)) return 'earnest';
-    if (['nghiem_tuc', 'serious'].includes(e)) return 'serious';
-    if (['tinh_thuc', 'awakened'].includes(e)) return 'awakened';
-    return e || 'calm';
-};
 function parseToBlocks(
     text: string,
     laoName: string,
@@ -61,8 +48,22 @@ function parseToBlocks(
     const escRe = (s: string) =>
         s.replace(/[-[\]/{}()*+?.\\^$|]/g, '\\$&');
 
-    const aiRe   = new RegExp(`^(?:${escRe(laoName)}|l[aã]o|đáp|ai|assistant)(?:\\s*\\[([^\\]]*)]|\\s*\\(([^)]*?)\\))?\\s*:`, 'i');
-    const userRe = new RegExp(`^(?:${escRe(userName)}|con|hỏi|user|question)(?:\\s*\\[([^\\]]*)]|\\s*\\(([^)]*?)\\))?\\s*:`, 'i');
+    const aiRe   = new RegExp(`^(?:${escRe(laoName)}|l[aã]o|đáp|ai|assistant)(?:\\s*\\[([^\]]*)\\]|\\s*\\(([^)]*?)\\))?\\s*:`, 'i');
+    const userRe = new RegExp(`^(?:${escRe(userName)}|con|hỏi|user|question)(?:\\s*\\[([^\]]*)\\]|\\s*\\(([^)]*?)\\))?\\s*:`, 'i');
+
+    const matchDbStateId = (tagStr: string) => {
+        const raw = (tagStr || '').toLowerCase().trim();
+        if (!raw) return 'calm';
+        if (Array.isArray(characterStatesArr) && characterStatesArr.length > 0) {
+            const found = characterStatesArr.find((s: any) => 
+                (s.id && s.id.toLowerCase() === raw) || 
+                (s.emotion && s.emotion.toLowerCase() === raw) ||
+                (s.name && s.name.toLowerCase().includes(raw))
+            );
+            if (found) return found.id;
+        }
+        return raw;
+    };
 
     const blocks: ScriptBlockFull[] = [];
     let idx = 0;
@@ -73,23 +74,22 @@ function parseToBlocks(
         const uMatch = !aMatch && line.match(userRe);
 
         if (aMatch) {
-            const emotion = (aMatch[1] ?? aMatch[2] ?? 'calm').toLowerCase().trim();
+            const rawEmo = (aMatch[1] ?? aMatch[2] ?? 'calm').toLowerCase().trim();
             const content = line.slice(aMatch[0].length).trim();
             blocks.push({
                 id: String(idx++), role: 'ai',
-                emotion: normalizeEmotionCode(emotion),
+                emotion: matchDbStateId(rawEmo),
                 text: content,
             });
         } else if (uMatch) {
-            const emotion = (uMatch[1] ?? uMatch[2] ?? 'calm').toLowerCase().trim();
+            const rawEmo = (uMatch[1] ?? uMatch[2] ?? 'calm').toLowerCase().trim();
             const content = line.slice(uMatch[0].length).trim();
             blocks.push({
                 id: String(idx++), role: 'user',
-                emotion: normalizeEmotionCode(emotion),
+                emotion: matchDbStateId(rawEmo),
                 text: content,
             });
         } else if (blocks.length) {
-            // Không có prefix → nối vào block trước
             blocks[blocks.length - 1].text += '\n' + line;
         } else {
             blocks.push({ id: String(idx++), role: 'user', emotion: 'calm', text: line });
@@ -102,78 +102,73 @@ function parseToBlocks(
 // role/emotion là controlled (thay đổi ít + ảnh hưởng giao diện)
 // text là UNCONTROLLED defaultValue → không setState khi gõ → zero lag
 const ScriptBlockRow = React.memo(({
-    block, initialText, taRef,
-    onRoleChange, onEmotionChange, onRemove,
+    block,
+    initialText,
+    idx,
+    laoName,
+    userName,
     EMOTIONS,
+    onRoleChange,
+    onEmotionChange,
+    onDelete,
+    registerRef,
 }: {
     block: ScriptBlock;
     initialText: string;
-    taRef: React.RefObject<HTMLTextAreaElement | null>;
-    onRoleChange:    (id: string, role: 'ai' | 'user') => void;
-    onEmotionChange: (id: string, emotion: string)     => void;
-    onRemove:        (id: string) => void;
+    idx: number;
+    laoName: string;
+    userName: string;
     EMOTIONS: Record<string, string>;
+    onRoleChange: (id: string, role: 'ai' | 'user') => void;
+    onEmotionChange: (id: string, emotion: string) => void;
+    onDelete: (id: string) => void;
+    registerRef: (id: string, el: HTMLTextAreaElement | null) => void;
 }) => {
     const isAi = block.role === 'ai';
 
-    const autoResize = (el: HTMLTextAreaElement) => {
-        el.style.height = 'auto';
-        el.style.height = el.scrollHeight + 'px';
-    };
-
-    // Resize khi mount
-    useEffect(() => {
-        const el = taRef.current;
-        if (el) autoResize(el);
-    }, []);
-
     return (
-        <div className={`flex gap-3 items-start p-3 rounded-xl border transition-colors ${
-            isAi ? 'bg-orange-500/5 border-orange-500/20' : 'bg-sky-500/5 border-sky-500/20'
-        }`}>
-            {/* Selects — controlled vì thay đổi màu border/bg */}
-            <div className="flex flex-col gap-2 w-32 shrink-0">
-                <select
-                    value={block.role}
-                    onChange={e => onRoleChange(block.id, e.target.value as 'ai' | 'user')}
-                    className="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none focus:border-emerald-500 cursor-pointer"
+        <div className={`p-3 rounded-lg border ${isAi ? 'bg-amber-950/20 border-amber-500/20' : 'bg-blue-950/20 border-blue-500/20'} flex flex-col gap-2 relative group`}>
+            <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono text-slate-500">#{idx + 1}</span>
+                    <button
+                        type="button"
+                        onClick={() => onRoleChange(block.id, isAi ? 'user' : 'ai')}
+                        className={`px-2 py-0.5 rounded text-xs font-bold transition-colors ${isAi ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30' : 'bg-blue-500/20 text-blue-300 hover:bg-blue-500/30'}`}
+                    >
+                        {isAi ? laoName : userName}
+                    </button>
+                    <select
+                        value={block.emotion}
+                        onChange={e => onEmotionChange(block.id, e.target.value)}
+                        className="bg-slate-900 border border-white/10 rounded px-2 py-0.5 text-xs text-slate-200 outline-none focus:border-amber-500/50"
+                    >
+                        {Object.entries(EMOTIONS).map(([k, v]) => (
+                            <option key={k} value={k}>{v}</option>
+                        ))}
+                    </select>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => onDelete(block.id)}
+                    className="p-1 text-slate-500 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Xóa câu thoại"
                 >
-                    <option value="user">Con (Hỏi)</option>
-                    <option value="ai">Lão (Đáp)</option>
-                </select>
-                <select
-                    value={block.emotion}
-                    onChange={e => onEmotionChange(block.id, e.target.value)}
-                    className="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none focus:border-emerald-500 cursor-pointer"
-                >
-                    {Object.entries(EMOTIONS).map(([k, v]) => (
-                        <option key={k} value={k}>{v}</option>
-                    ))}
-                </select>
+                    <Trash2 size={13} />
+                </button>
             </div>
-
-            {/* Textarea — UNCONTROLLED, không setState khi gõ */}
             <textarea
-                ref={taRef}
+                ref={el => registerRef(block.id, el)}
                 defaultValue={initialText}
                 rows={2}
-                onInput={e => autoResize(e.currentTarget)}
-                placeholder="Nội dung câu thoại..."
-                className="flex-1 bg-slate-950/80 border border-white/15 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 resize-y font-medium leading-relaxed min-h-[60px]"
+                placeholder="Nhập nội dung thoại..."
+                className="w-full bg-slate-950/60 border border-white/10 rounded-md p-2 text-xs text-white placeholder-slate-600 outline-none focus:border-white/20 resize-y"
             />
-
-            <button
-                onClick={() => onRemove(block.id)}
-                className="text-slate-500 hover:text-red-400 p-2 shrink-0 transition-colors"
-            >
-                <Trash2 size={16} />
-            </button>
         </div>
     );
-// Chỉ re-render khi role/emotion/id thay đổi — KHÔNG re-render khi gõ text
 }, (prev, next) =>
-    prev.block.id      === next.block.id &&
-    prev.block.role    === next.block.role &&
+    prev.block.id      === next.block.id    &&
+    prev.block.role    === next.block.role  &&
     prev.block.emotion === next.block.emotion &&
     prev.EMOTIONS      === next.EMOTIONS
 );
@@ -193,27 +188,21 @@ const ScriptModalInner = (
     const EMOTIONS: Record<string, string> = useMemo(() => {
         try {
             if (publicSettings?.characterStates) {
-                const arr = JSON.parse(publicSettings.characterStates);
+                const arr = typeof publicSettings.characterStates === 'string' 
+                    ? JSON.parse(publicSettings.characterStates) 
+                    : publicSettings.characterStates;
                 if (Array.isArray(arr) && arr.length)
                     return arr.reduce((a: any, s: any) => ({ ...a, [s.id]: s.name }), {});
             }
         } catch {}
-        return { calm: 'Bình thường', sad: 'Buồn bã', joy: 'Vui vẻ', hook: 'Nhấn mạnh' };
+        return {};
     }, [publicSettings?.characterStates]);
 
-    // State: chỉ lưu { id, role, emotion } — KHÔNG lưu text
     const [blocks, setBlocks] = useState<ScriptBlock[]>([]);
-
-    // initialTexts: text ban đầu của mỗi block (chỉ dùng để set defaultValue)
-    // Lưu bằng ref để không trigger re-render
     const initialTextsRef = useRef<Record<string, string>>({});
-
-    // Refs tới DOM textarea của mỗi block → đọc khi save
     const taRefs = useRef<Record<string, React.RefObject<HTMLTextAreaElement | null>>>({});
-
     const lastParsedRef = useRef('');
 
-    // Parse scriptText → blocks khi text thay đổi từ bên ngoài
     useEffect(() => {
         if (!show) return;
         if (scriptText === lastParsedRef.current) return;
@@ -225,9 +214,9 @@ const ScriptModalInner = (
                 statesArr = typeof publicSettings.characterStates === 'string' ? JSON.parse(publicSettings.characterStates) : publicSettings.characterStates;
             }
         } catch {}
+
         const parsed = parseToBlocks(scriptText, laoName, userName, statesArr);
 
-        // Khởi tạo initialTexts và tạo refs mới
         const newTexts: Record<string, string> = {};
         const newRefs: Record<string, React.RefObject<HTMLTextAreaElement | null>> = {};
         parsed.forEach(b => {
@@ -236,24 +225,21 @@ const ScriptModalInner = (
         });
         initialTextsRef.current = newTexts;
         taRefs.current = newRefs;
-
         setBlocks(parsed.map(({ id, role, emotion }) => ({ id, role, emotion })));
-    }, [scriptText, show, laoName, userName]);
+    }, [show, scriptText, laoName, userName, publicSettings?.characterStates]);
 
-    // Đọc text từ DOM refs → serialize
-    const getLatestText = useCallback((): string => {
+    const buildFullText = useCallback(() => {
         return blocks.map(b => {
-            const text = taRefs.current[b.id]?.current?.value
-                      ?? initialTextsRef.current[b.id]
-                      ?? '';
+            const text = taRefs.current[b.id]?.current?.value ?? initialTextsRef.current[b.id] ?? '';
             const name = b.role === 'ai' ? laoName : userName;
             return `${name} [${b.emotion}]: ${text}`;
         }).join('\n');
     }, [blocks, laoName, userName]);
 
-    useImperativeHandle(ref, () => ({ getLatestText }), [getLatestText]);
+    useImperativeHandle(ref, () => ({
+        getLatestText: () => buildFullText()
+    }), [buildFullText]);
 
-    // ── Callbacks ──────────────────────────────────────────────────────────
     const onRoleChange = useCallback((id: string, role: 'ai' | 'user') => {
         setBlocks(prev => prev.map(b => b.id === id ? { ...b, role } : b));
     }, []);
@@ -262,133 +248,118 @@ const ScriptModalInner = (
         setBlocks(prev => prev.map(b => b.id === id ? { ...b, emotion } : b));
     }, []);
 
-    const onRemove = useCallback((id: string) => {
-        setBlocks(prev => {
-            if (prev.length <= 1) return prev;
-            const next = prev.filter(b => b.id !== id);
-            delete taRefs.current[id];
-            delete initialTextsRef.current[id];
-            return next;
-        });
+    const onDelete = useCallback((id: string) => {
+        delete initialTextsRef.current[id];
+        delete taRefs.current[id];
+        setBlocks(prev => prev.filter(b => b.id !== id));
     }, []);
 
     const onAdd = useCallback(() => {
-        const newId = Date.now().toString();
-        const lastRole = blocks.length ? blocks[blocks.length - 1].role : 'ai';
-        const newRole: 'ai' | 'user' = lastRole === 'ai' ? 'user' : 'ai';
+        const newId = String(Date.now());
         initialTextsRef.current[newId] = '';
         taRefs.current[newId] = { current: null };
+        const last = blocks[blocks.length - 1];
+        const newRole = last ? (last.role === 'ai' ? 'user' : 'ai') : 'user';
         setBlocks(prev => [...prev, { id: newId, role: newRole, emotion: 'calm' }]);
     }, [blocks]);
 
-    const handleImport = useCallback(() => {
-        const text = getLatestText();
-        lastParsedRef.current = text;
-        setScriptText(text);
+    const registerRef = useCallback((id: string, el: HTMLTextAreaElement | null) => {
+        if (!taRefs.current[id]) {
+            taRefs.current[id] = { current: el };
+        } else {
+            (taRefs.current[id] as any).current = el;
+        }
+    }, []);
+
+    const handleSave = () => {
+        const full = buildFullText();
+        lastParsedRef.current = full;
+        setScriptText(full);
         onImport();
-    }, [getLatestText, setScriptText, onImport]);
+        onClose();
+    };
 
-    if (!show) return null;
+    if (!show && !asTab) return null;
 
-    const editor = (
-        <div className="flex flex-col gap-3 flex-1 min-h-0">
-            <div className="flex flex-col gap-2 overflow-y-auto flex-1 pr-1">
-                {blocks.map(block => {
-                    // Đảm bảo ref tồn tại
-                    if (!taRefs.current[block.id])
-                        taRefs.current[block.id] = { current: null };
-                    return (
-                        <ScriptBlockRow
-                            key={block.id}
-                            block={block}
-                            initialText={initialTextsRef.current[block.id] ?? ''}
-                            taRef={taRefs.current[block.id]}
-                            onRoleChange={onRoleChange}
-                            onEmotionChange={onEmotionChange}
-                            onRemove={onRemove}
-                            EMOTIONS={EMOTIONS}
-                        />
-                    );
-                })}
+    const contentNode = (
+        <div className="flex flex-col gap-4 max-h-[70vh] overflow-y-auto pr-1">
+            <div className="flex flex-col gap-2">
+                <textarea
+                    value={scriptText}
+                    onChange={e => setScriptText(e.target.value)}
+                    rows={6}
+                    placeholder="Gõ dạng Lão: [vui] ... hoặc Con: [buon] ..."
+                    className="w-full bg-slate-900 border border-white/10 rounded-lg p-3 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-500/50 resize-y font-mono"
+                />
             </div>
-            <button
-                onClick={onAdd}
-                className="w-full py-3 border border-dashed border-white/20 rounded-xl text-slate-400 hover:text-emerald-400 hover:border-emerald-400/50 hover:bg-emerald-500/5 flex justify-center items-center gap-2 transition-all text-sm font-bold shrink-0"
-            >
-                <Plus size={18} /> Thêm câu thoại mới
-            </button>
-        </div>
-    );
 
-    if (hideOptions) return editor;
-
-    if (asTab) return (
-        <div className="p-5 flex flex-col gap-4 flex-1 min-h-0">
-            <div className="flex justify-between items-center shrink-0">
-                <label className="text-xs font-bold text-slate-400">Tùy chọn nhập kịch bản:</label>
-                <div className="flex gap-2">
-                    <button onClick={() => setImportMode('append')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${importMode === 'append' ? 'bg-emerald-600 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}>
-                        Nối tiếp kịch bản cũ
-                    </button>
-                    <button onClick={() => setImportMode('overwrite')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${importMode === 'overwrite' ? 'bg-red-600/80 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}>
-                        Xóa cũ, thay bằng mới
-                    </button>
-                </div>
-            </div>
-            {editor}
-            <div className="pt-2 flex justify-end border-t border-white/5 shrink-0">
-                <button onClick={handleImport}
-                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2">
-                    <Check size={16} /> Nhập kịch bản
+            <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                    Danh Sách Block Thoại Đã Phân Tách ({blocks.length} câu)
+                </span>
+                <button
+                    type="button"
+                    onClick={onAdd}
+                    className="px-2 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 rounded text-xs font-bold transition-colors flex items-center gap-1"
+                >
+                    <Plus size={13} /> Thêm câu
                 </button>
             </div>
+
+            <div className="flex flex-col gap-2">
+                {blocks.map((b, i) => (
+                    <ScriptBlockRow
+                        key={b.id}
+                        block={b}
+                        initialText={initialTextsRef.current[b.id] ?? ''}
+                        idx={i}
+                        laoName={laoName}
+                        userName={userName}
+                        EMOTIONS={EMOTIONS}
+                        onRoleChange={onRoleChange}
+                        onEmotionChange={onEmotionChange}
+                        onDelete={onDelete}
+                        registerRef={registerRef}
+                    />
+                ))}
+            </div>
         </div>
     );
 
+    if (asTab) return contentNode;
+
     return (
-        <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" onClick={onClose}>
-            <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col animate-in zoom-in-95 max-h-[90vh]"
-                onClick={e => e.stopPropagation()}>
-                <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-800 shrink-0">
-                    <h2 className="font-black text-emerald-400 tracking-widest flex items-center gap-2">
-                        <FileText size={18} /> Soạn Kịch Bản
-                    </h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-white"><X size={20} /></button>
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-slate-950 border border-white/10 rounded-2xl w-full max-w-3xl p-6 shadow-2xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
+                <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                    <div className="flex items-center gap-2 text-amber-400 font-bold text-lg">
+                        <FileText size={20} /> Chỉnh Sửa Kịch Bản Thoại
+                    </div>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
+                        <X size={20} />
+                    </button>
                 </div>
-                <div className="p-6 flex flex-col gap-4 flex-1 overflow-hidden min-h-0">
-                    <div className="flex flex-col gap-2 shrink-0">
-                        <label className="text-xs font-bold text-slate-400">Tùy chọn nhập kịch bản:</label>
-                        <div className="flex gap-4">
-                            <label className="flex items-center gap-2 text-sm text-white cursor-pointer hover:text-emerald-300 transition-colors">
-                                <input type="radio" name="importMode" value="new"
-                                    checked={importMode === 'new'} onChange={() => setImportMode('new')}
-                                    className="accent-emerald-500 w-4 h-4 cursor-pointer" />
-                                Tạo cuộc đàm đạo mới
-                            </label>
-                            <label className="flex items-center gap-2 text-sm text-white cursor-pointer hover:text-emerald-300 transition-colors">
-                                <input type="radio" name="importMode" value="append"
-                                    checked={importMode === 'append'} onChange={() => setImportMode('append')}
-                                    className="accent-emerald-500 w-4 h-4 cursor-pointer" />
-                                Thêm vào đàm đạo hiện tại
-                            </label>
-                        </div>
-                    </div>
-                    {editor}
-                    <div className="flex justify-end gap-3 border-t border-white/5 pt-4 shrink-0">
-                        <button onClick={onClose} className="px-5 py-2.5 rounded-xl font-bold text-slate-400 hover:text-white transition-colors">Hủy</button>
-                        <button onClick={handleImport}
-                            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg transition-all flex items-center gap-2">
-                            <Check size={16} /> Xác nhận &amp; Nhập
-                        </button>
-                    </div>
+
+                {contentNode}
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:bg-white/5 transition-colors"
+                    >
+                        Hủy
+                    </button>
+                    <button
+                        onClick={handleSave}
+                        className="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-xl text-xs shadow-lg transition-all flex items-center gap-1.5"
+                    >
+                        <Check size={14} /> Lưu & Áp Dụng
+                    </button>
                 </div>
             </div>
         </div>
     );
 };
 
-const ScriptModal = forwardRef(ScriptModalInner);
-ScriptModal.displayName = 'ScriptModal';
+export const ScriptModal = forwardRef(ScriptModalInner);
 export default ScriptModal;
