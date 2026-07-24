@@ -4162,7 +4162,7 @@ YÊU CẦU ÉP BUỘC:
   useEffect(() => { isFullFrameModeRef.current = isFullFrameMode; }, [isFullFrameMode]);
 
   // TÂM AN THÊM & NÂNG CẤP: Quản lý Kho Assets cho chế độ Dựng Sẵn ĐA CẢM XÚC
-  const EMOTIONS = { calm: '😐 Bình thường', sad: '😢 Buồn/Bế tắc', joy: '😄 Vui/Hạnh phúc', hook: '🔥 Mào đầu (Hook)' };
+  const EMOTIONS = { calm: '😐 Bình thường', sad: '😢 Buồn/Bế tắc', joy: '😊 Vui/Hạnh phúc', angry: '😡 Tức giận', surprise: '😲 Ngạc nhiên', earnest: '🙏 Thiết tha', serious: '⚡ Nghiêm túc', awakened: '✨ Tỉnh thức' };
 
   const FULLFRAME_PACKS = [
       // === CẢNH NGANG (16:9) ===

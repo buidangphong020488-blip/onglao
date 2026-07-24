@@ -888,7 +888,7 @@ export const useVideoExport = ({
      user: { x: 6, y: -5, s: 1.15, flip: false }
   });
 
-  const EMOTIONS = { calm: '😐 Bình thường', sad: '😢 Buồn/Bế tắc', joy: '😊 Vui/Hạnh phúc', hook: '🔥 Mào đầu (Hook)' };
+  const EMOTIONS = { calm: '😐 Bình thường', sad: '😢 Buồn/Bế tắc', joy: '😊 Vui/Hạnh phúc', angry: '😡 Tức giận', surprise: '😲 Ngạc nhiên', earnest: '🙏 Thiết tha', serious: '⚡ Nghiêm túc', awakened: '✨ Tỉnh thức' };
 
   // --- STATES & REFS FOR GLOBAL PLAY (PHÁT TOÀN BỘ ĐÀM ĐẠO) ---
   const [isGlobalPlaying, setIsGlobalPlaying] = useState(false);

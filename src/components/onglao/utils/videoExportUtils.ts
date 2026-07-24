@@ -5,7 +5,11 @@ export const EMOTIONS = {
   calm: '😐 Bình thường', 
   sad: '😢 Buồn/Bế tắc', 
   joy: '😊 Vui/Hạnh phúc', 
-  hook: '🔥 Mào đầu (Hook)' 
+  angry: '😡 Tức giận',
+  surprise: '😲 Ngạc nhiên',
+  earnest: '🙏 Thiết tha',
+  serious: '⚡ Nghiêm túc',
+  awakened: '✨ Tỉnh thức'
 };
 
 export const DEFAULT_CAM_PRESETS = [
