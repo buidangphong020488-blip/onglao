@@ -2344,7 +2344,8 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
 
           // Cơ chế tự động thử lại nếu API bị nghẽn (tối đa 3 lần)
           while (!success && retries < 3) {
-             success = await generateVoice(msg.id, msg.text, msg.role, currentSessionId, false);
+             const targetRole = (msg.role || '').toString().toLowerCase().includes('lao') || (msg.role || '').toString().toLowerCase().includes('ai') || (msg.role || '').toString().toLowerCase().includes('assistant') ? 'ai' : 'user';
+             success = await generateVoice(msg.id, msg.text, targetRole, currentSessionId, false);
              if (!success) {
                  retries++;
                  await new Promise(resolve => setTimeout(resolve, 2500)); // Nghỉ 2.5s rồi thử lại
