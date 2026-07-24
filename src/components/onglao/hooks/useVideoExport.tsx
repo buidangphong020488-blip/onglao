@@ -2451,23 +2451,23 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
     setIsPreparingGlobal(false);
     if (url) {
       const blob = await fetch(url).then((r: any) => r.blob());
-      const file = new File([blob], `Khai_thi_${currentSession?.title || "Hoi_thoai"}.wav`, { type: 'audio/wav' });
+      const file = new File([blob], `Khai_thi_${getCurrentSession()?.title || "Hoi_thoai"}.wav`, { type: 'audio/wav' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({
-            title: `Hội thoại cùng Lão - ${currentSession?.title || "Hội thoại"}`,
+            title: `Hội thoại cùng Lão - ${getCurrentSession()?.title || "Hội thoại"}`,
             files: [file]
           });
         } catch (e: any) { 
           if (e.name !== 'AbortError' && !e.message?.includes('canceled')) {
             console.error("Share failed", e); 
             showToastMsg('Môi trường chặn chia sẻ trực tiếp. Đang tự động tải về...', 'info', 3000);
-            downloadAudio(url, `Khai_thi_Toan_bo_${currentSession?.title || "Hoi_thoai"}`);
+            downloadAudio(url, `Khai_thi_Toan_bo_${getCurrentSession()?.title || "Hoi_thoai"}`);
           }
         }
       } else {
         showToastMsg('Không hỗ trợ chia sẻ trực tiếp. Đang tự động tải về...', 'info', 3000);
-        downloadAudio(url, `Khai_thi_Toan_bo_${currentSession?.title || "Hoi_thoai"}`);
+        downloadAudio(url, `Khai_thi_Toan_bo_${getCurrentSession()?.title || "Hoi_thoai"}`);
       }
     }
     setShowShareMenu(false);
@@ -2672,6 +2672,10 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
     }
     
     return { blob: new Blob([combined.buffer], { type: 'audio/wav' }), metadata };
+  };
+
+    const getCurrentSession = () => {
+    return latestSessionsRef.current?.find((s: any) => s.id === currentSessionIdRef.current) || sessions?.find((s: any) => s.id === currentSessionId);
   };
 
   const getCombinedAudioUrl = async () => {
@@ -2915,7 +2919,7 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
       const url = await getCombinedAudioUrl();
       setIsPreparingGlobal(false);
       if (url) {
-        downloadAudio(url, `Khai_thi_Toan_bo_${currentSession?.title || "Hoi_thoai"}`);
+        downloadAudio(url, `Khai_thi_Toan_bo_${getCurrentSession()?.title || "Hoi_thoai"}`);
         showToastMsg('Tải file MP3 gộp thành công!', 'success');
       } else {
         showToastMsg('Kịch bản chưa có dữ liệu âm thanh để gộp. Vui lòng tạo audio trước!', 'warning');
@@ -2929,11 +2933,11 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
   };
 
   const shareTextContent = async () => {
-    let content = `Lời khai thị từ Lão - ${currentSession?.title || "Hội thoại"}:\n\n`;
+    let content = `Lời khai thị từ Lão - ${getCurrentSession()?.title || "Hội thoại"}:\n\n`;
     messages.forEach((msg: any) => { content += `${msg.role === 'user' ? "Con" : "Lão"}: ${msg.text}\n\n`; });
     if (navigator.share) {
       try { 
-         await navigator.share({ title: `Hội thoại cùng Lão - ${currentSession?.title || "Hội thoại"}`, text: content }); 
+         await navigator.share({ title: `Hội thoại cùng Lão - ${getCurrentSession()?.title || "Hội thoại"}`, text: content }); 
       } catch (err: any) { 
          if (err.name !== 'AbortError' && !err.message?.includes('canceled')) { 
             copyToClipboard(content); 
