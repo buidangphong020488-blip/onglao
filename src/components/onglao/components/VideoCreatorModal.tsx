@@ -627,78 +627,45 @@ const VideoCreatorModal = (props?: any) => {
             };
         }));
 
-        // 2. Check if current ffScenes has existing dialogue scenes (msgId or textSnippet)
         const currentScenes = p.ffScenes || [];
-        const hasDialogueScenes = currentScenes.some((s: any) => s.msgId || s.textSnippet);
 
-        if (hasDialogueScenes && currentScenes.length > 0) {
-            // MERGE MODE: Apply video clips into existing dialogue scenes without destroying text or audio!
+        // Build new scene objects from all staged clips
+        const newScenesFromStaged = resolvedStagedClips.map((stg: any, idx: number) => ({
+            id: `scene_stg_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 4)}`,
+            role: stg.role || 'lao',
+            emotion: stg.emotion || 'calm',
+            url: stg.activeBlobUrl,
+            idbKey: stg.targetKey || null,
+            name: stg.name || stg.title || stg.fileName || `Cảnh quay ${idx + 1}`
+        }));
+
+        if (currentScenes.length > 0) {
+            // MERGE MODE: Map staged clips directly into existing scenes
             const updatedScenes = currentScenes.map((scene: any, sIdx: number) => {
-                // Try finding matching clip by role and emotion first, or fallback to index matching
-                const isRoleMatch = (r1: string, r2: string) => {
-                    const a = (r1 || '').toLowerCase().trim();
-                    const b = (r2 || '').toLowerCase().trim();
-                    if (a === b) return true;
-                    if (['lao', 'ai', 'assistant'].includes(a) && ['lao', 'ai', 'assistant'].includes(b)) return true;
-                    if (['user', 'con'].includes(a) && ['user', 'con'].includes(b)) return true;
-                    return false;
-                };
-
-                const isEmoMatch = (e1: string, e2: string) => {
-                    const a = (e1 || '').toLowerCase().trim();
-                    const b = (e2 || '').toLowerCase().trim();
-                    if (a === b) return true;
-                    if (['buon', 'sad'].includes(a) && ['buon', 'sad'].includes(b)) return true;
-                    if (['vui', 'joy'].includes(a) && ['vui', 'joy'].includes(b)) return true;
-                    if (['binhthuong', 'calm'].includes(a) && ['binhthuong', 'calm'].includes(b)) return true;
-                    return false;
-                };
-
-                let matchedClip = resolvedStagedClips.find((c: any) => isRoleMatch(c.role, scene.role) && isEmoMatch(c.emotion, scene.emotion));
-                if (!matchedClip) {
-                    matchedClip = resolvedStagedClips.find((c: any) => isRoleMatch(c.role, scene.role));
-                }
-                if (!matchedClip) {
-                    const isLaoScene = isRoleMatch(scene.role, 'lao');
-                    matchedClip = resolvedStagedClips.find((c: any) => {
-                        const clipName = (c.name || c.fileName || '').toLowerCase();
-                        if (isLaoScene) return clipName.includes('lao') || clipName.includes('lão') || clipName.includes('ai');
-                        return clipName.includes('con') || clipName.includes('user');
-                    });
-                }
-                if (!matchedClip) {
-                    const sameRoleClips = resolvedStagedClips.filter((c: any) => isRoleMatch(c.role, scene.role));
-                    if (sameRoleClips.length > 0) {
-                        matchedClip = sameRoleClips[sIdx % sameRoleClips.length];
-                    }
-                }
-                
-                if (matchedClip) {
+                if (sIdx < resolvedStagedClips.length) {
+                    const stg = resolvedStagedClips[sIdx];
                     return {
                         ...scene,
-                        url: matchedClip.activeBlobUrl,
-                        idbKey: matchedClip.targetKey || scene.idbKey || null,
-                        name: matchedClip.name || matchedClip.title || matchedClip.fileName || scene.name || null
+                        url: stg.activeBlobUrl,
+                        idbKey: stg.targetKey || scene.idbKey || null,
+                        name: stg.name || stg.title || stg.fileName || scene.name || null
                     };
                 }
                 return scene;
             });
 
-            p.setFfScenes(updatedScenes);
-            if (p.showToastMsg) p.showToastMsg(`Đã áp dụng ${resolvedStagedClips.length} video clip vào kịch bản lời thoại hiện tại!`, 'success');
+            // Append remaining staged clips if more staged clips were selected than existing scenes
+            if (resolvedStagedClips.length > currentScenes.length) {
+                const remaining = newScenesFromStaged.slice(currentScenes.length);
+                p.setFfScenes([...updatedScenes, ...remaining]);
+            } else {
+                p.setFfScenes(updatedScenes);
+            }
+            if (p.showToastMsg) p.showToastMsg(`Đã nạp ${resolvedStagedClips.length} video clip từ kho vào kịch bản!`, 'success');
         } else {
-            // CREATION MODE: Create new scenes if no dialogue script exists
-            const newScenes = resolvedStagedClips.map((stg: any, idx: number) => ({
-                id: `scene_stg_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 4)}`,
-                role: stg.role || 'lao',
-                emotion: stg.emotion || 'calm',
-                url: stg.activeBlobUrl,
-                idbKey: stg.targetKey || null,
-                name: stg.name || `Cảnh quay ${idx + 1}`
-            }));
-
-            p.setFfScenes(newScenes);
-            if (p.showToastMsg) p.showToastMsg(`Đã nạp ${newScenes.length} cảnh quay chọn từ kho vào kịch bản!`, 'success');
+            // CREATION MODE: Set ffScenes directly to newScenesFromStaged
+            p.setFfScenes(newScenesFromStaged);
+            if (p.showToastMsg) p.showToastMsg(`Đã nạp ${newScenesFromStaged.length} cảnh quay chọn từ kho vào kịch bản!`, 'success');
         }
 
         setShowLibraryModal(false);
