@@ -54,7 +54,33 @@ export const useLiveStreaming = ({
   publicAis
 }: any) => {
 
-    const [isLiveMode, setIsLiveMode] = useState(false);
+  const [isLiveMode, setIsLiveMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('mode') === 'live' || urlParams.get('live') === 'true';
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (isLiveMode) {
+        if (url.searchParams.get('mode') !== 'live') {
+          url.searchParams.set('mode', 'live');
+          window.history.replaceState(null, '', url.pathname + '?' + url.searchParams.toString());
+        }
+      } else {
+        if (url.searchParams.get('mode') === 'live' || url.searchParams.has('live')) {
+          url.searchParams.delete('mode');
+          url.searchParams.delete('live');
+          const cleanUrl = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '');
+          window.history.replaceState(null, '', cleanUrl);
+        }
+      }
+    }
+  }, [isLiveMode]);
+
   const [isLiveActive, setIsLiveActive] = useState(false); // TÂM AN THÊM: Quản lý việc Đã chính thức bật Live chưa
   const [showLiveSettings, setShowLiveSettings] = useState(true); // TÂM AN THÊM: Quản lý ẩn/hiện bảng cài đặt
   const isLiveActiveRef = useRef(isLiveActive); // TÂM AN FIX: Thêm Ref chống lỗi biến cũ cho bộ đếm 30s
@@ -85,6 +111,11 @@ export const useLiveStreaming = ({
 
   // TÂM AN THÊM: Ref mốc thời gian để chỉ lấy comment mới khi bật Live
   const liveStartTimeRef = useRef(Date.now());
+
+  // TÂM AN THÊM: State nội bộ cho charOffsets nếu không truyền từ bên ngoài
+  const [internalCharOffsets, setInternalCharOffsets] = useState({ lao: { x: 0, y: 0, s: 1, flip: false } });
+  const activeCharOffsets = (charOffsets && charOffsets.lao) ? charOffsets : internalCharOffsets;
+  const activeSetCharOffsets = typeof setCharOffsets === 'function' ? setCharOffsets : setInternalCharOffsets;
 
   // TÂM AN FIX: Các Ref phục vụ luồng đồng bộ Phụ đề tốc độ cao (60fps) không gây lag React
   const liveShowSubtitlesRef = useRef(liveShowSubtitles);
@@ -1096,6 +1127,8 @@ ${movieInstruction}${knowledgeInstruction}${liveContext}`;
     liveIdleTimeout, setLiveIdleTimeout,
     showLaoPiP, setShowLaoPiP,
     showYtForm, setShowYtForm,
+    charOffsets: activeCharOffsets,
+    setCharOffsets: activeSetCharOffsets,
     ytFormData, setYtFormData,
     
     // Refs

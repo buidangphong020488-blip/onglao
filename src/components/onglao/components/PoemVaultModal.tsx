@@ -2,7 +2,6 @@
 import React from "react";
 import { X, BookOpen, FileText, Tag, Search, Loader2, Download, XCircle, Check, Info, Plus, Trash2, Play, Pause, Upload, RefreshCw, Wand2, Music4, Bot, Cloud, Copy, Archive, Save, Mic, VolumeX, Sparkles, Edit3, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
 import { RagSection } from "../ui/RagSection";
-import { useOngLaoContext } from "../context/OngLaoContext";
 
 // PoemVaultModal: Nhận toàn bộ state/handlers qua context
 // Để thêm/sửa tính năng trong modal này, chỉ cần mở file này - không cần đụng vào onglao-platform.tsx
@@ -19,11 +18,11 @@ const CATEGORY_MAP: Record<string, string> = {
   waiting_long: "⏳ Chờ đợi quá lâu (> 60s)"
 };
 
-const PoemVaultModal = ({ isAdminMode = false, inline = false }: { isAdminMode?: boolean; inline?: boolean }) => {
-  const p = useOngLaoContext();
+const PoemVaultModal = ({ isAdminMode = false, inline = false, p: propP }: { isAdminMode?: boolean; inline?: boolean; p?: any }) => {
+  const p = propP || {};
   const {
     showPoemModal, setShowPoemModal, poemModalTab, setPoemModalTab,
-    poemDatabase, poemSearch, setPoemSearch, savePoemDatabase,
+    poemDatabase = [], poemSearch = '', setPoemSearch, savePoemDatabase,
     handleUpdatePoemContent, handleUpdatePoemMeaning,
     handleAddTag, handleRemoveTag,
     handleBatchGenerateStanzas, handleBatchGenerateMeanings, handleBatchGenerateGreetings,
@@ -420,11 +419,13 @@ const PoemVaultModal = ({ isAdminMode = false, inline = false }: { isAdminMode?:
   const totalPhrasePages = Math.ceil(phrasesTotal / phrasesPerPage) || 1;
 
   const filteredPoems = React.useMemo(() => {
+    if (!Array.isArray(poemDatabase)) return [];
+    const searchLower = (poemSearch || '').toLowerCase();
     return poemDatabase.filter((p: any) => 
-      p.title.toLowerCase().includes(poemSearch.toLowerCase()) || 
-      p.stanzas.some((s: any) => 
-        s.content.toLowerCase().includes(poemSearch.toLowerCase()) || 
-        s.tags.some((t: any) => t.toLowerCase().includes(poemSearch.toLowerCase()))
+      (p?.title || '').toLowerCase().includes(searchLower) || 
+      (p?.stanzas || []).some((s: any) => 
+        (s?.content || '').toLowerCase().includes(searchLower) || 
+        (s?.tags || []).some((t: any) => (t || '').toLowerCase().includes(searchLower))
       )
     );
   }, [poemDatabase, poemSearch]);
@@ -1544,6 +1545,27 @@ const PoemVaultModal = ({ isAdminMode = false, inline = false }: { isAdminMode?:
 
   if (inline) return innerContent;
 
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && showPoemModal) {
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('modal') !== 'poem-vault') {
+            url.searchParams.set('modal', 'poem-vault');
+            window.history.replaceState(null, '', url.pathname + '?' + url.searchParams.toString());
+        }
+    }
+  }, [showPoemModal]);
+
+  const handleClosePoemModal = () => {
+    if (setShowPoemModal) setShowPoemModal(false);
+    if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('modal');
+        url.searchParams.delete('poem');
+        const cleanUrl = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '');
+        window.history.replaceState(null, '', cleanUrl);
+    }
+  };
+
   return (
       <div className="fixed inset-0 z-[140] bg-slate-950 flex flex-col w-full h-full min-h-screen overflow-hidden animate-in fade-in duration-300">
           {/* Header Trang Kho Tàng Pháp Bảo (Fullscreen Page) */}
@@ -1558,7 +1580,7 @@ const PoemVaultModal = ({ isAdminMode = false, inline = false }: { isAdminMode?:
                   </div>
               </div>
               <button 
-                  onClick={() => setShowPoemModal(false)} 
+                  onClick={handleClosePoemModal} 
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-md cursor-pointer"
                   title="Quay lại Thiền đường"
               >

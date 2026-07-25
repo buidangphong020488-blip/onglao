@@ -48,6 +48,10 @@ OngLao.zip
 
 # Data folder
 /data
+/backup/
+/scratch/
+/public/test_screenshots/
+/public/uploads/
 
 # Media files
 *.wav

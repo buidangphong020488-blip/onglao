@@ -79,6 +79,10 @@ export default function AdminPage() {
   const [settings, setSettings] = useState<any>({
     apiKey: '', modelName: 'gemini-2.5-flash-preview-09-2025',
     ttsModel: 'gemini-2.5-flash-preview-tts',
+    laoVoiceName: 'Puck',
+    laoVoiceStyle: 'Trầm ấm, từ hòa, thong dong, minh triết, từ tốn, ngắt nhịp rõ ràng',
+    userVoiceName: 'Kore',
+    userVoiceStyle: 'Lắng đọng, kính cẩn, chân thành, nhẹ nhàng, tìm cầu đạo lý',
     momoPhone: '', momoName: '', bankName: '', bankAccount: '', qrImageUrl: '',
     subscribeCodes: 'TAMVO2025,UNGDUNG888,THIENSUGD2025', freeLimit: '20',
   });
@@ -644,6 +648,62 @@ export default function AdminPage() {
                   </select>
                 </div>
               </section>
+
+              {/* CẤU HÌNH GIỌNG ĐỌC & PHONG CÁCH ĐỒNG NHẤT */}
+              <section className="bg-slate-900 border border-white/5 rounded-2xl p-6 flex flex-col gap-5">
+                <h2 className="text-xs font-bold text-cyan-400 tracking-widest uppercase flex items-center gap-2">
+                  <Mic size={14} /> Cấu hình Giọng đọc & Phong cách TTS (Đồng nhất hệ thống)
+                </h2>
+                
+                {/* KHUNG CẤU HÌNH DUY NHẤT CHO GIỌNG LÃO */}
+                <div className="p-5 bg-slate-950/60 rounded-xl border border-amber-500/20 flex flex-col gap-4">
+                  <div className="flex justify-between items-center border-b border-white/10 pb-3">
+                    <span className="text-xs font-bold text-amber-400 flex items-center gap-2">
+                      👴 Giọng Đọc Khai Thị Của Lão (Mẫu Giọng Gemini Nam & Nữ)
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono">Dùng cho Bài Kệ, Mào Đầu, Khai Thị & Video Studio</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Cấu hình Giọng Lão */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[11px] text-amber-400 font-bold flex items-center gap-1">👴 Mẫu Giọng Gemini (Nam & Nữ)</label>
+                      <select
+                        value={settings.laoVoiceName || 'Puck'}
+                        onChange={e => setSettings((p: any) => ({ ...p, laoVoiceName: e.target.value }))}
+                        className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-amber-500 font-medium"
+                      >
+                        <optgroup label="👨 Giọng Nam">
+                          <option value="Puck">Puck (Trầm ấm, minh triết - Mặc định)</option>
+                          <option value="Charon">Charon (Uy nghiêm, sâu lắng)</option>
+                          <option value="Fenrir">Fenrir (Thong dong, tự tại)</option>
+                          <option value="Orpheus">Orpheus (Nhẹ nhàng, truyền cảm)</option>
+                          <option value="Enceladus">Enceladus (Hùng hồn, dứt khoát)</option>
+                          <option value="Algieba">Algieba (Ấm áp, mạnh mẽ)</option>
+                        </optgroup>
+                        <optgroup label="👩 Giọng Nữ">
+                          <option value="Kore">Kore (Nhẹ nhàng, trong trẻo)</option>
+                          <option value="Zephyr">Zephyr (Lắng đọng, tha thiết)</option>
+                          <option value="Aoede">Aoede (Chân thành, ấm áp)</option>
+                          <option value="Leda">Leda (Kính cẩn, dịu dàng)</option>
+                          <option value="Callisto">Callisto (Tự nhiên, mộc mạc)</option>
+                        </optgroup>
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[11px] text-amber-400 font-bold">✨ Văn phong & Phong cách Giọng Lão</label>
+                      <input
+                        type="text"
+                        value={settings.laoVoiceStyle ?? 'Trầm ấm, từ hòa, thong dong, minh triết, từ tốn, ngắt nhịp rõ ràng'}
+                        onChange={e => setSettings((p: any) => ({ ...p, laoVoiceStyle: e.target.value }))}
+                        placeholder="VD: Trầm ấm, từ hòa, thong dong..."
+                        className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-amber-500 font-medium"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </section>
               {/* Freemium */}
               <section className="bg-slate-900 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
                 <h2 className="text-xs font-bold text-emerald-400 tracking-widest uppercase flex items-center gap-2"><Heart size={14} /> Freemium & Mã kích hoạt</h2>
@@ -1201,7 +1261,7 @@ export default function AdminPage() {
                               const allStates = [...Object.keys(ngangAssets), ...Object.keys(docAssets)].filter((v, i, a) => a.indexOf(v) === i);
                               const isSelected = selectedNvIds.includes(nv.id);
                               return (
-                                <div key={nv.id} className={`bg-slate-900/60 border rounded-2xl p-3.5 flex items-center justify-between transition-all group ${isSelected ? 'border-indigo-500 bg-indigo-950/10' : 'border-white/5 hover:border-indigo-500/30'}`}>
+                                <div key={nv.id} className={`bg-slate-900/60 border rounded-2xl p-3.5 flex items-center justify-between transition-all group ${isSelected ? 'border-indigo-500 bg-indigo-950/10' : 'border-white/5 hover:border-indigo-500/30'}`}>
                                   <div className="flex items-center gap-3.5 min-w-0">
                                     {/* Checkbox chọn */}
                                     <input 

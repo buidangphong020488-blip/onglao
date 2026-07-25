@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     }
 
     const ttsModel = model || systemSettings.ttsModel || DEFAULT_MODEL;
-    const voice    = voiceName || DEFAULT_VOICE;
+    const voice    = voiceName || systemSettings.laoVoiceName || DEFAULT_VOICE;
 
     const geminiUrl = `${GEMINI_BASE}/${ttsModel}:generateContent?key=${apiKey}`;
 

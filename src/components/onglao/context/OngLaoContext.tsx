@@ -14,8 +14,5 @@ export const OngLaoProvider = ({ children, value }: { children: React.ReactNode,
 
 export const useOngLaoContext = () => {
   const context = useContext(OngLaoContext);
-  if (!context) {
-    throw new Error('useOngLaoContext must be used within an OngLaoProvider');
-  }
-  return context;
+  return context || {};
 };

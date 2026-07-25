@@ -1,7 +1,6 @@
 "use client";
 
 import React from 'react';
-import { useOngLaoContext } from '../context/OngLaoContext';
 import { updateChatSessionTypeAction } from '@/actions/chat';
 import MiniLaoFace from './MiniLaoFace';
 import { 
@@ -11,8 +10,8 @@ import {
   Volume1, VolumeX, RefreshCw, ThumbsUp, ThumbsDown, HelpCircle, Upload 
 } from 'lucide-react';
 
-export const ChatHistorySidebar = () => {
-  const p = useOngLaoContext();
+export const ChatHistorySidebar = (props?: { p?: any }) => {
+  const p = props?.p || {};
   const {
     showHistory,
     setShowHistory,
@@ -20,8 +19,8 @@ export const ChatHistorySidebar = () => {
     isExportingVideo,
     regenerationProgress,
     regenerationComplete,
-    messages,
-    allCharacters,
+    messages = [],
+    allCharacters = [],
     currentLaoPresetId,
     laoAppearance,
     laoVisualType,
@@ -32,9 +31,9 @@ export const ChatHistorySidebar = () => {
     enableAutoHarmonization,
     laoShadow,
     harmonizeSettings,
-    charOffsets,
+    charOffsets = { lao: { flip: false } },
     currentlyPlayingId,
-    EMOTIONS,
+    EMOTIONS = {},
     editingEmotionId,
     setEditingEmotionId,
     updateCurrentMessages,
@@ -47,7 +46,7 @@ export const ChatHistorySidebar = () => {
     copyToClipboard,
     playVoice,
     downloadAudio,
-    creatingVoices,
+    creatingVoices = {},
     generateVoice,
     currentSessionId,
     currentSession,
@@ -79,16 +78,37 @@ export const ChatHistorySidebar = () => {
     chatEndRef
   } = p;
 
+  const [localEditingId, setLocalEditingId] = React.useState<string | null>(null);
+  const [localTempText, setLocalTempText] = React.useState<string>('');
+
+  const activeEditingId = editingId !== undefined ? editingId : localEditingId;
+  const activeTempText = tempEditText !== undefined ? tempEditText : localTempText;
+  const safeSetEditingId = typeof setEditingId === 'function' ? setEditingId : setLocalEditingId;
+  const safeSetTempEditText = typeof setTempEditText === 'function' ? setTempEditText : setLocalTempText;
+
   const [copiedId, setCopiedId] = React.useState<any>(null);
   const [isDownloadingAllLocal, setIsDownloadingAllLocal] = React.useState(false);
   const [isSharingTextLocal, setIsSharingTextLocal] = React.useState(false);
 
   const messagesJson = JSON.stringify(messages.map((m: any) => ({ id: m.id, text: m.text })));
-  React.useEffect(() => {
-    if (chatEndRef?.current) {
-      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+  const localChatEndRef = React.useRef<HTMLDivElement>(null);
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  const targetEndRef = chatEndRef || localChatEndRef;
+
+  const scrollToBottom = React.useCallback(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
     }
-  }, [messagesJson, chatEndRef]);
+    if (targetEndRef?.current) {
+      targetEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [targetEndRef]);
+
+  React.useEffect(() => {
+    scrollToBottom();
+    const timer = setTimeout(scrollToBottom, 100);
+    return () => clearTimeout(timer);
+  }, [messagesJson, currentSessionId, scrollToBottom]);
 
   const [showSaveScriptModal, setShowSaveScriptModal] = React.useState(false);
   const [scriptTitle, setScriptTitle] = React.useState('');
@@ -270,7 +290,7 @@ export const ChatHistorySidebar = () => {
         </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-5 pb-32 space-y-10 scrollbar-hide">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-5 pb-32 space-y-10 scrollbar-hide">
         {(isRegeneratingAll || isExportingVideo) && (
            <div className="bg-amber-950/60 border border-amber-500/40 rounded-xl p-3 text-xs text-amber-300 flex items-center justify-between gap-3 animate-pulse shadow-md shrink-0">
               <div className="flex items-center gap-2">
@@ -287,15 +307,15 @@ export const ChatHistorySidebar = () => {
         {messages.length === 0 && (
            <div className="flex flex-col items-center justify-center h-full text-slate-700 text-center opacity-30">
              <div className="w-16 h-16 mb-4 animate-pulse rounded-full overflow-hidden border border-white/5 shadow-lg flex items-center justify-center">
-                <div className="w-full h-full" style={{ transform: `scale(${allCharacters.find((c: any) => c.id === currentLaoPresetId)?.recommendedScale || 1})` }}>
+                 <div className="w-full h-full" style={{ transform: `scale(${(allCharacters || []).find((c: any) => c.id === currentLaoPresetId)?.recommendedScale || 1})` }}>
                    <MiniLaoFace className="w-full h-full opacity-60" appearance={laoAppearance} visualType={laoVisualType} customImages={processedLaoImages} customVideos={chatLaoVideos} chromaSettings={laoChromaSettings} flipped={charOffsets.lao.flip} isSpeakingSession={isLaoSpeakingSession} enableFX={enableAutoHarmonization} shadowConfig={laoShadow} harmonizeSettings={harmonizeSettings} />
                 </div>
              </div>
              <p className="text-[10px] font-bold tracking-widest leading-loose">Quay về nhận ra<br/>Bản thể chân thật</p>
            </div>
         )}
-        {messages.map((msg: any) => (
-          <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} group animate-in fade-in`}>
+        {messages.map((msg: any, idx: number) => (
+          <div key={`${msg.id || 'msg'}_${idx}`} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} group animate-in fade-in`}>
             {msg.role === 'user' ? (
               <div className="flex flex-col items-end gap-2 w-full">
                 <div className={`relative flex items-center gap-1.5 mb-[-4px] mr-2 ${editingEmotionId === msg.id ? 'z-[100]' : 'z-20'}`}>
@@ -324,17 +344,52 @@ export const ChatHistorySidebar = () => {
                              <button onClick={(e: any) => { e.stopPropagation(); handleStopCorrecting(msg.id, msg.text); }} className="text-[9px] bg-rose-500 text-white hover:bg-rose-400 px-3 py-1 rounded-full shadow-md font-bold transition-all transform hover:scale-105 flex items-center gap-1 tracking-wider"><X size={10} strokeWidth={3} /> Dừng</button>
                            </div>
                          </>
-                      ) : (
-                         <div className="flex flex-col w-full">
-                           <span className="whitespace-pre-line">{msg.text}</span>
-                           <div className="flex items-center justify-start gap-5 mt-4 pt-4 border-t border-white/20">
-                             <button onClick={(e: any) => handleCopy(e, msg)} className={`transition-colors ${copiedId === msg.id ? 'text-emerald-400' : 'text-orange-200 hover:text-white'}`} title="Copy văn bản">
-                                {copiedId === msg.id ? <Check size={14} /> : <Copy size={14} />}
-                             </button>
-                             <button onClick={(e: any) => { e.stopPropagation(); setEditingId(msg.id); setTempEditText(msg.text); }} className="text-orange-200 hover:text-white transition-colors" title="Sửa nội dung"><Pencil size={14} /></button>
-                           </div>
-                         </div>
-                      )}
+                      ) : activeEditingId === msg.id ? (
+                          <div className="flex flex-col gap-2 w-full my-1">
+                            <textarea
+                              value={activeTempText}
+                              onChange={(e) => safeSetTempEditText(e.target.value)}
+                              className="w-full bg-slate-900/90 border border-orange-400/50 rounded-xl p-3 text-xs text-white outline-none focus:ring-1 focus:ring-orange-400 resize-y min-h-[80px]"
+                              autoFocus
+                            />
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={(e: any) => {
+                                  e.preventDefault(); e.stopPropagation();
+                                  safeSetEditingId(null); safeSetTempEditText('');
+                                }}
+                                className="px-3 py-1 rounded-lg text-xs font-bold text-slate-300 hover:text-white border border-white/10"
+                              >
+                                Hủy
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e: any) => {
+                                  e.preventDefault(); e.stopPropagation();
+                                  const newText = activeTempText.trim();
+                                  if (newText) {
+                                    updateCurrentMessages((prev: any[]) => prev.map((m: any) => m.id === msg.id ? { ...m, text: newText } : m));
+                                  }
+                                  safeSetEditingId(null); safeSetTempEditText('');
+                                }}
+                                className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-md flex items-center gap-1"
+                              >
+                                <Check size={12} /> Lưu
+                              </button>
+                            </div>
+                          </div>
+                       ) : (
+                          <div className="flex flex-col w-full">
+                            <span className="whitespace-pre-line">{msg.text}</span>
+                            <div className="flex items-center justify-start gap-5 mt-4 pt-4 border-t border-white/20">
+                              <button onClick={(e: any) => handleCopy(e, msg)} className={`transition-colors ${copiedId === msg.id ? 'text-emerald-400' : 'text-orange-200 hover:text-white'}`} title="Copy văn bản">
+                                 {copiedId === msg.id ? <Check size={14} /> : <Copy size={14} />}
+                              </button>
+                              <button onClick={(e: any) => { e.stopPropagation(); safeSetEditingId(msg.id); safeSetTempEditText(msg.text); }} className="text-orange-200 hover:text-white transition-colors" title="Sửa nội dung"><Pencil size={14} /></button>
+                            </div>
+                          </div>
+                       )}
                 </div>
                 <div className="flex flex-wrap justify-end items-center gap-3 mt-1 px-3">
                   {(msg.audioUrl || currentlyPlayingId === msg.id) ? (
@@ -383,7 +438,61 @@ export const ChatHistorySidebar = () => {
                     <div className="absolute top-0 left-0 w-1 h-full bg-orange-500/50"></div>
                     
                     <div className="flex flex-col w-full">
-                       <span className="whitespace-pre-line leading-relaxed">{msg.text}</span>
+                       {activeEditingId === msg.id ? (
+                           <div className="flex flex-col gap-2 w-full my-1">
+                             <textarea
+                               value={activeTempText}
+                               onChange={(e) => safeSetTempEditText(e.target.value)}
+                               className="w-full bg-slate-900 border border-amber-500/50 rounded-xl p-3 text-xs text-white outline-none focus:ring-1 focus:ring-amber-400 resize-y min-h-[80px]"
+                               autoFocus
+                             />
+                             <div className="flex items-center justify-end gap-2">
+                               <button
+                                 type="button"
+                                 onClick={(e: any) => {
+                                   e.preventDefault(); e.stopPropagation();
+                                   safeSetEditingId(null); safeSetTempEditText('');
+                                 }}
+                                 className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white border border-white/10"
+                               >
+                                 Hủy
+                               </button>
+                               <button
+                                 type="button"
+                                 onClick={(e: any) => {
+                                   e.preventDefault(); e.stopPropagation();
+                                   const newText = activeTempText.trim();
+                                   if (newText) {
+                                     updateCurrentMessages((prev: any[]) => prev.map((m: any) => m.id === msg.id ? { ...m, text: newText } : m));
+                                   }
+                                   safeSetEditingId(null); safeSetTempEditText('');
+                                 }}
+                                 className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-md flex items-center gap-1"
+                               >
+                                 <Check size={12} /> Lưu
+                               </button>
+                             </div>
+                           </div>
+                        ) : msg.text === '...' ? (
+                           <div className="flex items-center gap-2 py-1.5 px-1">
+                             <div className="w-2.5 h-2.5 bg-orange-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                             <div className="w-2.5 h-2.5 bg-orange-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                             <div className="w-2.5 h-2.5 bg-orange-400 rounded-full animate-bounce" />
+                             <span className="text-xs text-orange-300/80 italic font-medium ml-2">Lão đang quán chiếu & khai thị...</span>
+                           </div>
+                         ) : typeof msg.text === 'string' && msg.text.endsWith('...') ? (
+                           <div className="flex flex-col gap-3">
+                             <span className="whitespace-pre-line leading-relaxed">{msg.text.replace(/\s*\.\.\.$/, '')}</span>
+                             <div className="flex items-center gap-2 py-1.5 px-1 border-t border-white/10 pt-3 mt-1">
+                               <div className="w-2.5 h-2.5 bg-orange-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                               <div className="w-2.5 h-2.5 bg-orange-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                               <div className="w-2.5 h-2.5 bg-orange-400 rounded-full animate-bounce" />
+                               <span className="text-xs text-orange-300/80 italic font-medium ml-2">Lão đang quán chiếu & khai thị đúc kết...</span>
+                             </div>
+                           </div>
+                         ) : (
+                          <span className="whitespace-pre-line leading-relaxed">{msg.text}</span>
+                        )}
                        <div className="flex items-center gap-2 mt-4 pt-4 border-t border-white/10 text-slate-400 relative z-50">
                          <button type="button" className="p-1.5 rounded hover:bg-white/10 hover:text-white transition-all cursor-pointer" title="Tuyệt vời"><ThumbsUp size={14} /></button>
                          <button type="button" className="p-1.5 rounded hover:bg-white/10 hover:text-white transition-all cursor-pointer" title="Chưa tốt"><ThumbsDown size={14} /></button>
@@ -392,7 +501,7 @@ export const ChatHistorySidebar = () => {
                          <button type="button" onClick={(e: any) => handleCopy(e, msg)} className={`p-1.5 rounded transition-all cursor-pointer flex items-center justify-center ${copiedId === msg.id ? 'text-emerald-400 bg-emerald-400/10' : 'hover:bg-white/10 hover:text-white'}`} title="Copy văn bản">
                            {copiedId === msg.id ? <Check size={14} /> : <Copy size={14} />}
                          </button>
-                         <button type="button" onClick={(e: any) => { e.preventDefault(); e.stopPropagation(); setEditingId(msg.id); setTempEditText(msg.text); }} className="p-1.5 rounded hover:bg-white/10 hover:text-white transition-all cursor-pointer flex items-center justify-center" title="Sửa nội dung"><Pencil size={14} /></button>
+                         <button type="button" onClick={(e: any) => { e.preventDefault(); e.stopPropagation(); safeSetEditingId(msg.id); safeSetTempEditText(msg.text); }} className="p-1.5 rounded hover:bg-white/10 hover:text-white transition-all cursor-pointer flex items-center justify-center" title="Sửa nội dung"><Pencil size={14} /></button>
                        </div>
                     </div>
                  </div>
@@ -436,7 +545,7 @@ export const ChatHistorySidebar = () => {
             </div>
           </div>
         )}
-        <div ref={chatEndRef} />
+        <div ref={targetEndRef} />
       </div>
       {showSaveScriptModal && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4">

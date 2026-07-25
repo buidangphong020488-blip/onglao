@@ -4,14 +4,18 @@ import React from "react";
 import { Users, X, Mic, MicOff, Play, Pause, SkipForward, Loader2, Volume2, VolumeX, Settings, RefreshCw, Maximize2, Minimize2, Music4, ArrowRight, PlayCircle, ChevronRight, ChevronLeft, Eye, EyeOff, MessageSquare, Bot, Sparkles, Zap, Clock, List, LayoutGrid, Settings2, StopCircle, RotateCcw, History, Info, Upload, Sliders, FlipHorizontal, FileText, Film, Plus } from "lucide-react";
 import MiniLaoFace from "./MiniLaoFace";
 import YouTubeLivePlayer, { getYoutubeId } from "./YouTubeLivePlayer";
+import { useLiveStreaming } from "../hooks/useLiveStreaming";
 
-import { useOngLaoContext } from "../context/OngLaoContext";
-
-// LiveModePanel: Nhận toàn bộ state/handlers qua context
-const LiveModePanel = () => {
-  const p = useOngLaoContext();
+// LiveModePanel: Nhận toàn bộ state/handlers qua props hoặc tự khởi tạo hook nội bộ
+const LiveModePanel = (props?: { p?: any }) => {
+  const internalLiveState = useLiveStreaming({
+    user: { uid: 'user' },
+    messages: [],
+    showToastMsg: (msg: string, type?: string) => console.log(`[Toast] ${type || 'info'}: ${msg}`),
+  });
+  const p = (props?.p && Object.keys(props.p).length > 0) ? props.p : internalLiveState;
   const { isLiveMode } = p;
-  if (!isLiveMode) return null;
+  if (!isLiveMode && props?.p) return null;
 
   // Destructure tất cả biến từ props bundle
   const {
@@ -71,8 +75,8 @@ const LiveModePanel = () => {
                       autoPlay 
                       loop 
                       ref={el => { 
-                          liveBgmAudioRef.current = el; // Bắt Ref để ra lệnh play/pause
-                          if(el) el.volume = bgmVolume; 
+                          if (liveBgmAudioRef) liveBgmAudioRef.current = el; // Bắt Ref để ra lệnh play/pause
+                          if (el) el.volume = bgmVolume || 1; 
                       }} 
                       className="hidden" 
                   />
@@ -81,16 +85,16 @@ const LiveModePanel = () => {
               {/* Nút thoát chỉ hiện ra khi rê chuột vào, để không bị dính vào OBS */}
               <button 
                   onClick={() => { 
-                      setIsLiveMode(false); 
-                      setIsLiveActive(false); 
-                      setIsLiveGuestMicActive(false); // TÂM AN FIX: Tắt Mic khách mời khi thoát
-                      setIsLiveIdlePlaying(false); // Thoát khỏi phim nếu đang phát
-                      liveQueueRef.current = []; 
-                      setLiveQueueLength(0); // TÂM AN THÊM: Reset bộ đếm
-                      setLiveCurrentQuestion(null); 
+                      if (setIsLiveMode) setIsLiveMode(false); 
+                      if (setIsLiveActive) setIsLiveActive(false); 
+                      if (setIsLiveGuestMicActive) setIsLiveGuestMicActive(false); // TÂM AN FIX: Tắt Mic khách mời khi thoát
+                      if (setIsLiveIdlePlaying) setIsLiveIdlePlaying(false); // Thoát khỏi phim nếu đang phát
+                      if (liveQueueRef) liveQueueRef.current = []; 
+                      if (setLiveQueueLength) setLiveQueueLength(0); // TÂM AN THÊM: Reset bộ đếm
+                      if (setLiveCurrentQuestion) setLiveCurrentQuestion(null); 
                       // Hủy hẹn giờ và tắt nhạc khi thoát Live
-                      if (liveBgmResumeTimerRef.current) clearTimeout(liveBgmResumeTimerRef.current);
-                      if (liveBgmAudioRef.current) liveBgmAudioRef.current.pause();
+                      if (liveBgmResumeTimerRef?.current) clearTimeout(liveBgmResumeTimerRef.current);
+                      if (liveBgmAudioRef?.current) liveBgmAudioRef.current.pause();
                   }} 
                   className="absolute top-4 left-4 z-50 bg-black/80 text-white px-4 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity font-bold shadow-lg border border-white/20"
               >
@@ -206,7 +210,7 @@ const LiveModePanel = () => {
                           }}
                       >
                           {currentLaoPresetId === 'custom_live_lao' && <option value="custom_live_lao">✨ Nhân vật tải lên từ máy</option>}
-                          {allCharacters.filter((c: any) => c.role === 'lao' || (c.isLocal && c.role === 'lao')).map((char: any) => (
+                          {(allCharacters || []).filter((c: any) => c.role === 'lao' || (c.isLocal && c.role === 'lao')).map((char: any) => (
                               <option key={char.id} value={char.id}>{char.name}</option>
                           ))}
                       </select>

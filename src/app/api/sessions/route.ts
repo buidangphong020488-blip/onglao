@@ -5,13 +5,16 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get('userId');
 
-  if (!userId) {
-    return NextResponse.json({ success: false, error: 'Missing userId' }, { status: 400 });
-  }
-
   try {
     const sessions = await prisma.chatSession.findMany({
-      where: { userId: userId },
+      where: userId && userId !== 'guest_user' 
+        ? {
+            OR: [
+              { userId: userId },
+              { userId: null }
+            ]
+          }
+        : {},
       orderBy: { updatedAt: "desc" },
       include: {
         _count: {

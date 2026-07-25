@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 // GET — Fetch scenes from PostgreSQL DB
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -29,20 +31,24 @@ export async function POST(req: NextRequest) {
         update: {
           name: String(data.name),
           category: data.category ? String(data.category) : 'lao',
+          phanMucId: data.phanMucId ? String(data.phanMucId) : undefined,
           role: data.role ? String(data.role) : 'lao',
           emotion: data.emotion ? String(data.emotion) : 'calm',
           url: data.url ? String(data.url) : null,
+          poster: data.poster ? String(data.poster) : null,
           assetsNgang: data.assetsNgang || undefined,
           assetsDoc: data.assetsDoc || undefined,
         },
         create: {
           id: String(data.id),
           userId: data.userId ? String(data.userId) : undefined,
+          phanMucId: data.phanMucId ? String(data.phanMucId) : undefined,
           name: String(data.name),
           category: data.category ? String(data.category) : 'lao',
           role: data.role ? String(data.role) : 'lao',
           emotion: data.emotion ? String(data.emotion) : 'calm',
           url: data.url ? String(data.url) : null,
+          poster: data.poster ? String(data.poster) : null,
           assetsNgang: data.assetsNgang || undefined,
           assetsDoc: data.assetsDoc || undefined,
         }
@@ -60,20 +66,24 @@ export async function POST(req: NextRequest) {
           update: {
             name: item.name || 'Cảnh quay',
             category: item.category || item.role || 'lao',
+            phanMucId: item.phanMucId ? String(item.phanMucId) : undefined,
             role: item.role || 'lao',
             emotion: item.emotion || 'calm',
             url: item.url || null,
+            poster: item.poster || null,
             assetsNgang: item.assets?.ngang || item.assetsNgang || undefined,
             assetsDoc: item.assets?.doc || item.assetsDoc || undefined,
           },
           create: {
             id: idStr,
             userId: userId ? String(userId) : undefined,
+            phanMucId: item.phanMucId ? String(item.phanMucId) : undefined,
             name: item.name || 'Cảnh quay',
             category: item.category || item.role || 'lao',
             role: item.role || 'lao',
             emotion: item.emotion || 'calm',
             url: item.url || null,
+            poster: item.poster || null,
             assetsNgang: item.assets?.ngang || item.assetsNgang || undefined,
             assetsDoc: item.assets?.doc || item.assetsDoc || undefined,
           },

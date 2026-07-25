@@ -11,6 +11,8 @@ import prisma from "@/lib/prisma";
  */
 export async function loginWithGiacNgoAction(email: string, password: string) {
   try {
+    const cleanEmail = (email || '').trim().toLowerCase();
+
     const giacNgoBase = process.env.GIACNGO_API_URL || "https://giac.ngo";
     const spaceId = Number(process.env.GIACNGO_SPACE_ID || "1");
 

@@ -38,6 +38,7 @@ export const useVideoExporterEngine = ({
   FULLFRAME_PACKS = [],
 
   showToastMsg,
+  generateVoice,
 
   messages,
 
@@ -386,7 +387,8 @@ export const useVideoExporterEngine = ({
 
     if (isExportingVideo) return;
 
-    setIsPreparingVideoData(true);
+    if (setIsPreparingVideoData) setIsPreparingVideoData(true);
+    if (setIsExportingVideo) setIsExportingVideo(true);
 
     setDiagnosticReport(null); // Reset báo cáo cũ
 
@@ -464,16 +466,34 @@ export const useVideoExporterEngine = ({
 
       exportAudioCtxRef.current = new AudioContextClass();
 
-      const audioUrl = await combineWavs(messages.filter((m: any) => m.audioUrl).map((m: any) => ({ url: m.audioUrl, role: m.role, text: m.text, emotion: m.emotion || 'calm', msgId: m.id })));
+      let validMessages = Array.isArray(messages) ? [...messages] : [];
+
+      if (!validMessages || validMessages.length === 0) {
+          validMessages = [
+              { id: 'fallback_render_1', role: 'user', text: 'Con kính chào Lão! Hôm nay tâm con an nhiên.', emotion: 'joy' },
+              { id: 'fallback_render_2', role: 'ai', text: 'Chào con! Giữ vững tâm an, buông xả muộn phiền.', emotion: 'calm' }
+          ];
+      }
+
+      // KIỂM TRA NGHIÊM NGẶT SỐ LƯỢNG MP3 SO VỚI TỔNG SỐ CÂU THOẠI
+      const totalTurns = validMessages.length;
+      const audioTurns = validMessages.filter((m: any) => m && m.audioUrl).length;
+
+      if (totalTurns > 0 && audioTurns < totalTurns) {
+          if (showToastMsg) {
+              showToastMsg(`Kịch bản có ${totalTurns} câu thoại nhưng mới có ${audioTurns} file audio. Vui lòng tạo đủ MP3 trước khi render video!`, 'warning', 6000);
+          }
+          if (setIsPreparingVideoData) setIsPreparingVideoData(false);
+          if (setIsExportingVideo) setIsExportingVideo(false);
+          return;
+      }
+
+      const audioUrl = await combineWavs(validMessages.filter((m: any) => m && m.audioUrl).map((m: any) => ({ url: m.audioUrl, role: m.role, text: m.text, emotion: m.emotion || 'calm', msgId: m.id })));
 
       if (!audioUrl || !audioUrl.blob) {
-
-          showToastMsg('Không có đoạn âm thanh nào để tạo video.', 'error');
-
+          showToastMsg('Không thể gộp âm thanh. Vui lòng thử tạo lại audio!', 'error');
           setIsPreparingVideoData(false);
-
           return;
-
       }
 
       const combinedAudioBlob = audioUrl.blob;
@@ -1330,6 +1350,8 @@ export const useVideoExporterEngine = ({
       const audioStartCtxTime = exportAudioCtxRef.current.currentTime;
 
       mediaRecorder.start(100);
+      if (setIsExportingVideo) setIsExportingVideo(true);
+      if (setIsPreparingVideoData) setIsPreparingVideoData(false);
 
       audioSourceNode.start();
 
@@ -2480,15 +2502,16 @@ export const useVideoExporterEngine = ({
     // thì xóa childmodal+videoid param và giữ AiDirectorManagerModal đang mở
 
     if (typeof window !== 'undefined') {
-
       const url = new URL(window.location.href);
-
       const childModal = url.searchParams.get('childmodal');
+      const modalParam = url.searchParams.get('modal');
 
-      if (childModal === 'create-video') {
-        // Xóa childmodal và videoid (GIỮ LẠI scriptid và modal=ai-director để quay lại đúng kịch bản!)
+      if (childModal === 'create-video' || modalParam === 'ai-director' || (videoExportSource && videoExportSource.includes('ai_director'))) {
         url.searchParams.delete('childmodal');
         url.searchParams.delete('videoid');
+        if (!url.searchParams.has('modal')) {
+          url.searchParams.set('modal', 'ai-director');
+        }
         window.history.replaceState(null, '', url.toString());
 
         if (setShowAiManager) {
@@ -2496,15 +2519,10 @@ export const useVideoExporterEngine = ({
         }
         return;
       }
-
     }
 
-    // Trường hợp thông thường (từ chat): kiểm tra videoExportSource cũ
-
-    if (videoExportSource === 'ai_director' && setShowAiManager) {
-
+    if (setShowAiManager && videoExportSource && videoExportSource.includes('ai_director')) {
         setShowAiManager(true);
-
     }
 
   };

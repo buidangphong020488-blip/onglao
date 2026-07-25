@@ -12,7 +12,6 @@ import SessionsSidebar from "./SessionsSidebar";
 import CharacterStage from "./CharacterStage";
 import ChatHistorySidebar from "./ChatHistorySidebar";
 
-import { useOngLaoContext } from "../context/OngLaoContext";
 
 
 // Component tự quản lý timer 1 giây - chỉ nó re-render, không ảnh hưởng NormalModePanel
@@ -31,15 +30,114 @@ const IdleTimerDisplay = () => {
     );
 };
 
+// IsolatedChatInputBar: Component thanh gõ tin nhắn cô lập hoàn toàn - dùng inputRef cho tốc độ gõ native 0ms 
+const IsolatedChatInputBar = ({
+  inputText,
+  handleSendMessage,
+  handleRefineInput,
+  isRefining,
+  toggleMic,
+  isRecording,
+  toggleCamera,
+  cameraOn,
+  fileInputRef,
+  handleImageUpload,
+  selectedImage,
+  setSelectedImage,
+  isVoiceEnabled,
+  setIsVoiceEnabled
+}: any) => {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const [emotion, setEmotion] = React.useState('calm');
+
+  React.useEffect(() => {
+    if (inputRef.current && inputText !== undefined) {
+      inputRef.current.value = inputText || '';
+    }
+  }, [inputText]);
+
+  const onSend = () => {
+    const textVal = inputRef.current?.value || '';
+    if (!textVal.trim() && !selectedImage) return;
+    handleSendMessage(textVal, emotion);
+    if (inputRef.current) inputRef.current.value = '';
+    setEmotion('calm');
+  };
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 p-4 pb-8 md:pb-6 flex flex-col items-center z-50 bg-gradient-to-t from-[#020617] to-transparent">
+      {selectedImage && (
+        <div className="mb-3 relative animate-in slide-in-from-bottom-2">
+          <img src={selectedImage} alt="Preview" className="w-16 h-16 object-cover rounded-lg border-2 border-orange-500 shadow-lg" />
+          <button onClick={() => setSelectedImage(null)} className="absolute -top-2 -right-2 bg-rose-500 rounded-full p-1 shadow-lg hover:scale-110 transition-all">
+            <X size={10} />
+          </button>
+        </div>
+      )}
+      
+      <IdleTimerDisplay />
+
+      <div className="bg-slate-900/95 backdrop-blur-3xl border border-white/5 rounded-full p-1.5 md:p-2 flex items-center gap-2 shadow-2xl w-full max-w-xl overflow-hidden relative mt-1">
+        <button data-tutorial="tut-mic" onClick={toggleMic} className={`p-6 md:p-6 rounded-full transition-all transform active:scale-95 relative ${isRecording ? 'bg-rose-500 text-white shadow-[0_0_40px_rgba(244,63,94,0.7)] scale-110' : 'bg-slate-800 text-slate-400 hover:text-rose-400'}`} title="Thưa hỏi Lão">
+          <div className={`absolute inset-0 rounded-full border-[6px] border-rose-500/30 ${!isRecording ? 'animate-ping opacity-60' : ''}`}></div>
+          <div className={`absolute inset-0 rounded-full bg-rose-500/10 ${!isRecording ? 'animate-pulse' : ''}`}></div>
+          {isRecording ? <MicOff size={32} className="relative z-10" /> : <Mic size={32} className="relative z-10" />}
+        </button>
+        <button onClick={toggleCamera} className={`p-3 rounded-full transition-all ${cameraOn ? 'bg-orange-600 text-white shadow-lg' : 'bg-slate-800 text-slate-500'}`} title="Mở tầm nhìn">
+          <Camera size={18} />
+        </button>
+        <button onClick={() => fileInputRef.current?.click()} className="p-3 rounded-full bg-slate-800 text-slate-500 hover:text-white transition-all" title="Gửi ảnh">
+          <ImageIcon size={18} />
+          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
+        </button>
+        <div data-tutorial="tut-input" className="flex items-center bg-slate-800/40 rounded-full px-2 py-2 flex-1 md:w-[260px] border border-white/5 focus-within:border-orange-500/30 shadow-inner relative">
+          <input 
+            ref={inputRef}
+            type="text" 
+            placeholder="Con muốn thưa thỉnh..." 
+            className="bg-transparent border-none outline-none flex-1 text-[11px] md:text-sm font-medium placeholder:text-slate-600 text-white min-w-0 pr-8" 
+            defaultValue={inputText || ''} 
+            onKeyDown={(e: any) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    onSend();
+                }
+            }} 
+          />
+          <button 
+            data-tutorial="tut-refine" 
+            onClick={() => handleRefineInput(inputRef.current?.value || '')} 
+            disabled={isRefining} 
+            title="✨ Tinh lọc cốt lõi (Gỡ rối tơ lòng)" 
+            className={`absolute right-10 p-1.5 transition-all text-amber-400 hover:scale-110`}
+          >
+            {isRefining ? <Loader2 size={16} className="animate-spin text-amber-500" /> : <Sparkles size={16} />}
+          </button>
+          <button 
+            onClick={onSend} 
+            className={`p-1.5 transition-all mr-1 text-orange-400 scale-110`}
+          >
+            <Send size={16} />
+          </button>
+        </div>
+        <button onClick={() => setIsVoiceEnabled(!isVoiceEnabled)} className={`p-3 rounded-full transition-all ${isVoiceEnabled ? 'bg-emerald-600/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>
+          {isVoiceEnabled ? <Volume1 size={18} /> : <VolumeX size={18} />}
+        </button>
+      </div>
+
+    </div>
+  );
+};
+
 // NormalModePanel: Giao diện thiền đường chế độ Normal Mode
-const NormalModePanel = () => {
-  const p = useOngLaoContext();
+const NormalModePanel = (props?: { p?: any }) => {
+  const p = props?.p || {};
   const {
-      EMOTIONS, MiniLaoFace, TUTORIAL_STEPS, activationCode, activationError, aiLaoStyle, aiScriptLength, aiTopicText,
-      aiUserEmotionArc, allCharacters, apSettings, apState, apTopics, appId, appLanguage, applyCharacterPreset,
+      EMOTIONS = {}, TUTORIAL_STEPS = [], activationCode = '', activationError = '', aiLaoStyle, aiScriptLength, aiTopicText,
+      aiUserEmotionArc, allCharacters = [], apSettings, apState, apTopics, appId, appLanguage, applyCharacterPreset,
       backupFileInputRef, backupOptions, backupProgress, batchAIMeaningProgress, batchGreetingProgress, batchMeaningProgress, batchPoemProgress, cameraOn,
-      cancelVideoExport, charOffsets, chatEndRef, chatLaoDragInfo, chatLaoTransform, chatLaoVideos, confirmDialog, copyToClipboard,
-      creatingVoices, currentLaoPresetId, currentSession, currentSessionId, currentUser, currentlyPlayingId, customLaoName, customUserName,
+      cancelVideoExport, charOffsets = { lao: { flip: false } }, chatEndRef, chatLaoDragInfo, chatLaoTransform = { x: -4, y: 164, s: 1.8 }, chatLaoVideos, confirmDialog = { isOpen: false, message: '', onConfirm: null }, copyToClipboard,
+      creatingVoices = {}, currentLaoPresetId, currentSession, currentSessionId, currentUser, currentlyPlayingId, customLaoName, customUserName,
       diagnosticReport, downloadAllAudios, downloadAudio, downloadCombinedAudio, editSessionTitle, editingEmotionId, editingId, editingSessionId,
       enableAutoHarmonization, endTutorial, executeFullBackup, executeSaveFfPack, exportTab, fileInputRef, formatTime, generateVoice,
       generatingDoubtId, generatingGreetings, generatingMeanings, generatingStanzas, globalCurrentTime, globalDuration, globalProgress, greetingAudioUrls,
@@ -54,11 +152,11 @@ const NormalModePanel = () => {
       isBatchGeneratingPoemsRef, isCloudSyncing, isExportingVideo, isFetchingCloudAudio, isGeneratingAIMeaning, isGeneratingAITopic, isGlobalPlaying, isLaoSpeakingSession,
       isLoadingRag, isLoggedIn, isPreparingGlobal, isPreviewFullscreen, isProcessingBackup, isRecording, isRefining, isRegeneratingAll,
       isSubscribed, isUploadingAudios, isVideoFullscreen, isVoiceEnabled, laoAppearance, laoCallUser, laoChromaSettings, laoSelfCall,
-      laoShadow, laoVisualType, laoVoice, laoVoiceStyle, messages, mouthOpen, newTagInputs, nextTutorialStep,
-      oldLinkInput, openDropdown, outroText, playVoice, poemDatabase, poemModalTab, poemSearch, processedLaoImages,
-      publicAis, publicSettings, ragDb, ragSearch, refreshRagFromGiacNgo, regenerationComplete, regenerationProgress, renderedVideoUrl,
+      laoShadow, laoVisualType, laoVoice, laoVoiceStyle, messages = [], mouthOpen, newTagInputs, nextTutorialStep,
+      oldLinkInput, openDropdown, outroText, playVoice, poemDatabase = [], poemModalTab, poemSearch, processedLaoImages,
+      publicAis = [], publicSettings, ragDb, ragSearch, refreshRagFromGiacNgo, regenerationComplete, regenerationProgress, renderedVideoUrl,
       resetVideoExport, resolveGreetingAudioUrl, resolveMeaningAudioUrl, resolveStanzaAudioUrl, savePackData, savePoemDatabase, saveSessionTitle, scriptText,
-      selectedAiConfigId, selectedImage, sessions, setSessions, setActivationCode, setActivationError, setAiLaoStyle, setAiScriptLength, setAiTopicText,
+      selectedAiConfigId, selectedImage, sessions = [], setSessions, setActivationCode, setActivationError, setAiLaoStyle, setAiScriptLength, setAiTopicText,
       setAiUserEmotionArc, setApSettings, setApTopics, setAppLanguage, setBackupOptions, setCharOffsets, setChatLaoTransform, setConfirmDialog,
       setCurrentSessionId, setCurrentlyPlayingId, setCustomLaoName, setCustomUserName, setEditSessionTitle, setEditingEmotionId, setEditingId, setEditingSessionId,
       setExportTab, setGreetingSearch, setHasEntered, setImportMode, setImportPoemJson, setInputText, setIsBatchGeneratingAIMeanings, setIsBatchGeneratingGreetings,
@@ -72,7 +170,7 @@ const NormalModePanel = () => {
       showChatLaoControls, showDownloadMenu, showHistory, showImportPoemModal, showLaoAura, showOldLinkModal, showPaymentModal, showPoemModal,
       showSavePackModal, showScriptModal, showSessions, showShareMenu, showToastMsg, showTutorial, showUserGuide, showVideoExportModal,
       showAiManager, setShowAiManager,
-      startAutoPilot, startVideoExport, stopAutoPilot, targetRect, tempEditText, toast, toggleCamera, toggleFullscreen,
+      startAutoPilot, startVideoExport, stopAutoPilot, targetRect, tempEditText, toast = { show: false, message: '', type: 'info' }, toggleCamera, toggleFullscreen,
       toggleGlobalPlay, toggleMic, togglePin, toggleReaction, tutorialStep, txtPoemFileInputRef, updateCurrentMessages, uploadAudioProgress,
       user, userAge, userCallLao, userGender, userSelfCall, userVoice, userVoiceStyle, videoResolution,
   } = p;
@@ -80,6 +178,7 @@ const NormalModePanel = () => {
   const [localInputText, setLocalInputText] = React.useState(inputText || '');
   const [inputEmotion, setInputEmotion] = React.useState('calm');
   const [showEmotionMenu, setShowEmotionMenu] = React.useState(false);
+  const [localShowAuthModal, setLocalShowAuthModal] = React.useState(false);
   
   React.useEffect(() => {
     setLocalInputText(inputText || '');
@@ -87,45 +186,11 @@ const NormalModePanel = () => {
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('modal') === 'ai-director') {
-        setShowAiManager(true);
-      }
-      
       const handleOpenModal = () => setShowAiManager(true);
       window.addEventListener('openAiDirectorModal', handleOpenModal as any);
       return () => window.removeEventListener('openAiDirectorModal', handleOpenModal as any);
     }
   }, []);
-
-  const isInitialMount = React.useRef(true);
-  React.useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const currentModal = params.get('modal');
-      let changed = false;
-      
-      if (showAiManager && currentModal !== 'ai-director') {
-        params.set('modal', 'ai-director');
-        changed = true;
-      } else if (!showAiManager && currentModal === 'ai-director') {
-        params.delete('modal');
-        params.delete('action');
-        params.delete('type');
-        params.delete('id');
-        changed = true;
-      }
-      
-      if (changed) {
-        const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
-        window.history.replaceState(null, '', newUrl);
-      }
-    }
-  }, [showAiManager]);
 
   return (
     <div className="flex h-[100dvh] min-h-[100dvh] w-full bg-[#020617] text-slate-100 overflow-hidden font-sans select-none relative animate-in fade-in duration-700">
@@ -178,10 +243,13 @@ const NormalModePanel = () => {
       )}
 
       {/* MODAL QUẢN LÝ KỊCH BẢN ĐẠO DIỄN */}
-      {showAiManager && (
+      {(showAiManager || p.showAITopicModal) && (
           <AiDirectorManagerModal
-              show={showAiManager}
-              onClose={() => setShowAiManager(false)}
+              show={showAiManager || p.showAITopicModal}
+              onClose={() => {
+                if (setShowAiManager) setShowAiManager(false);
+                if (p.setShowAITopicModal) p.setShowAITopicModal(false);
+              }}
               allCharacters={allCharacters}
               sessions={sessions}
               setSessions={setSessions}
@@ -225,11 +293,14 @@ const NormalModePanel = () => {
       )}
 
       <CombinedScriptModal
-        show={showScriptModal || showAITopicModal}
+        show={false}
         initialTab={showScriptModal ? 'manual' : 'ai'}
         onClose={() => { 
             setShowScriptModal(false); 
             setShowAITopicModal(false); 
+            if (typeof p.setShowAITopicModal === 'function') p.setShowAITopicModal(false);
+            if (typeof p.setShowScriptModal === 'function') p.setShowScriptModal(false);
+            if (typeof p.setShowAiManager === 'function') p.setShowAiManager(false);
         }}
         
         scriptText={p.scriptText}
@@ -268,36 +339,14 @@ const NormalModePanel = () => {
         }}
       />
 
-      <VideoCreatorModal
-        {...p}
-        showVideoExportModal={p.showVideoExportModal}
-        handleShareVideoSocial={handleShareVideoSocial}
-        diagnosticReport={diagnosticReport}
-        setShowDiagnostics={setShowDiagnostics}
-        toggleFullscreen={toggleFullscreen}
-        resetVideoExport={resetVideoExport}
-        isPreviewFullscreen={isPreviewFullscreen}
-        exportTab={exportTab}
-        setExportTab={setExportTab}
-        videoResolution={videoResolution}
-        setVideoResolution={setVideoResolution}
-        outroText={outroText}
-        setOutroText={setOutroText}
-        startVideoExport={startVideoExport}
-        showSavePackModal={showSavePackModal}
-        setShowSavePackModal={setShowSavePackModal}
-        savePackData={savePackData}
-        setSavePackData={setSavePackData}
-        executeSaveFfPack={executeSaveFfPack}
-        showToastMsg={showToastMsg}
-      />
+
 
       {showUserGuide && (
         <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" >
           <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in duration-300" onClick={e => e.stopPropagation()}>
              <div className="p-5 border-b border-white/5 flex justify-between items-center bg-slate-800/50">
                <h2 className="text-lg font-black text-orange-400 flex items-center gap-3 tracking-widest"><Info size={22}/> Hướng dẫn sử dụng</h2>
-               <button  className="text-slate-400 hover:text-white transition-colors bg-slate-800 p-2 rounded-full"><X size={20}/></button>
+               <button onClick={() => setShowUserGuide(false)} className="text-slate-400 hover:text-white transition-colors bg-slate-800 p-2 rounded-full"><X size={20}/></button>
              </div>
              <div className="p-6 overflow-y-auto flex flex-col gap-6 text-sm text-slate-300 scrollbar-hide">
                 <p className="text-center text-slate-400 italic mb-2">Dưới đây là các pháp khí hỗ trợ con trong quá trình thưa thỉnh cùng Lão.</p>
@@ -308,7 +357,7 @@ const NormalModePanel = () => {
                 <div className="flex gap-4 items-start bg-slate-800/30 p-4 rounded-2xl border border-white/5"><div className="p-3 bg-indigo-500/20 rounded-xl text-indigo-400 shadow-lg"><History size={24}/></div><div><h3 className="text-white font-bold text-base mb-1">Pháp bảo khai thị (Lịch sử)</h3><p>Biểu tượng Đồng hồ góc trên bên phải. Cho phép con xem lại toàn bộ nội dung đàm đạo, đúc kết kệ pháp, xuất ra Video đàm đạo, tải file MP3 hoặc chia sẻ trọn vẹn cuộc trò chuyện.</p></div></div>
              </div>
              <div className="p-4 border-t border-white/5 text-center">
-               <button  className="px-8 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-xl font-bold tracking-widest text-sm transition-all shadow-lg">Đã rõ khai thị</button>
+               <button onClick={() => setShowUserGuide(false)} className="px-8 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-xl font-bold tracking-widest text-sm transition-all shadow-lg">Đã rõ khai thị</button>
              </div>
           </div>
         </div>
@@ -335,7 +384,7 @@ const NormalModePanel = () => {
         </div>
       )}
 
-      <SessionsSidebar />
+      <SessionsSidebar p={p} />
 
       <div className="flex-1 flex flex-col relative w-full h-[100dvh] overflow-hidden">
         <div className="absolute inset-0 pointer-events-none opacity-20">
@@ -348,7 +397,7 @@ const NormalModePanel = () => {
             <button data-tutorial="tut-menu" onClick={() => setShowSessions(true)} className="p-2 md:p-3 bg-slate-900/50 border border-white/5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all mr-2"><Menu size={20} /></button>
             <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-b from-slate-800 to-slate-950 rounded-full flex items-center justify-center shadow-xl shadow-orange-500/20 border border-white/10 animate-pulse overflow-hidden">
               {/* TÂM AN FIX: Cập nhật đầy đủ thông số FX cho Ảnh Đại Diện Góc Trái */}
-              <div className="w-full h-full flex items-center justify-center" style={{ transform: `scale(${allCharacters.find(c => c.id === currentLaoPresetId)?.recommendedScale || 1})` }}>
+              <div className="w-full h-full flex items-center justify-center" style={{ transform: `scale(${(allCharacters || []).find(c => c.id === currentLaoPresetId)?.recommendedScale || 1})` }}>
                  <MiniLaoFace className="w-full h-full" appearance={laoAppearance} visualType={laoVisualType} customImages={processedLaoImages} customVideos={chatLaoVideos} chromaSettings={laoChromaSettings} flipped={charOffsets.lao.flip} isSpeakingSession={isLaoSpeakingSession} enableFX={enableAutoHarmonization} shadowConfig={laoShadow} harmonizeSettings={harmonizeSettings} />
               </div>
             </div>
@@ -403,79 +452,55 @@ const NormalModePanel = () => {
               </div>
             ) : (
               <button
-                onClick={() => setShowAuthModal(true)}
-                title="Dang nhap"
-                className="p-2.5 rounded-xl border border-white/5 bg-slate-900/50 text-slate-400 hover:text-indigo-300 hover:border-indigo-500/40 hover:bg-indigo-900/20 transition-all flex items-center gap-1.5 text-xs font-bold"
+                onClick={() => {
+                  setLocalShowAuthModal(true);
+                  if (typeof setShowAuthModal === 'function') setShowAuthModal(true);
+                }}
+                title="Đăng nhập"
+                className="p-2.5 rounded-xl border border-white/5 bg-slate-900/50 text-slate-400 hover:text-indigo-300 hover:border-indigo-500/40 hover:bg-indigo-900/20 transition-all flex items-center gap-1.5 text-xs font-bold cursor-pointer"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-                <span className="hidden sm:inline">Dang nhap</span>
+                <span className="hidden sm:inline">Đăng nhập</span>
               </button>
             )}
           </div>
         </header>
 
-        <CharacterStage />
+        <CharacterStage p={p} />
 
-        <div className="fixed bottom-0 left-0 right-0 p-4 pb-8 md:pb-6 flex flex-col items-center z-50 bg-gradient-to-t from-[#020617] to-transparent">
-          {selectedImage && <div className="mb-3 relative animate-in slide-in-from-bottom-2"><img src={selectedImage} alt="Preview" className="w-16 h-16 object-cover rounded-lg border-2 border-orange-500 shadow-lg" /><button onClick={() => setSelectedImage(null)} className="absolute -top-2 -right-2 bg-rose-500 rounded-full p-1 shadow-lg hover:scale-110 transition-all"><X size={10} /></button></div>}
-          
-          {/* BỘ ĐẾM THỜI GIAN TĨNH TÂM - component riêng để tránh re-render NormalModePanel */}
-          <IdleTimerDisplay />
-
-          <div className="bg-slate-900/95 backdrop-blur-3xl border border-white/5 rounded-full p-1.5 md:p-2 flex items-center gap-2 shadow-2xl w-full max-w-xl overflow-hidden relative mt-1">
-            <button data-tutorial="tut-mic" onClick={toggleMic} className={`p-6 md:p-6 rounded-full transition-all transform active:scale-95 relative ${isRecording ? 'bg-rose-500 text-white shadow-[0_0_40px_rgba(244,63,94,0.7)] scale-110' : 'bg-slate-800 text-slate-400 hover:text-rose-400'}`} title="Thưa hỏi Lão">
-              <div className={`absolute inset-0 rounded-full border-[6px] border-rose-500/30 ${!isRecording ? 'animate-ping opacity-60' : ''}`}></div>
-              <div className={`absolute inset-0 rounded-full bg-rose-500/10 ${!isRecording ? 'animate-pulse' : ''}`}></div>
-              {isRecording ? <MicOff size={32} className="relative z-10" /> : <Mic size={32} className="relative z-10" />}
-            </button>
-            <button onClick={toggleCamera} className={`p-3 rounded-full transition-all ${cameraOn ? 'bg-orange-600 text-white shadow-lg' : 'bg-slate-800 text-slate-500'}`} title="Mở tầm nhìn"><Camera size={18} /></button>
-            <button onClick={() => fileInputRef.current?.click()} className="p-3 rounded-full bg-slate-800 text-slate-500 hover:text-white transition-all" title="Gửi ảnh"><ImageIcon size={18} /><input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} /></button>
-            <div data-tutorial="tut-input" className="flex items-center bg-slate-800/40 rounded-full px-2 py-2 flex-1 md:w-[260px] border border-white/5 focus-within:border-orange-500/30 shadow-inner relative">
-              <div className="relative">
-              </div>
-              <input 
-                type="text" 
-                placeholder="Con muốn thưa thỉnh..." 
-                className="bg-transparent border-none outline-none flex-1 text-[11px] md:text-sm font-medium placeholder:text-slate-600 text-white min-w-0 pr-8" 
-                value={localInputText} 
-                onChange={(e: any) => setLocalInputText(e.target.value)} 
-                onKeyDown={(e: any) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleSendMessage(localInputText, inputEmotion);
-                        setLocalInputText('');
-                        setInputEmotion('calm');
-                        setShowEmotionMenu(false);
-                    }
-                }} 
-              />
-              <button 
-                data-tutorial="tut-refine" 
-                onClick={() => handleRefineInput(localInputText)} 
-                disabled={isRefining || !localInputText} 
-                title="✨ Tinh lọc cốt lõi (Gỡ rối tơ lòng)" 
-                className={`absolute right-10 p-1.5 transition-all ${localInputText && !isRefining ? 'text-amber-400 hover:scale-110' : 'text-slate-700 opacity-30 cursor-not-allowed'}`}
-              >
-                {isRefining ? <Loader2 size={16} className="animate-spin text-amber-500" /> : <Sparkles size={16} />}
-              </button>
-              <button 
-                onClick={() => {
-                    handleSendMessage(localInputText, inputEmotion);
-                    setLocalInputText('');
-                    setInputEmotion('calm');
-                    setShowEmotionMenu(false);
-                }} 
-                className={`p-1.5 transition-all mr-1 ${localInputText || selectedImage ? 'text-orange-400 scale-110' : 'text-slate-700 opacity-20'}`}
-              >
-                <Send size={16} />
-              </button>
-            </div>
-            <button onClick={() => setIsVoiceEnabled(!isVoiceEnabled)} className={`p-3 rounded-full transition-all ${isVoiceEnabled ? 'bg-emerald-600/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>{isVoiceEnabled ? <Volume1 size={18} /> : <VolumeX size={18} />}</button>
-          </div>
-        </div>
+        <IsolatedChatInputBar
+          inputText={p.inputText}
+          handleSendMessage={handleSendMessage}
+          handleRefineInput={handleRefineInput}
+          isRefining={isRefining}
+          toggleMic={toggleMic}
+          isRecording={isRecording}
+          toggleCamera={toggleCamera}
+          cameraOn={cameraOn}
+          fileInputRef={fileInputRef}
+          handleImageUpload={handleImageUpload}
+          selectedImage={selectedImage}
+          setSelectedImage={setSelectedImage}
+          isVoiceEnabled={isVoiceEnabled}
+          setIsVoiceEnabled={setIsVoiceEnabled}
+        />
       </div>
 
-      <ChatHistorySidebar />
+      <ChatHistorySidebar p={p} />
+
+      {(showAuthModal || localShowAuthModal) && (
+        <AuthModal
+          onClose={() => {
+            setLocalShowAuthModal(false);
+            if (typeof setShowAuthModal === 'function') setShowAuthModal(false);
+          }}
+          onLogin={(user, token) => {
+            if (typeof handleLogin === 'function') handleLogin(user, token);
+            setLocalShowAuthModal(false);
+            if (typeof setShowAuthModal === 'function') setShowAuthModal(false);
+          }}
+        />
+      )}
 
       <style>{`
         .scrollbar-hide::-webkit-scrollbar { display: none; } 
@@ -715,13 +740,7 @@ const NormalModePanel = () => {
       )}
 
 
-      {/* AUTH MODAL */}
-      {showAuthModal && (
-        <AuthModal
-          onClose={() => setShowAuthModal(false)}
-          onLogin={handleLogin}
-        />
-      )}
+
 
       {/* PREMIUM PAYWALL MODAL */}
       {showPaymentModal && (
@@ -845,4 +864,28 @@ const NormalModePanel = () => {
   );
 };
 
-export default NormalModePanel;
+export default React.memo(NormalModePanel, (prevProps, nextProps) => {
+  const p1 = prevProps?.p || {};
+  const p2 = nextProps?.p || {};
+  const s1Key = (p1.sessions || []).map((s: any) => `${s.id}:${s.isPinned}:${s.title}`).join('|');
+  const s2Key = (p2.sessions || []).map((s: any) => `${s.id}:${s.isPinned}:${s.title}`).join('|');
+
+  return (
+    s1Key === s2Key &&
+    p1.currentSessionId === p2.currentSessionId &&
+    p1.messages?.length === p2.messages?.length &&
+    p1.currentlyPlayingId === p2.currentlyPlayingId &&
+    p1.isRecording === p2.isRecording &&
+    p1.isRefining === p2.isRefining &&
+    p1.isLaoSpeakingSession === p2.isLaoSpeakingSession &&
+    p1.mouthOpen === p2.mouthOpen &&
+    p1.showSessions === p2.showSessions &&
+    p1.showHistory === p2.showHistory &&
+    p1.showPoemModal === p2.showPoemModal &&
+    p1.showVideoExportModal === p2.showVideoExportModal &&
+    p1.showAutoPilotModal === p2.showAutoPilotModal &&
+    p1.showAuthModal === p2.showAuthModal &&
+    p1.selectedAiConfigId === p2.selectedAiConfigId &&
+    p1.currentLaoPresetId === p2.currentLaoPresetId
+  );
+});

@@ -98,80 +98,125 @@ export const useFullFrameScenes = ({
 
   const [customCategories, setCustomCategories] = useState<any[]>([]);
 
-  // Load kho Video Dựng Sẵn cá nhân từ bộ nhớ máy & PostgreSQL DB
+  // Load kho Video Dựng Sẵn cá nhân duy nhất từ PostgreSQL DB
   useEffect(() => {
-      const list = JSON.parse(localStorage.getItem('taman_local_ff_clips') || '[]');
-      setLocalFfClips(list);
-      
-      const packList = JSON.parse(localStorage.getItem('taman_local_ff_packs') || '[]');
-      setLocalFfPacks(packList);
+      // Đọc trực tiếp Gói cảnh quay từ CSDL PostgreSQL
+      fetch('/api/goi-canh-quay')
+        .then(res => res.json())
+        .then(dbPacks => {
+          if (Array.isArray(dbPacks)) {
+            const mapped = dbPacks.map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              aspect: p.aspect || 'ngang',
+              isLocal: true,
+              scenes: p.scenesData || []
+            }));
+            setLocalFfPacks(mapped);
+          }
+        })
+        .catch(err => console.warn('Lỗi tải GoiCanhQuay từ DB:', err));
 
-      const cats = JSON.parse(localStorage.getItem('taman_custom_categories') || '[]');
-      setCustomCategories(cats);
+      // Đọc trực tiếp Phân mục tùy chỉnh từ CSDL PostgreSQL
+      fetch('/api/user/canh-quay/categories')
+        .then(res => res.json())
+        .then(cats => {
+          if (Array.isArray(cats)) setCustomCategories(cats);
+        })
+        .catch(err => console.warn('Lỗi tải Custom Categories từ DB:', err));
 
-      // Đồng bộ từ PostgreSQL Database
+      // Đọc trực tiếp duy nhất từ CSDL PostgreSQL
       fetch('/api/user/canh-quay')
         .then(res => res.json())
         .then(dbList => {
-          if (Array.isArray(dbList) && dbList.length > 0) {
+          if (Array.isArray(dbList)) {
             const dbClips = dbList.map((item: any) => ({
               id: item.id,
               name: item.name,
               url: item.url,
+              poster: item.poster,
               role: item.role || 'lao',
               category: item.category || item.role || 'lao',
               emotion: item.emotion || 'calm',
               idbKey: item.id,
               isDb: true
             }));
-            setLocalFfClips((prev: any[]) => {
-              const combined = [...dbClips];
-              prev.forEach((pClip: any) => {
-                if (!combined.some((c: any) => c.id === pClip.id || (c.idbKey && c.idbKey === pClip.idbKey))) {
-                  combined.push(pClip);
-                }
-              });
-              return combined;
-            });
+            setLocalFfClips(dbClips);
           }
         })
-        .catch(err => console.warn('Lỗi đồng bộ CanhQuay từ PostgreSQL DB:', err));
+        .catch(err => console.warn('Lỗi tải CanhQuay từ PostgreSQL DB:', err));
   }, []);
 
-  const handleAddCustomCategory = (name: string) => {
+  const handleAddCustomCategory = async (name: string) => {
     if (!name.trim()) return;
     const catId = `cat_${Date.now()}_${Math.floor(Math.random()*1000)}`;
     const newCat = { id: catId, name: name.trim() };
-    const updated = [...customCategories, newCat];
+    const updated = [...customCategories.filter((c: any) => c.name !== newCat.name), newCat];
     setCustomCategories(updated);
-    localStorage.setItem('taman_custom_categories', JSON.stringify(updated));
+
+    try {
+      await fetch('/api/user/canh-quay/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newCat)
+      });
+    } catch (err) {
+      console.warn('Lỗi lưu Category lên DB:', err);
+    }
   };
 
   const handleDeleteCustomCategory = async (catId: string) => {
     const targetCat = customCategories.find((c: any) => c.id === catId || c.name === catId);
     const catName = targetCat ? targetCat.name : catId;
     
-    // 1. Xóa khỏi state & LocalStorage
+    // 1. Xóa khỏi state
     const updatedCats = customCategories.filter((c: any) => c.id !== catId && c.name !== catId);
     setCustomCategories(updatedCats);
-    localStorage.setItem('taman_custom_categories', JSON.stringify(updatedCats));
 
     // 2. Xóa các clip thuộc category này khỏi localFfClips & PostgreSQL DB
     setLocalFfClips((prev: any[]) => prev.filter((clip: any) => clip.category !== catId && clip.category !== catName));
     
     try {
-      await fetch(`/api/user/canh-quay?category=${encodeURIComponent(catName)}`, { method: 'DELETE' });
+      await fetch(`/api/user/canh-quay/categories?id=${encodeURIComponent(catId)}`, { method: 'DELETE' });
     } catch (err) {
       console.warn('Lỗi xóa category trên DB:', err);
     }
   };
 
+  const handleRenameCustomCategory = async (catId: string, oldName: string, newName: string) => {
+    if (!newName.trim() || newName.trim() === oldName) return;
+    const trimmedNew = newName.trim();
+
+    // 1. Cập nhật customCategories state
+    setCustomCategories((prev: any[]) => prev.map((c: any) => {
+      if (c.id === catId || c.name === catId || c.name === oldName) {
+        return { ...c, name: trimmedNew };
+      }
+      return c;
+    }));
+
+    // 2. Cập nhật category của các clip trong localFfClips state
+    setLocalFfClips((prev: any[]) => prev.map((clip: any) => {
+      if (clip.category === catId || clip.category === oldName) {
+        return { ...clip, category: trimmedNew };
+      }
+      return clip;
+    }));
+
+    // 3. Cập nhật DB
+    try {
+      await fetch('/api/user/canh-quay/categories', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: catId, oldName, newName: trimmedNew })
+      });
+    } catch (err) {
+      console.warn('Lỗi đổi tên category trên DB:', err);
+    }
+  };
+
   const handleDeleteLibraryClip = async (clipId: string) => {
-    setLocalFfClips((prev: any[]) => {
-      const updated = prev.filter((c: any) => c.id !== clipId && c.idbKey !== clipId);
-      localStorage.setItem('taman_local_ff_clips', JSON.stringify(updated));
-      return updated;
-    });
+    setLocalFfClips((prev: any[]) => prev.filter((c: any) => c.id !== clipId && c.idbKey !== clipId));
 
     try {
       await fetch(`/api/user/canh-quay?id=${encodeURIComponent(clipId)}`, { method: 'DELETE' });
@@ -182,11 +227,7 @@ export const useFullFrameScenes = ({
 
   const handleBatchDeleteLibraryClips = async (clipIds: string[]) => {
     if (!clipIds || clipIds.length === 0) return;
-    setLocalFfClips((prev: any[]) => {
-      const updated = prev.filter((c: any) => !clipIds.includes(c.id) && !clipIds.includes(c.idbKey));
-      localStorage.setItem('taman_local_ff_clips', JSON.stringify(updated));
-      return updated;
-    });
+    setLocalFfClips((prev: any[]) => prev.filter((c: any) => !clipIds.includes(c.id) && !clipIds.includes(c.idbKey)));
 
     try {
       await fetch('/api/user/canh-quay', {
@@ -199,22 +240,46 @@ export const useFullFrameScenes = ({
     }
   };
 
-  // Load trước Video Dựng Sẵn vào RAM
+  // Load trước Video Dựng Sẵn vào RAM (Tối ưu hóa tránh treo trình duyệt khi nạp nhiều clip)
   useEffect(() => {
+      const activeIds = new Set(ffScenes.map((s: any) => s.id));
+      
+      // 1. Giải phóng RAM các video không còn thuộc danh sách ffScenes
+      Object.keys(ffVidRefs.current).forEach((key) => {
+          if (!activeIds.has(key)) {
+              try {
+                  if (ffVidRefs.current[key]) {
+                      ffVidRefs.current[key].pause();
+                      ffVidRefs.current[key].removeAttribute('src');
+                      ffVidRefs.current[key].load();
+                  }
+              } catch (e) {}
+              delete ffVidRefs.current[key];
+          }
+      });
+
+      // 2. Cập nhật thẻ video mà KHÔNG ép đồng loạt gọi .load() gây ngốn RAM
       ffScenes.forEach((scene: any) => {
           const url = scene.url;
           if (url) {
               if (!ffVidRefs.current[scene.id]) {
                   const v = document.createElement('video');
-                  v.muted = true; v.loop = true; v.playsInline = true; v.crossOrigin = "anonymous";
+                  v.muted = true; 
+                  v.loop = true; 
+                  v.playsInline = true; 
+                  v.crossOrigin = "anonymous";
+                  v.preload = "metadata";
                   ffVidRefs.current[scene.id] = v;
               }
               if (ffVidRefs.current[scene.id].src !== url) {
                   ffVidRefs.current[scene.id].src = url;
-                  ffVidRefs.current[scene.id].load();
               }
           } else if (ffVidRefs.current[scene.id]) {
-              ffVidRefs.current[scene.id].pause();
+              try {
+                  ffVidRefs.current[scene.id].pause();
+                  ffVidRefs.current[scene.id].removeAttribute('src');
+                  ffVidRefs.current[scene.id].load();
+              } catch (e) {}
               delete ffVidRefs.current[scene.id];
           }
       });
@@ -475,13 +540,24 @@ export const useFullFrameScenes = ({
               scenes: newScenes
           };
 
-          const updatedPacks = [...localFfPacks, newPack];
+          const updatedPacks = [...localFfPacks.filter((p: any) => p.name !== newPack.name), newPack];
           setLocalFfPacks(updatedPacks);
-          localStorage.setItem('taman_local_ff_packs', JSON.stringify(updatedPacks));
-          showToastMsg(`Đã lưu Bộ Cảnh "${savePackData.name}" thành công!`, 'success', 4000);
-      } catch (e) {
+
+          await fetch('/api/goi-canh-quay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: newPack.id,
+              name: newPack.name,
+              aspect: newPack.aspect,
+              scenes: newScenes
+            })
+          });
+
+          showToastMsg(`Đã lưu Bộ Cảnh "${savePackData.name}" vào PostgreSQL CSDL thành công!`, 'success', 4000);
+      } catch (e: any) {
           console.error("Lỗi lưu Bộ Cảnh:", e);
-          showToastMsg('Lỗi khi lưu bộ cảnh. Trình duyệt có thể bị đầy bộ nhớ (Hãy dọn rác RAM).', 'error', 5000);
+          showToastMsg('Lỗi khi lưu bộ cảnh lên CSDL: ' + (e.message || ''), 'error', 5000);
       }
   };
 
@@ -495,7 +571,7 @@ export const useFullFrameScenes = ({
           setFfScenes(JSON.parse(JSON.stringify(hardcodedPack.scenes)));
           showToastMsg(`Đã đổi sang bộ cảnh ${hardcodedPack.name}`, 'success', 2000);
       } else if (localPack) {
-          showToastMsg(`Đang nạp bộ cảnh "${localPack.name}" từ ổ cứng...`, 'loading', 0);
+          showToastMsg(`Đang nạp bộ cảnh "${localPack.name}"...`, 'loading', 0);
           try {
               const loadedScenes = await Promise.all(localPack.scenes.map(async (scene: any) => {
                   let url = null;
@@ -548,12 +624,14 @@ export const useFullFrameScenes = ({
       e.stopPropagation();
       setConfirmDialog({
           isOpen: true,
-          message: 'Bạn có chắc chắn muốn xóa Bộ cảnh cá nhân này? Các video bên trong vẫn sẽ còn trong Kho Video lẻ.',
-          onConfirm: () => {
-              const updatedPacks = localFfPacks.filter((p: any) => p.id !== packId);
+          message: 'Bạn có chắc chắn muốn xóa Bộ cảnh cá nhân này khỏi CSDL? Các video bên trong vẫn sẽ còn trong Kho Video lẻ.',
+          onConfirm: async () => {
+              const updatedPacks = localFfPacks.filter((p: any) => p.id !== packId && p.name !== packId);
               setLocalFfPacks(updatedPacks);
-              localStorage.setItem('taman_local_ff_packs', JSON.stringify(updatedPacks));
-              showToastMsg('Đã xóa Bộ cảnh cá nhân.', 'info');
+              try {
+                await fetch(`/api/goi-canh-quay?id=${encodeURIComponent(packId)}`, { method: 'DELETE' });
+              } catch (err) {}
+              showToastMsg('Đã xóa Bộ cảnh cá nhân khỏi CSDL.', 'info');
           }
       });
   };
@@ -637,6 +715,7 @@ ${sceneCodes.join(',\n')}
     customCategories,
     setCustomCategories,
     handleAddCustomCategory,
+    handleRenameCustomCategory,
     handleDeleteCustomCategory,
     handleDeleteLibraryClip,
     handleBatchDeleteLibraryClips

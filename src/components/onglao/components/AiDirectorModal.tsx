@@ -161,9 +161,13 @@ const AiDirectorModal = (p: AiDirectorModalProps) => {
                      <div className="space-y-2">
                          <label className="text-xs font-bold text-slate-400">Ngày tạo:</label>
                          <input
-                             type="date"
-                             value={p.aiScriptDate}
-                             onChange={e => p.setAiScriptDate(e.target.value)}
+                             type="datetime-local"
+                             value={p.aiScriptDate || (() => {
+                                 const d = new Date();
+                                 const pad = (n: number) => String(n).padStart(2, '0');
+                                 return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                             })()}
+                             onChange={e => p.setAiScriptDate?.(e.target.value)}
                              className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-medium"
                          />
                      </div>
@@ -369,7 +373,19 @@ const AiDirectorModal = (p: AiDirectorModalProps) => {
             <div className="bg-slate-900 border border-indigo-500/30 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-800">
                     <h2 className="font-black text-indigo-400 tracking-widest flex items-center gap-2"><Sparkles size={18}/> Đạo Diễn AI (Tối ưu đàm đạo)</h2>
-                    {!p.isGenerating && <button onClick={p.onClose} className="text-slate-400 hover:text-white"><X size={20}/></button>}
+                    {!p.isGenerating && (
+                        <button 
+                            type="button" 
+                            onClick={(e) => { 
+                                e.stopPropagation(); 
+                                if (typeof p.onClose === 'function') p.onClose(); 
+                            }} 
+                            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer" 
+                            title="Đóng modal"
+                        >
+                            <X size={20}/>
+                        </button>
+                    )}
                 </div>
                 <div className="p-6 flex flex-col gap-4 max-h-[75vh] overflow-y-auto scrollbar-hide">
                     {/* Ngôn ngữ */}
@@ -475,7 +491,7 @@ const AiDirectorModal = (p: AiDirectorModalProps) => {
                         </div>
                     )}
                     <div className="flex justify-end gap-3 mt-2 border-t border-white/5 pt-4">
-                        <button disabled={p.isGenerating} onClick={p.onClose} className="px-5 py-2.5 rounded-xl font-bold text-slate-400 hover:text-white transition-colors disabled:opacity-50">Hủy</button>
+                        <button disabled={p.isGenerating} onClick={(e) => { e.stopPropagation(); if (typeof p.onClose === 'function') p.onClose(); }} className="px-5 py-2.5 rounded-xl font-bold text-slate-400 hover:text-white transition-colors disabled:opacity-50 cursor-pointer">Hủy</button>
                         {localGenScript && (
                             <button onClick={handleSave} disabled={p.isGenerating || isSaving} className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg disabled:opacity-50 transition-all flex items-center gap-1.5">
                                 {isSaving ? <Loader2 size={14} className="animate-spin" /> : null}

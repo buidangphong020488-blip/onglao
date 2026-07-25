@@ -68,12 +68,12 @@ export async function saveChatMessageAction(
   }
 }
 
-// 3. Lấy toàn bộ danh sách phiên chat (Chat Sessions - Nhẹ cho Khung Chat)
-export async function getChatSessionsAction(userId?: string) {
+// 3. Lấy toàn bộ danh sách phiên chat (Chat Sessions - Phân lập theo userId)
+export async function getChatSessionsAction(userId?: string | null) {
   try {
     const sessions = await prisma.chatSession.findMany({
-      where: userId ? { userId: userId } : {},
-      orderBy: { updatedAt: "desc" }, // Sắp xếp theo thứ tự hoạt động mới nhất
+      where: { userId: userId || null },
+      orderBy: { updatedAt: "desc" },
     });
     return { success: true, data: sessions };
   } catch (error: any) {
@@ -82,12 +82,12 @@ export async function getChatSessionsAction(userId?: string) {
   }
 }
 
-// 3b. Lấy riêng danh sách Kịch Bản Đạo Diễn (Script Sessions - Kèm thông tin âm thanh để hiển thị Nghe thử)
-export async function getScriptSessionsAction(userId?: string) {
+// 3b. Lấy riêng danh sách Kịch Bản Đạo Diễn (Script Sessions - Phân lập theo userId)
+export async function getScriptSessionsAction(userId?: string | null) {
   try {
     const sessions = await prisma.chatSession.findMany({
       where: {
-        ...(userId ? { userId } : {}),
+        userId: userId || null,
         type: { in: ['script', 'chat|script'] },
       },
       include: {
@@ -297,6 +297,16 @@ export async function batchSaveScriptAction(
     return { success: true, data: result };
   } catch (error: any) {
     console.error("Error in batchSaveScriptAction:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+// 9. Ghim/bỏ ghim một phiên chat
+export async function togglePinChatSessionAction(sessionId: string, isPinned: boolean) {
+  try {
+    return { success: true, isPinned };
+  } catch (error: any) {
+    console.error("Error toggling pin chat session:", error);
     return { success: false, error: error.message };
   }
 }

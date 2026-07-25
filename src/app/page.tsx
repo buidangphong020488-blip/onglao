@@ -1,5 +1,9 @@
-import OngLaoPlatform from "@/components/onglao-platform";
+import OngLaoAppClient from "@/components/onglao/OngLaoAppClient";
 import prisma from "@/lib/prisma";
+
+// Cache server component 60 giây — tránh chạy lại Prisma + GiacNgo API mỗi request
+// scriptid/modal params chỉ được dùng client-side, không ảnh hưởng server render
+export const revalidate = 60;
 
 export default async function Home() {
   let initialPoems: any[] = [];
@@ -146,7 +150,7 @@ export default async function Home() {
     console.warn("Lỗi khi tải Kệ Pháp từ GiacNgo API:", err instanceof Error ? err.message : String(err));
   }
 
-  return <OngLaoPlatform initialPoems={initialPoems} />;
+  return <OngLaoAppClient initialPoems={initialPoems} />;
 }
 
 

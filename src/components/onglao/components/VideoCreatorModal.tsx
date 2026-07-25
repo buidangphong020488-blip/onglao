@@ -1,27 +1,29 @@
 // @ts-nocheck
 "use client";
 import React from "react";
-import { X, Film, Check, Save, Search, ChevronLeft, ChevronRight, Sliders, Maximize, Minimize, RefreshCw, Loader2, Play, Pause, ChevronDown, Sparkles, FileText, Volume2, Plus, Info, Upload, PlayCircle, Eye, EyeOff, Music, Video, Archive, Share as ShareIcon, Copy, ChevronUp, Trash2, Palette, Music4, Wand2, XCircle, Undo2, Redo2, LayoutTemplate, Image as ImageIcon, Pencil, Mic } from "lucide-react";
+import { X, Film, Check, CheckCircle2, Save, Search, ChevronLeft, ChevronRight, Sliders, Maximize, Minimize, RefreshCw, Loader2, Play, Pause, ChevronDown, Sparkles, FileText, Volume2, Plus, Info, Upload, PlayCircle, Eye, EyeOff, Music, Video, Archive, Share as ShareIcon, Copy, ChevronUp, Trash2, Palette, Music4, Wand2, XCircle, Undo2, Redo2, LayoutTemplate, Image as ImageIcon, Pencil, Mic, Edit3, CheckSquare } from "lucide-react";
 import { useOngLaoContext } from "../context/OngLaoContext";
 import { idb } from "../constants";
 import { updateChatMessageContentAction, getChatMessagesAction } from "@/actions/chat";
 // Hàm tự động chụp 1 khung ảnh tĩnh JPEG (Poster Snapshot 160x160) từ video mà KHÔNG giữ thẻ video HTML5 trong bộ nhớ
 const generateVideoPoster = (videoUrl: string): Promise<string> => {
-    if (!videoUrl) return Promise.resolve('');
+    if (!videoUrl || videoUrl.startsWith('idb://')) return Promise.resolve('');
     return new Promise((resolve) => {
         const video = document.createElement('video');
         video.crossOrigin = 'anonymous';
-        video.src = videoUrl;
         video.muted = true;
         video.playsInline = true;
-        video.preload = 'auto';
+        video.preload = 'metadata';
         let resolved = false;
 
         const cleanup = () => {
             if (resolved) return;
             resolved = true;
+            video.onloadeddata = null;
+            video.onseeked = null;
+            video.onerror = null;
             video.removeAttribute('src');
-            video.load();
+            try { video.load(); } catch(e) {}
         };
 
         const captureFrame = () => {
@@ -48,7 +50,12 @@ const generateVideoPoster = (videoUrl: string): Promise<string> => {
 
         const timeout = setTimeout(() => {
             captureFrame();
-        }, 3000);
+        }, 2000);
+
+        video.onerror = () => {
+            cleanup();
+            resolve('');
+        };
 
         video.onloadeddata = () => {
             if (video.duration && video.duration > 0.5) {
@@ -62,13 +69,7 @@ const generateVideoPoster = (videoUrl: string): Promise<string> => {
             captureFrame();
         };
 
-        video.onerror = () => {
-            clearTimeout(timeout);
-            cleanup();
-            resolve('');
-        };
-
-        video.load();
+        video.src = videoUrl;
     });
 };
 // SceneThumbnailItem: Component thumbnail chụp ảnh tĩnh poster, hiển thị ảnh xem trước sắc nét mà KHÔNG tốn RAM/GPU
@@ -196,9 +197,9 @@ const SceneThumbnailItem = React.memo(({ scene, setFfScenes }: { scene: any; set
         </label>
     );
 });
-// VideoCreatorModal: Modal xuất video pháp bảo
-const VideoCreatorModal = () => {
-  const p = useOngLaoContext();
+const VideoCreatorModal = (props?: any) => {
+  const ctx = typeof useOngLaoContext === 'function' ? useOngLaoContext() : null;
+  const p = (props && props.p) ? props.p : ((props && Object.keys(props).length > 0) ? props : ctx);
   const previewVideoRef = React.useRef(null);
   const [selectedFfPackId, setSelectedFfPackId] = React.useState('');
   // States and Handlers for inline text/audio editing within VideoCreatorModal
@@ -453,6 +454,9 @@ const VideoCreatorModal = () => {
 
 
     const [showLibraryModal, setShowLibraryModal] = React.useState(false);
+    const [showSaveSuccessModal, setShowSaveSuccessModal] = React.useState(false);
+    
+    const [saveErrorModal, setSaveErrorModal] = React.useState<string | null>(null);
     const [targetPickerSceneId, setTargetPickerSceneId] = React.useState<string | null>(null);
     const [selectedLibraryCategory, setSelectedLibraryCategory] = React.useState<string>('ALL');
     const [stagedClips, setStagedClips] = React.useState<any[]>([]);
@@ -485,6 +489,29 @@ const VideoCreatorModal = () => {
     const [librarySearchTerm, setLibrarySearchTerm] = React.useState('');
     const [showAddCatModal, setShowAddCatModal] = React.useState(false);
     const [newCatName, setNewCatName] = React.useState('');
+    const [renameCategoryModal, setRenameCategoryModal] = React.useState<{ catId: string; catName: string } | null>(null);
+    const [renameCatInputValue, setRenameCatInputValue] = React.useState('');
+
+    const handleConfirmRenameCategory = () => {
+        if (!renameCategoryModal || !renameCatInputValue.trim()) return;
+        const { catId, catName } = renameCategoryModal;
+        const finalName = renameCatInputValue.trim();
+        if (finalName && finalName !== catName && p.handleRenameCustomCategory) {
+            p.handleRenameCustomCategory(catId, catName, finalName);
+        }
+        setRenameCategoryModal(null);
+        setRenameCatInputValue('');
+    };
+
+    const handleConfirmAddCategory = () => {
+        if (!newCatName.trim()) return;
+        if (p.handleAddCustomCategory) {
+            p.handleAddCustomCategory(newCatName.trim());
+        }
+        setShowAddCatModal(false);
+        setNewCatName('');
+    };
+
     const [isMultiSelectMode, setIsMultiSelectMode] = React.useState(false);
     const [selectedBatchClipIds, setSelectedBatchClipIds] = React.useState<string[]>([]);
     const [libraryPageSize, setLibraryPageSize] = React.useState<number>(10);
@@ -526,6 +553,21 @@ const VideoCreatorModal = () => {
 
     const handleUnstageClip = (stageId: string) => {
         setStagedClips(prev => prev.filter(c => c.stageId !== stageId));
+    };
+
+    const handleSelectAllClipsInView = () => {
+        if (!filteredLibraryClips || filteredLibraryClips.length === 0) return;
+        const newStaged = filteredLibraryClips.map((clip: any, idx: number) => ({
+            ...clip,
+            stageId: `stg_${Date.now()}_${idx}_${Math.random()}`
+        }));
+        setStagedClips(newStaged);
+        if (p.showToastMsg) p.showToastMsg(`Đã chọn toàn bộ ${newStaged.length} clip vào danh sách chờ!`, 'success');
+    };
+
+    const handleClearAllStagedClips = () => {
+        setStagedClips([]);
+        if (p.showToastMsg) p.showToastMsg('Đã xóa tất cả clip khỏi danh sách chờ!', 'info');
     };
 
     
@@ -1326,7 +1368,21 @@ const VideoCreatorModal = () => {
                                {!isExportingVideo ? (
                                   <div className="grid grid-cols-2 gap-2 w-full">
                                      <button 
-                                        onClick={handleSaveVideoConfig} 
+                                        onClick={() => {
+                                                    try {
+                                                        const ok = handleSaveVideoConfig ? handleSaveVideoConfig() : false;
+                                                        if (ok) {
+                                                            if (p.showToastMsg) p.showToastMsg("🎉 Đã lưu cài đặt thành công!", "success");
+                                                        } else {
+                                                            const err = (typeof window !== 'undefined' && (window as any).__lastSaveError)
+                                                                ? (window as any).__lastSaveError
+                                                                : 'Không thể lưu cấu hình video. Trình duyệt chặn ghi dữ liệu.';
+                                                            setSaveErrorModal(err);
+                                                        }
+                                                    } catch (e: any) {
+                                                        setSaveErrorModal(e?.message || 'Lỗi lưu cài đặt.');
+                                                    }
+                                                }} 
                                         disabled={isPreparingVideoData} 
                                         className="w-full bg-slate-800 hover:bg-slate-700 text-emerald-400 font-bold py-3 rounded-lg border border-emerald-500/30 flex items-center justify-center gap-1.5 transition-all shadow-md text-xs"
                                      >
@@ -1792,6 +1848,56 @@ const VideoCreatorModal = () => {
          
             {/* MODAL KHO CẢNH QUAY & PHÂN MỤC (LIBRARY PICKER MODAL) */}
             
+            {/* MODAL THÔNG BÁO BÁO LỖI LƯU CÀI ĐẶT */}
+            {saveErrorModal && (
+                <div className="fixed inset-0 z-[400] bg-black/80 backdrop-blur-md flex justify-center items-center p-4 animate-in fade-in" onClick={() => setSaveErrorModal(null)}>
+                    <div className="bg-slate-900 border border-rose-500/40 rounded-3xl w-full max-w-md shadow-2xl p-6 flex flex-col items-center gap-4 text-center animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+                        <div className="w-16 h-16 bg-rose-500/20 border border-rose-500/40 rounded-full flex items-center justify-center text-rose-400 shadow-[0_0_20px_rgba(244,63,94,0.3)]">
+                            <XCircle size={36} />
+                        </div>
+                        <div className="space-y-1.5 w-full">
+                            <h3 className="text-base font-extrabold text-white tracking-wide uppercase">❌ Lỗi Lưu Cài Đặt!</h3>
+                            <p className="text-xs text-rose-300 leading-relaxed font-mono bg-slate-950 p-3 rounded-xl border border-white/10 text-left">
+                                {saveErrorModal}
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => setSaveErrorModal(null)}
+                            className="w-full py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-lg transition-all cursor-pointer"
+                        >
+                            Đóng & Thử lại
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            
+
+            {/* MODAL TIẾN TRÌNH RENDER VIDEO PHÁP BẢO */}
+            {(isExportingVideo || isPreparingVideoData) && (
+                <div className="fixed inset-0 z-[450] bg-black/85 backdrop-blur-xl flex justify-center items-center p-4 animate-in fade-in">
+                    <div className="bg-slate-900 border border-orange-500/40 rounded-3xl w-full max-w-md shadow-2xl p-6 flex flex-col items-center gap-5 text-center animate-in zoom-in-95">
+                        <div className="w-16 h-16 bg-orange-500/20 border border-orange-500/40 rounded-full flex items-center justify-center text-orange-400 shadow-[0_0_30px_rgba(249,115,22,0.3)] animate-pulse">
+                            <Loader2 size={36} className="animate-spin" />
+                        </div>
+                        <div className="space-y-1.5">
+                            <h3 className="text-base font-extrabold text-white tracking-wide uppercase flex items-center justify-center gap-2">
+                                <span>🎬</span> Đang Thu Hình & Render Video...
+                            </h3>
+                            <p className="text-xs text-slate-300 leading-relaxed">
+                                Hệ thống đang ghép nối các phân cảnh, phụ đề và âm thanh 60FPS. Vui lòng giữ nguyên màn hình...
+                            </p>
+                        </div>
+                        <button
+                            onClick={cancelVideoExport}
+                            className="w-full py-3 bg-rose-600/90 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2"
+                        >
+                            <XCircle size={16} /> Dừng & Hủy Bỏ Render
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* PREVIEW VIDEO PLAYER MODAL */}
             {previewVideoUrl && (
                 <div className="fixed inset-0 z-[400] bg-black/90 backdrop-blur-md flex justify-center items-center p-4" onClick={() => setPreviewVideoUrl(null)}>
@@ -1879,6 +1985,70 @@ const VideoCreatorModal = () => {
                                 >
                                     <span>🎬 Cảnh Outro Kết Thúc</span>
                                 </button>
+
+                                {/* CHUYÊN MỤC TÙY CHỈNH TỪ CSDL / NẠP THÊM */}
+                                <div className="flex flex-col gap-1.5 mt-2 pt-2 border-t border-white/10">
+                                    <div className="flex justify-between items-center px-2 py-0.5">
+                                        <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">
+                                            Chuyên Mục Tùy Chỉnh ({(p.customCategories || []).length})
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setNewCatName('');
+                                                setShowAddCatModal(true);
+                                            }}
+                                            className="w-5 h-5 bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white rounded-lg flex items-center justify-center transition-all shadow-sm cursor-pointer"
+                                            title="Thêm chuyên mục mới (+)"
+                                        >
+                                            <Plus size={13} />
+                                        </button>
+                                    </div>
+
+                                    {Array.isArray(p.customCategories) && p.customCategories.map((cat: any) => {
+                                        const catName = typeof cat === 'string' ? cat : (cat.name || cat.id);
+                                        const catId = typeof cat === 'string' ? cat : (cat.id || cat.name);
+                                        const isSelected = selectedLibraryCategory === catName || selectedLibraryCategory === catId;
+                                        const clipCount = (p.localFfClips || []).filter((c: any) => c.category === catName || c.category === catId).length;
+                                        return (
+                                            <div key={catId} className="flex items-center gap-1 group">
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => setSelectedLibraryCategory(catName)} 
+                                                    className={`flex-1 flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all text-left truncate ${isSelected ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-300 hover:bg-white/5'}`}
+                                                >
+                                                    <span className="truncate">🏷️ {catName}</span>
+                                                    <span className="text-[10px] opacity-75">{clipCount}</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        e.preventDefault();
+                                                        setRenameCategoryModal({ catId, catName });
+                                                        setRenameCatInputValue(catName);
+                                                    }}
+                                                    className="text-amber-400 hover:text-amber-300 p-1.5 rounded-lg hover:bg-amber-500/20 transition-all cursor-pointer shrink-0"
+                                                    title="Đổi tên chuyên mục"
+                                                >
+                                                    <Edit3 size={14} />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        e.preventDefault();
+                                                        if (p.handleDeleteCustomCategory) p.handleDeleteCustomCategory(catId);
+                                                    }}
+                                                    className="text-rose-400 hover:text-rose-300 p-1.5 rounded-lg hover:bg-rose-500/20 transition-all cursor-pointer shrink-0"
+                                                    title="Xóa chuyên mục"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
 
                             {/* CENTER GRID: DANH SÁCH CLIP TRONG KHO */}
@@ -1919,11 +2089,32 @@ const VideoCreatorModal = () => {
                                     </div>
                                 </div>
 
-                                <div className="flex items-center justify-between px-1">
+                                <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-slate-950/60 rounded-2xl border border-white/5">
                                     <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
                                         📁 Danh sách Video Clip ({filteredLibraryClips.length} kết quả)
                                     </span>
-                                    <span className="text-[10px] text-slate-400">Click "+ Thêm" để chọn clip vào danh sách chờ</span>
+                                    
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={handleSelectAllClipsInView}
+                                            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-md cursor-pointer hover:scale-105 active:scale-95"
+                                            title="Bấm để chọn nhanh toàn bộ video clip đang hiển thị"
+                                        >
+                                            <CheckSquare size={13} /> Chọn Tất Cả ({filteredLibraryClips.length})
+                                        </button>
+
+                                        {stagedClips.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={handleClearAllStagedClips}
+                                                className="px-3 py-1.5 bg-rose-600/80 hover:bg-rose-500 text-white text-[11px] font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-md cursor-pointer hover:scale-105 active:scale-95"
+                                                title="Xóa tất cả clip khỏi danh sách chờ"
+                                            >
+                                                <X size={13} /> Bỏ Chọn ({stagedClips.length})
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* GRID CLIP */}
@@ -2061,6 +2252,95 @@ const VideoCreatorModal = () => {
                 </div>
             )}
 
+            {/* MODAL ĐỔI TÊN CHUYÊN MỤC */}
+            {renameCategoryModal && (
+                <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" onClick={() => setRenameCategoryModal(null)}>
+                    <div className="bg-slate-900 border border-amber-500/30 rounded-2xl p-5 max-w-md w-full flex flex-col gap-4 shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center border-b border-white/10 pb-3">
+                            <span className="text-sm font-bold text-amber-400 flex items-center gap-2">
+                                <Edit3 size={16} /> Đổi tên chuyên mục
+                            </span>
+                            <button onClick={() => setRenameCategoryModal(null)} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors">
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <label className="text-xs text-slate-400 font-semibold">Tên chuyên mục mới:</label>
+                            <input
+                                type="text"
+                                value={renameCatInputValue}
+                                onChange={e => setRenameCatInputValue(e.target.value)}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter') handleConfirmRenameCategory();
+                                }}
+                                autoFocus
+                                className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-amber-500 font-medium"
+                            />
+                        </div>
+                        <div className="flex justify-end gap-2 pt-2 border-t border-white/5">
+                            <button
+                                onClick={() => setRenameCategoryModal(null)}
+                                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleConfirmRenameCategory}
+                                disabled={!renameCatInputValue.trim() || renameCatInputValue.trim() === renameCategoryModal.catName}
+                                className="px-5 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-lg transition-all flex items-center gap-1.5 cursor-pointer"
+                            >
+                                <Save size={14} /> Lưu thay đổi
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL THÊM CHUYÊN MỤC MỚI */}
+            {showAddCatModal && (
+                <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" onClick={() => setShowAddCatModal(false)}>
+                    <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl p-5 max-w-md w-full flex flex-col gap-4 shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center border-b border-white/10 pb-3">
+                            <span className="text-sm font-bold text-emerald-400 flex items-center gap-2">
+                                <Plus size={16} /> Thêm chuyên mục cảnh quay mới
+                            </span>
+                            <button onClick={() => setShowAddCatModal(false)} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors">
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <label className="text-xs text-slate-400 font-semibold">Tên chuyên mục mới:</label>
+                            <input
+                                type="text"
+                                value={newCatName}
+                                onChange={e => setNewCatName(e.target.value)}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter') handleConfirmAddCategory();
+                                }}
+                                placeholder="VD: Bà lão 90 tuổi, Chú bé 6 tuổi..."
+                                autoFocus
+                                className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-emerald-500 font-medium"
+                            />
+                        </div>
+                        <div className="flex justify-end gap-2 pt-2 border-t border-white/5">
+                            <button
+                                onClick={() => setShowAddCatModal(false)}
+                                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleConfirmAddCategory}
+                                disabled={!newCatName.trim()}
+                                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-lg transition-all flex items-center gap-1.5 cursor-pointer"
+                            >
+                                <Plus size={14} /> Thêm chuyên mục
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
 </div>
   );
 };
@@ -2068,7 +2348,7 @@ const VideoCreatorModal = () => {
 // SUBCOMPONENT: LIBRARY CLIP CARD (RESOLVES IDB BLOB URLS AND HANDLES 404 ONERROR)
 const LibraryClipCard = ({ clip, idx, globalIndex, isSelected, roleName, emotionName, displayName, handleStageClip, setPreviewVideoUrl, isSinglePickerMode, isMultiSelectMode, isBatchChecked, onToggleBatch, onDeleteSingle }: any) => {
     const [blobUrl, setBlobUrl] = React.useState<string | null>(clip.url && !clip.url.startsWith('idb://') ? clip.url : null);
-    const [videoError, setVideoError] = React.useState(false);
+    const [poster, setPoster] = React.useState<string>(clip.poster || '');
 
     React.useEffect(() => {
         let isMounted = true;
@@ -2082,12 +2362,20 @@ const LibraryClipCard = ({ clip, idx, globalIndex, isSelected, roleName, emotion
                     if (blob && isMounted) {
                         createdUrl = URL.createObjectURL(blob);
                         setBlobUrl(createdUrl);
+                        if (!clip.poster && !poster) {
+                            const p = await generateVideoPoster(createdUrl);
+                            if (p && isMounted) setPoster(p);
+                        }
                     }
                 } catch (e) {
                     console.error(e);
                 }
             } else if (clip.url && !clip.url.startsWith('idb://') && isMounted) {
                 setBlobUrl(clip.url);
+                if (!clip.poster && !poster) {
+                    const p = await generateVideoPoster(clip.url);
+                    if (p && isMounted) setPoster(p);
+                }
             }
         };
 
@@ -2097,32 +2385,41 @@ const LibraryClipCard = ({ clip, idx, globalIndex, isSelected, roleName, emotion
             isMounted = false;
             if (createdUrl) URL.revokeObjectURL(createdUrl);
         };
-    }, [clip.url, clip.idbKey]);
-
-    const formattedUrl = blobUrl ? (blobUrl.includes('#') ? blobUrl : `${blobUrl}#t=0.5`) : null;
+    }, [clip.url, clip.idbKey, clip.poster]);
 
     return (
-        <div className={`flex flex-col bg-slate-950/90 border rounded-2xl p-2.5 gap-2 relative transition-all group shadow-md ${isSelected ? 'border-indigo-500 bg-indigo-950/40 ring-1 ring-indigo-500/50' : 'border-white/10 hover:border-indigo-500/40'}`}>
+        <div className={`flex flex-col bg-slate-950/90 border rounded-2xl p-2.5 gap-2 relative transition-all group shadow-md ${isSelected ? 'border-emerald-500 bg-emerald-950/30 ring-1 ring-emerald-500/50' : 'border-white/10 hover:border-indigo-500/40'}`}>
             <div 
                 className="w-full aspect-video bg-slate-900 rounded-xl overflow-hidden relative flex items-center justify-center border border-white/5 cursor-pointer group/thumb"
                 onClick={() => blobUrl && setPreviewVideoUrl(blobUrl)}
                 title="Click để xem thử clip video này"
             >
-                {blobUrl && !videoError ? (
-                    <video 
-                        src={formattedUrl} 
-                        preload="metadata" 
-                        onLoadedData={(e) => { e.currentTarget.currentTime = 0.5; }}
-                        onError={() => setVideoError(true)}
-                        className="w-full h-full object-cover" 
-                    />
+                {/* DẤU CHECK CHỌN TỪNG CLIP TẠI GÓC TRÊN TRÁI CARD */}
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        handleStageClip({ ...clip, url: blobUrl || clip.url, name: displayName });
+                    }}
+                    className={`absolute top-2 left-2 z-20 w-6 h-6 rounded-lg flex items-center justify-center transition-all cursor-pointer shadow-lg ${
+                        isSelected 
+                            ? 'bg-emerald-500 text-white border-2 border-white scale-110 shadow-emerald-500/50' 
+                            : 'bg-black/60 text-slate-400 border border-white/30 hover:border-white hover:text-white hover:bg-black/80'
+                    }`}
+                    title={isSelected ? 'Bỏ chọn clip này' : 'Chọn clip này'}
+                >
+                    <Check size={14} className={isSelected ? 'stroke-[3]' : 'opacity-60'} />
+                </button>
+
+                {poster ? (
+                    <img src={poster} alt="thumbnail" className="w-full h-full object-cover" />
                 ) : (
-                    <div className="flex flex-col items-center justify-center gap-1 text-amber-500/80 p-2 text-center">
+                    <div className="flex flex-col items-center justify-center gap-1 text-indigo-400 p-2 text-center">
                         <Film size={22} className="opacity-60" />
-                        <span className="text-[9px] font-semibold">{videoError ? 'File video không có sẵn' : 'Chưa có video'}</span>
+                        <span className="text-[9px] font-semibold text-slate-400">Clip Video</span>
                     </div>
                 )}
-                {blobUrl && !videoError && (
+                {blobUrl && (
                     <div className="absolute inset-0 bg-black/30 group-hover/thumb:bg-black/50 transition-colors flex items-center justify-center">
                         <span className="p-2 bg-indigo-600/90 hover:bg-indigo-500 rounded-full text-white shadow-xl transform group-hover/thumb:scale-110 transition-transform flex items-center justify-center">
                             <Play size={16} fill="white" className="ml-0.5" />

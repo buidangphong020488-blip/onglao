@@ -6,7 +6,7 @@ import MiniLaoFace from "./MiniLaoFace";
 import AuthModal from "@/components/AuthModal";
 
 // WelcomeScreen: Màn hình chào khi chưa vào Thiền Đường
-const WelcomeScreen = (p: any) => {
+const WelcomeScreen = ({ p }: any) => {
   const {
     isLoggedIn, hasEntered, setHasEntered,
     showAuthModal, setShowAuthModal, handleLogin, handleLogout,
@@ -22,7 +22,7 @@ const WelcomeScreen = (p: any) => {
     voicePersonas, currentVoicePersonaId, handleChangeVoicePersona,
   } = p;
 
-  if (!isLoggedIn) {
+  if (!isLoggedIn && !isProfileCompleted) {
     return (
       <div className="flex h-screen w-full bg-slate-950 text-white items-center justify-center flex-col relative overflow-hidden select-none">
         <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden">
@@ -32,7 +32,14 @@ const WelcomeScreen = (p: any) => {
         </div>
         <AuthModal
           showCloseButton={false}
-          onLogin={handleLogin}
+          onLogin={(user, token) => {
+            if (typeof handleLogin === 'function') handleLogin(user, token);
+            if (typeof handleEnterApp === 'function') {
+              handleEnterApp();
+            } else if (typeof setHasEntered === 'function') {
+              setHasEntered(true);
+            }
+          }}
         />
       </div>
     );
@@ -64,8 +71,8 @@ const WelcomeScreen = (p: any) => {
 
         <div className="w-28 h-28 md:w-36 md:h-36 rounded-full shrink-0 bg-gradient-to-b from-slate-800 to-slate-950 border-4 border-yellow-500/30 shadow-[0_0_40px_rgba(245,158,11,0.3)] flex items-center justify-center overflow-hidden relative group">
            <div className="absolute inset-0 rounded-full border-[1.5px] border-yellow-400/40 animate-[spin_8s_linear_infinite]"></div>
-           <div className="w-full h-full relative z-10 flex items-center justify-center" style={{ transform: `scale(${allCharacters.find(c => c.id === currentLaoPresetId)?.recommendedScale || 1})` }}>
-              <MiniLaoFace className="w-full h-full drop-shadow-2xl" appearance={laoAppearance} visualType={laoVisualType} customImages={processedLaoImages} customVideos={chatLaoVideos} chromaSettings={laoChromaSettings} flipped={charOffsets.lao.flip} enableFX={enableAutoHarmonization} shadowConfig={laoShadow} harmonizeSettings={harmonizeSettings} />
+           <div className="w-full h-full relative z-10 flex items-center justify-center" style={{ transform: `scale(${(allCharacters || []).find((c: any) => c.id === currentLaoPresetId)?.recommendedScale || 1})` }}>
+              <MiniLaoFace className="w-full h-full drop-shadow-2xl" appearance={laoAppearance} visualType={laoVisualType} customImages={processedLaoImages} customVideos={chatLaoVideos} chromaSettings={laoChromaSettings} flipped={charOffsets?.lao?.flip} enableFX={enableAutoHarmonization} shadowConfig={laoShadow} harmonizeSettings={harmonizeSettings} />
            </div>
         </div>
         
@@ -164,7 +171,7 @@ const WelcomeScreen = (p: any) => {
                      className="w-full bg-slate-900 py-1.5 px-2 rounded-lg outline-none text-emerald-400 font-bold text-[9px] md:text-[10px] border border-white/5 cursor-pointer"
                   >
                      <option value="" className="bg-slate-900 text-slate-400">-- Chọn 21+ Phong cách có sẵn --</option>
-                     {VOICE_STYLES.map((s: any) => <option key={s.id} value={s.text} className="bg-slate-900 text-white">{s.label}</option>)}
+                     {(VOICE_STYLES || []).map((s: any) => <option key={s.id} value={s.text} className="bg-slate-900 text-white">{s.label}</option>)}
                   </select>
                   <textarea
                       value={userVoiceStyle}

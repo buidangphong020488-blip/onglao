@@ -96,17 +96,44 @@ export const useVideoExport = ({
   userVoiceStyle,
   generatedScriptText,
   setGeneratedScriptText,
+  voicePersonas = [],
 }: any) => {
 
-  // --- Video Export & Custom Appearance State ---
   const [showVideoExportModal, setShowVideoExportModal] = useState(() => {
     if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('childmodal') === 'create-video' || urlParams.get('modal') === 'create-video') {
+        return true;
+      }
       return localStorage.getItem('onglao_show_video_export_modal') === 'true';
     }
     return false;
   });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const checkUrl = () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('childmodal') === 'create-video' || urlParams.get('modal') === 'create-video') {
+          setShowVideoExportModal(true);
+        }
+      };
+      checkUrl();
+      window.addEventListener('popstate', checkUrl);
+      return () => window.removeEventListener('popstate', checkUrl);
+    }
+  }, []);
   useEffect(() => {
     localStorage.setItem('onglao_show_video_export_modal', showVideoExportModal.toString());
+    if (!showVideoExportModal && renderedVideoUrl) {
+      try {
+        if (typeof renderedVideoUrl === 'string' && renderedVideoUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(renderedVideoUrl);
+        }
+      } catch (e) {}
+      setRenderedVideoUrl(null);
+      setRenderedVideoBlob(null);
+    }
   }, [showVideoExportModal]);
   const [videoExportSource, setVideoExportSource] = useState<string | null>(null);
   const [videoAspectRatio, setVideoAspectRatio] = useState('16x9'); 
@@ -204,35 +231,16 @@ export const useVideoExport = ({
   const [exportTab, setExportTab] = useState('basic'); // basic | advance | background | appearance | history
   const [hoveredElement, setHoveredElement] = useState<any>(null);
 
-  // --- TÂM AN THÊM: QUẢN LÝ LỊCH SỬ VIDEO ĐÃ RENDER (TÍCH HỢP POSTGRESQL DB) ---
-  const [renderHistory, setRenderHistory] = useState<any[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('onglao_video_render_history');
-        return saved ? JSON.parse(saved) : [];
-      } catch (e) {}
-    }
-    return [];
-  });
+  // --- TÂM AN THÊM: QUẢN LÝ LỊCH SỬ VIDEO ĐÃ RENDER (100% POSTGRESQL DB) ---
+  const [renderHistory, setRenderHistory] = useState<any[]>([]);
 
-  // Nạp dữ liệu lịch sử từ PostgreSQL Database khi khởi tạo
+  // Nạp dữ liệu lịch sử trực tiếp từ CSDL PostgreSQL
   useEffect(() => {
     fetch('/api/render-history')
       .then(res => res.json())
       .then(resData => {
-        if (resData.success && Array.isArray(resData.data) && resData.data.length > 0) {
-          setRenderHistory(prev => {
-            const map = new Map();
-            resData.data.forEach((item: any) => map.set(item.id, item));
-            prev.forEach((item: any) => {
-              if (!map.has(item.id)) map.set(item.id, item);
-            });
-            const merged = Array.from(map.values()).sort((a: any, b: any) => (b.createdAt || 0) - (a.createdAt || 0));
-            try {
-              localStorage.setItem('onglao_video_render_history', JSON.stringify(merged));
-            } catch (e) {}
-            return merged;
-          });
+        if (resData.success && Array.isArray(resData.data)) {
+          setRenderHistory(resData.data);
         }
       })
       .catch(err => console.warn('Lỗi nạp lịch sử từ PostgreSQL:', err));
@@ -256,7 +264,7 @@ export const useVideoExport = ({
         idb.set('rendered_vid_' + id, blob).catch(err => console.warn('Lỗi lưu IDB video history:', err));
       }
 
-      // Lưu Metadata & Đường dẫn file vật lý dự án vào PostgreSQL DB vĩnh viễn
+      // Lưu Metadata & Đường dẫn vĩnh viễn vào CSDL PostgreSQL
       fetch('/api/render-history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -270,25 +278,16 @@ export const useVideoExport = ({
           format: newItem.format,
           sessionId: newItem.sessionId
         })
-      }).catch(err => console.warn('Lỗi lưu PostgreSQL:', err));
+      })
+      .then(res => res.json())
+      .then(resData => {
+        if (resData.success && Array.isArray(resData.data)) {
+          setRenderHistory(resData.data);
+        }
+      })
+      .catch(err => console.warn('Lỗi lưu PostgreSQL:', err));
 
-      setRenderHistory(prev => {
-        const updated = [newItem, ...prev];
-        try {
-          const jsonList = updated.map(h => ({
-            id: h.id,
-            name: h.name,
-            url: h.url,
-            createdAt: h.createdAt,
-            resolution: h.resolution,
-            aspectRatio: h.aspectRatio,
-            format: h.format,
-            sessionId: h.sessionId
-          }));
-          localStorage.setItem('onglao_video_render_history', JSON.stringify(jsonList));
-        } catch (e) {}
-        return updated;
-      });
+      setRenderHistory(prev => [newItem, ...prev]);
       return newItem.id;
     } catch (e) {
       return undefined;
@@ -299,24 +298,17 @@ export const useVideoExport = ({
     try {
       idb.del('rendered_vid_' + id).catch(() => {});
       
-      // Xóa trong PostgreSQL DB
-      fetch(`/api/render-history?id=${id}`, { method: 'DELETE' }).catch(() => {});
+      // Xóa trong CSDL PostgreSQL
+      fetch(`/api/render-history?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+        .then(res => res.json())
+        .then(resData => {
+          if (resData.success && Array.isArray(resData.data)) {
+            setRenderHistory(resData.data);
+          }
+        })
+        .catch(() => {});
 
-      setRenderHistory(prev => {
-        const updated = prev.filter(item => item.id !== id);
-        try {
-          const jsonList = updated.map(h => ({
-            id: h.id,
-            name: h.name,
-            createdAt: h.createdAt,
-            resolution: h.resolution,
-            aspectRatio: h.aspectRatio,
-            format: h.format
-          }));
-          localStorage.setItem('onglao_video_render_history', JSON.stringify(jsonList));
-        } catch (e) {}
-        return updated;
-      });
+      setRenderHistory(prev => prev.filter(item => item.id !== id));
     } catch (e) {}
   };
 
@@ -376,10 +368,25 @@ export const useVideoExport = ({
       }
   });
 
-  const allCharacters = [...mergedPresets, ...localCharacters];
+  const formattedVoicePersonas = (voicePersonas || []).map((vp: any) => ({
+    id: vp.id,
+    name: vp.name,
+    role: 'lao',
+    visualType: 'video',
+    assets: {
+      idle: vp.listenVideo || vp.idleVideo || '/media/NGHE_zic1jb.webm',
+      talking: vp.speakVideo || vp.talkingVideo || '/media/NO_I_xx4wc2.webm',
+    },
+    chromaSettings: { mode: 'manual', chromaType: 'none', tolerance: 50, smoothness: 20 },
+    recommendedScale: 1.8,
+    recommendedX: -4,
+    recommendedY: 164,
+  }));
 
-  // TÂM AN FIX: Mặc định chọn Lão Chat
-  const [currentLaoPresetId, setCurrentLaoPresetId] = useState('char_lao_chat');
+  const allCharacters = [...mergedPresets, ...localCharacters, ...formattedVoicePersonas];
+
+  // TÂM AN FIX: Mặc định chọn Lão Hóa người thật từ DB
+  const [currentLaoPresetId, setCurrentLaoPresetId] = useState('ht_1783742954906');
   const [currentUserPresetId, setCurrentUserPresetId] = useState<any>(null);
 
   const {
@@ -412,6 +419,7 @@ export const useVideoExport = ({
     customCategories,
     setCustomCategories,
     handleAddCustomCategory,
+    handleRenameCustomCategory,
     handleDeleteCustomCategory,
     handleDeleteLibraryClip,
     handleBatchDeleteLibraryClips
@@ -645,16 +653,16 @@ export const useVideoExport = ({
   // Tâm An: Đã gán mặc định hiển thị Video động và tích hợp sẵn link Google Drive Direct
   const [laoVisualType, setLaoVisualType] = useState('video'); 
   
-  // TÂM AN FIX: Thay đổi video khởi tạo mặc định thành Lão Chat
+  // TÂM AN FIX: Thay đổi video khởi tạo mặc định thành Lão Hoa từ DB
   const [laoCustomVideos, setLaoCustomVideos] = useState({ 
-      idle: '/media/NGHE_zic1jb.webm',
-      talking: '/media/NO_I_xx4wc2.webm'
+      idle: '/uploads/nghe_hoa_1783742959170.mp4',
+      talking: '/uploads/noi_hoa_1783742961845.mp4'
   });
   
-  // Video mặc định cho Khung Chat (Vẫn giữ Lão Thẳng/Lão Chat)
+  // Video mặc định cho Khung Chat (Lão Hóa người thật)
   const [chatLaoVideos, setChatLaoVideos] = useState({ 
-      idle: '/media/NGHE_zic1jb.webm',
-      talking: '/media/NO_I_xx4wc2.webm'
+      idle: '/uploads/nghe_hoa_1783742959170.mp4',
+      talking: '/uploads/noi_hoa_1783742961845.mp4'
   });
   
   const laoExportVidRefs = useRef<any>({ idle: null, talking: null });
@@ -992,8 +1000,8 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
       const userRealX = 35 + userOffsetX;
       const laoIsOnRight = laoRealX > userRealX;
 
-      const laoChar = allCharacters.find(c => c.id === laoPresetId);
-      const userChar = allCharacters.find(c => c.id === userPresetId);
+      const laoChar = (allCharacters || []).find((c: any) => c.id === laoPresetId);
+      const userChar = (allCharacters || []).find((c: any) => c.id === userPresetId);
 
       // Lấy hướng nhìn tự nhiên của nhân vật (gốc chưa lật)
       const laoNatural = laoChar?.naturalFacing || 'left';
@@ -1008,7 +1016,34 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
 
 // HÀM CHUYỂN ĐỔI LÃO CHO KHUNG CHAT
   const handleChangeChatLao = async (charId: any) => {
-      const preset: any = allCharacters.find((c: any) => c.id === charId);
+      let preset: any = (allCharacters || []).find((c: any) => 
+          c.id === charId || 
+          c.name.toLowerCase().trim() === String(charId).toLowerCase().trim()
+      );
+
+      if (!preset && Array.isArray(voicePersonas)) {
+          const vp = voicePersonas.find((v: any) => 
+              v.id === charId || v.name.toLowerCase().trim() === String(charId).toLowerCase().trim()
+          ) || voicePersonas[0];
+          
+          if (vp) {
+              preset = {
+                  id: vp.id,
+                  name: vp.name,
+                  role: 'lao',
+                  visualType: 'video',
+                  assets: {
+                      idle: vp.listenVideo || '/uploads/nghe_hoa_1783742959170.mp4',
+                      talking: vp.speakVideo || '/uploads/noi_hoa_1783742961845.mp4'
+                  },
+                  chromaSettings: { mode: 'manual', chromaType: 'none', tolerance: 50, smoothness: 20 },
+                  recommendedScale: 1.8,
+                  recommendedX: -4,
+                  recommendedY: 164
+              };
+          }
+      }
+
       if (!preset) return;
 
       const resolvedAssets: any = {};
@@ -1929,19 +1964,37 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
   // showToastMsg is passed in props
 
   const handleCreateSession = async () => {
-    const title = `Cuộc đàm đạo ${sessions.length + 1}`;
-    const res = await createChatSessionAction(undefined, title);
-    if (res.success && res.data) {
-      const newSession = {
-        id: res.data.id,
-        title: res.data.title,
-        isPinned: false,
-        messages: [],
-        messagesLoaded: true,
-        createdAt: res.data.createdAt
-      };
-      setSessions([newSession, ...sessions]);
-      setCurrentSessionId(res.data.id);
+    try {
+      const targetUserId = currentUser?.id || user?.uid || null;
+      const title = `Cuộc đàm đạo ${sessions.length + 1}`;
+      const res = await createChatSessionAction(targetUserId, title);
+      if (res.success && res.data) {
+        const newSession = {
+          id: res.data.id,
+          title: res.data.title,
+          isPinned: false,
+          messages: [],
+          messagesLoaded: true,
+          createdAt: res.data.createdAt
+        };
+        setSessions([newSession, ...sessions]);
+        setCurrentSessionId(res.data.id);
+        if (typeof showToastMsg === 'function') {
+          showToastMsg('Đã tạo cuộc đàm đạo mới thành công!', 'success');
+        }
+        if (setShowSessions) {
+          setShowSessions(false);
+        }
+      } else {
+        if (typeof showToastMsg === 'function') {
+          showToastMsg('Không thể tạo cuộc trò chuyện: ' + (res.error || 'Lỗi DB'), 'error');
+        }
+      }
+    } catch (err: any) {
+      console.error('Lỗi handleCreateSession:', err);
+      if (typeof showToastMsg === 'function') {
+        showToastMsg('Lỗi tạo cuộc trò chuyện: ' + (err.message || 'Lỗi không xác định'), 'error');
+      }
     }
   };
 
@@ -2686,7 +2739,7 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
 
   const getCombinedAudioUrl = async () => {
     // TÂM AN FIX: Vượt qua Stale Closure bằng cách dùng Ref truy xuất dữ liệu nóng
-    const targetSession = latestSessionsRef.current.find((s: any) => s.id === currentSessionIdRef.current) || latestSessionsRef.current[0];
+    const targetSession = latestSessionsRef.current?.find((s: any) => s.id === currentSessionIdRef.current) || latestSessionsRef.current?.[0];
     const currentMsgs = targetSession?.messages || [];
     
     const messagesWithAudio = currentMsgs.filter((m: any) => m.audioUrl);
@@ -2732,12 +2785,18 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
       if (!globalAudioRef.current) {
         globalAudioRef.current = new Audio();
         globalAudioRef.current.crossOrigin = "anonymous";
+        // Throttle ref: chỉ update UI state tối đa 4fps khi audio phát
+        const _lastUIUpdate = { t: 0 };
         globalAudioRef.current.onloadedmetadata = () => {
           setGlobalDuration(globalAudioRef.current.duration);
         };
         globalAudioRef.current.ontimeupdate = () => {
+          const now = performance.now();
+          // Throttle: chỉ cập nhật React state tối đa mỗi 250ms → giảm re-render 80%
+          if (now - _lastUIUpdate.t < 250) return;
+          _lastUIUpdate.t = now;
           const ct = globalAudioRef.current.currentTime;
-          const dur = globalAudioRef.current.duration || 1; 
+          const dur = globalAudioRef.current.duration || 1;
           setGlobalCurrentTime(ct);
           setGlobalDuration(globalAudioRef.current.duration);
           const pct = (ct / dur) * 100;
@@ -2993,6 +3052,7 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
   // --- TÍNH NĂNG LƯU CẤU HÌNH CÀI ĐẶT VIDEO ---
   const handleSaveVideoConfig = () => {
     try {
+      if (typeof window !== 'undefined') (window as any).__lastSaveError = null;
       const config = {
         videoAspectRatio,
         videoResolution,
@@ -3022,6 +3082,7 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
       showToastMsg('Đã lưu thành công tất cả cài đặt tạo video!', 'success', 3500);
       return true;
     } catch (e: any) {
+      if (typeof window !== 'undefined') (window as any).__lastSaveError = e.message;
       showToastMsg('Lỗi khi lưu cài đặt: ' + e.message, 'error');
       return false;
     }
@@ -4001,7 +4062,7 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
   });
 
   // BIẾN TOÀN CỤC MỚI: Xác định xem Lão có đang trong một "Phiên nói" (Kể cả khi bị ngắt quãng giữa các câu do mạng)
-  const playingMsg = messages.find((m: any) => m.id === currentlyPlayingId) || messages.find((m: any) => m.id === latestAutoPlayaiMsgIdRef.current);
+  const playingMsg = (messages || []).find((m: any) => m.id === currentlyPlayingId) || (messages || []).find((m: any) => m.id === latestAutoPlayaiMsgIdRef.current);
   
   let isLaoSpeakingSession = false;
   if (isGlobalPlaying && globalAudioRef.current) {
@@ -4210,6 +4271,10 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
     globalAudioUrlRef,
     
     // Character saving & offsets
+    chatLaoVideos,
+    setChatLaoVideos,
+    processedLaoImages,
+    setProcessedLaoImages,
     pastOffsets,
     futureOffsets,
     showSaveCharModal,
@@ -4225,6 +4290,7 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
     customCategories,
     setCustomCategories,
     handleAddCustomCategory,
+    handleRenameCustomCategory,
     handleDeleteCustomCategory,
     handleDeleteLibraryClip,
     handleBatchDeleteLibraryClips

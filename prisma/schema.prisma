@@ -143,20 +143,32 @@ model VoicePersona {
   updatedAt   DateTime @updatedAt
 }
 
+model PhanMucCanhQuay {
+  id          String     @id @default(uuid())
+  name        String     @unique
+  description String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  canhQuays   CanhQuay[]
+}
+
 model CanhQuay {
-  id          String   @id @default(uuid())
+  id          String           @id @default(uuid())
   userId      String?  
+  phanMucId   String?
   name        String
-  category    String?  @default("lao")
-  role        String?  @default("lao")
-  emotion     String?  @default("calm")
+  category    String?          @default("lao")
+  role        String?          @default("lao")
+  emotion     String?          @default("calm")
   url         String?
+  poster      String?
   assetsNgang Json?
   assetsDoc   Json?
   linkedIds   Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  user        User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phanMuc     PhanMucCanhQuay? @relation(fields: [phanMucId], references: [id], onDelete: SetNull)
 }
 
 model OpeningPhrase {
@@ -167,6 +179,26 @@ model OpeningPhrase {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model RenderHistory {
+  id           String   @id @default(uuid())
+  title        String?
+  videoUrl     String
+  thumbnailUrl String?
+  duration     Float?
+  aspectRatio  String?  @default("16:9")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model GoiCanhQuay {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  aspect      String?  @default("ngang")
+  scenesData  Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 enum Role {

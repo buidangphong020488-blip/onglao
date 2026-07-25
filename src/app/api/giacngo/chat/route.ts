@@ -33,8 +33,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const token = getToken(req);
-    const result = await giacNgoChat.sendJson(aiConfigId, message, token, language, undefined, spaceId ? Number(spaceId) : undefined);
+    let token = getToken(req);
+    let result: any;
+    try {
+      result = await giacNgoChat.sendJson(aiConfigId, message, token, language, undefined, spaceId ? Number(spaceId) : undefined);
+      if ((result?.message === 'Authentication required.' || result?.message === 'Unauthorized') && token) {
+        result = await giacNgoChat.sendJson(aiConfigId, message, undefined, language, undefined, spaceId ? Number(spaceId) : undefined);
+      }
+    } catch (err: any) {
+      if (token) {
+        console.warn('[/api/giacngo/chat] User token error, retrying with Service Token:', err?.message);
+        result = await giacNgoChat.sendJson(aiConfigId, message, undefined, language, undefined, spaceId ? Number(spaceId) : undefined);
+      } else {
+        throw err;
+      }
+    }
     return NextResponse.json(result);
   } catch (err) {
     if (err instanceof GiacNgoApiError) {

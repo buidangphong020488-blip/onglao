@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { useOngLaoContext } from "../context/OngLaoContext";
 import {
   Menu,
   X,
@@ -13,49 +12,69 @@ import {
   Pin,
   Pencil,
   Trash2,
-  Sparkles,
   BookOpen,
   ChevronDown,
 } from "lucide-react";
 
-export const SessionsSidebar = () => {
-  const p = useOngLaoContext();
+export const SessionsSidebar = (props?: { p?: any }) => {
+  const p = props?.p || {};
+
+  const [internalEditingId, setInternalEditingId] = React.useState<string | null>(null);
+  const [internalEditTitle, setInternalEditTitle] = React.useState<string>('');
+  const [internalDropdown, setInternalDropdown] = React.useState<string | null>(null);
+
   const {
     showSessions,
     setShowSessions,
     handleCreateSession,
     setShowAutoPilotModal,
     setIsLiveMode,
-    allCharacters,
+    allCharacters = [],
     applyCharacterPreset,
     handleChangeChatLao,
     setLaoIsFullScreen,
-    setShowAiManager,
-    setShowUserGuide,
-    sessions,
+    sessions = [],
     setSessions,
     currentSessionId,
     setCurrentSessionId,
-    editingSessionId,
-    setEditingSessionId,
-    editSessionTitle,
-    setEditSessionTitle,
-    saveSessionTitle,
-    togglePin,
-    handleDeleteSession,
-    setShowScriptModal,
-    setShowAITopicModal,
     setShowPoemModal,
-    openDropdown,
-    setOpenDropdown,
-    publicAis,
+    publicAis = [],
     selectedAiConfigId,
     setSelectedAiConfigId,
-    currentLaoPresetId,
-    voicePersonas,
+    voicePersonas = [],
     currentVoicePersonaId,
     handleChangeVoicePersona,
+    setShowUserGuide,
   } = p;
+
+  const editingSessionId = p.editingSessionId !== undefined ? p.editingSessionId : internalEditingId;
+  const setEditingSessionId = p.setEditingSessionId || setInternalEditingId;
+
+  const editSessionTitle = p.editSessionTitle !== undefined ? p.editSessionTitle : internalEditTitle;
+  const setEditSessionTitle = p.setEditSessionTitle || setInternalEditTitle;
+
+  const openDropdown = p.openDropdown !== undefined ? p.openDropdown : internalDropdown;
+  const setOpenDropdown = p.setOpenDropdown || setInternalDropdown;
+
+  const togglePin = p.togglePin || ((id: string) => {
+    if (setSessions) {
+      setSessions((prev: any[]) => prev.map((s: any) => s.id === id ? { ...s, isPinned: !s.isPinned } : s));
+    }
+  });
+
+  const saveSessionTitle = p.saveSessionTitle || ((id: string, newTitle: string) => {
+    if (setSessions) {
+      setSessions((prev: any[]) => prev.map((s: any) => s.id === id ? { ...s, title: newTitle } : s));
+    }
+    setEditingSessionId(null);
+  });
+
+  const handleDeleteSession = p.handleDeleteSession || ((id: string, e?: any) => {
+    if (e) e.stopPropagation();
+    if (setSessions) {
+      setSessions((prev: any[]) => prev.filter((s: any) => s.id !== id));
+    }
+  });
 
   if (!showSessions) return null;
 
@@ -83,7 +102,7 @@ export const SessionsSidebar = () => {
         {/* NÚT MỞ TÍNH NĂNG AUTO-PILOT */}
         <button
           onClick={() => {
-            setShowAutoPilotModal(true);
+            if (typeof setShowAutoPilotModal === 'function') setShowAutoPilotModal(true);
           }}
           className="w-full py-3 rounded-xl bg-rose-700/90 hover:bg-rose-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(225,29,72,0.4)] border border-rose-500/50 mt-1 animate-pulse"
         >
@@ -93,19 +112,22 @@ export const SessionsSidebar = () => {
         {/* NÚT BẬT CHẾ ĐỘ LIVE OBS */}
         <button
           onClick={() => {
-            setIsLiveMode(true);
-            const laoHoaChar = allCharacters.find(
+            if (typeof setIsLiveMode === 'function') setIsLiveMode(true);
+            const laoHoaChar = (allCharacters || []).find(
               (c: any) => c.id === "char_lao_hoa",
             );
             if (laoHoaChar) {
-              applyCharacterPreset(laoHoaChar, "lao", true);
-              handleChangeChatLao(laoHoaChar.id);
-              setLaoIsFullScreen(
-                laoHoaChar.defaultLiveFullScreen !== undefined
-                  ? laoHoaChar.defaultLiveFullScreen
-                  : false,
-              );
+              if (typeof applyCharacterPreset === 'function') applyCharacterPreset(laoHoaChar, "lao", true);
+              if (typeof handleChangeChatLao === 'function') handleChangeChatLao(laoHoaChar.id);
+              if (typeof setLaoIsFullScreen === 'function') {
+                setLaoIsFullScreen(
+                  laoHoaChar.defaultLiveFullScreen !== undefined
+                    ? laoHoaChar.defaultLiveFullScreen
+                    : false,
+                );
+              }
             }
+            if (typeof setShowSessions === 'function') setShowSessions(false);
           }}
           className="w-full py-2.5 rounded-xl bg-emerald-700/80 hover:bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-emerald-500/50 mt-1"
         >
@@ -114,35 +136,25 @@ export const SessionsSidebar = () => {
 
         <button
           onClick={() => {
-            setShowAiManager(true);
+            if (p.setShowAiManager) p.setShowAiManager(true);
+            if (p.setShowAITopicModal) p.setShowAITopicModal(true);
           }}
-          className="w-full py-2.5 rounded-xl bg-cyan-700/80 hover:bg-cyan-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-cyan-500/50 mt-1"
+          className="w-full py-2.5 rounded-xl bg-cyan-700/80 hover:bg-cyan-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-cyan-500/50 mt-1 cursor-pointer"
         >
           <FileText size={16} /> Quản lý Kịch bản Đạo diễn
         </button>
 
-        {/* Nhập kịch bản thủ công and Đạo Diễn AI hidden per user request */}
-        {/*
-        <button onClick={() => { setShowScriptModal(true); }} className="w-full py-2.5 rounded-xl bg-slate-900 border border-white/5 text-slate-300 font-bold text-sm flex items-center justify-center gap-2 transition-all mt-1">
-          <FileText size={16} /> Nhập kịch bản thủ công
-        </button>
-
-        <button onClick={() => { setShowAITopicModal(true); }} className="w-full py-2.5 rounded-xl bg-indigo-700/80 hover:bg-indigo-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-indigo-500/50 mt-1">
-          <Sparkles size={16} /> Đạo Diễn AI (Tạo kịch bản)
-        </button>
-        */}
-
         {/* NÚT MỞ QUẢN LÝ KHO KỆ PHÁP */}
         <button
           onClick={() => {
-            setShowPoemModal(true);
+            if (typeof setShowPoemModal === 'function') setShowPoemModal(true);
           }}
           className="w-full py-2.5 rounded-xl bg-amber-700/80 hover:bg-amber-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-amber-500/50 mt-1"
         >
           <BookOpen size={16} /> Kho Kệ Pháp
         </button>
 
-        {/* NÚT CHỌN LÃO TRONG KHI CHAT — dùng bảng Hình Tướng (VoicePersona) */}
+        {/* NÚT CHỌN LÃO TRONG KHI CHAT */}
         <div className="w-full rounded-xl bg-slate-900 border border-amber-500/30 mt-1 flex flex-col relative z-20">
           <div className="bg-slate-800/80 px-3 py-2 text-[10px] font-bold text-amber-400 border-b border-white/5 rounded-t-xl">
             Đổi hình tướng Lão
@@ -166,17 +178,17 @@ export const SessionsSidebar = () => {
                 <div className="p-3 text-xs text-slate-500 text-center">Chưa có hình tướng nào</div>
               )}
               {voicePersonas?.map((vp: any) => (
-                  <div
-                    key={vp.id}
-                    onClick={() => {
-                      handleChangeVoicePersona(vp.id);
-                      setOpenDropdown(null);
-                    }}
-                    className="p-3 text-xs text-white hover:bg-amber-600/50 cursor-pointer border-b border-white/5 last:border-0 truncate"
-                  >
-                    {vp.name}
-                  </div>
-                ))}
+                <div
+                  key={vp.id}
+                  onClick={() => {
+                    if (typeof handleChangeVoicePersona === 'function') handleChangeVoicePersona(vp.id);
+                    setOpenDropdown(null);
+                  }}
+                  className="p-3 text-xs text-white hover:bg-amber-600/50 cursor-pointer border-b border-white/5 last:border-0 truncate"
+                >
+                  {vp.name}
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -205,7 +217,7 @@ export const SessionsSidebar = () => {
                 <div
                   key={ai.id}
                   onClick={() => {
-                    setSelectedAiConfigId(ai.id);
+                    if (typeof setSelectedAiConfigId === 'function') setSelectedAiConfigId(ai.id);
                     localStorage.setItem(
                       "taman_selected_ai_config_id",
                       ai.id.toString(),
@@ -223,23 +235,34 @@ export const SessionsSidebar = () => {
 
         <button
           onClick={() => {
-            setShowUserGuide(true);
+            if (typeof setShowUserGuide === 'function') setShowUserGuide(true);
           }}
           className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm flex items-center justify-center gap-2 transition-all border border-white/5 mt-1"
         >
           <Info size={16} /> Hướng dẫn sử dụng
         </button>
       </div>
+
       <div className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-hide">
-        {sessions
+        {(!sessions || sessions.length === 0) && (
+          <div className="p-4 text-center text-xs text-slate-500 bg-slate-900/60 rounded-xl border border-white/5 space-y-2">
+            <p className="font-bold text-slate-300">Chưa có cuộc đàm đạo nào</p>
+            <p className="text-[11px] text-slate-500">Bấm nút bên dưới để tạo cuộc trò chuyện mới với Lão</p>
+            <button
+              onClick={handleCreateSession}
+              className="mt-2 w-full py-2 px-3 bg-orange-600/80 hover:bg-orange-500 text-white font-bold rounded-lg text-xs transition-colors"
+            >
+              + Khởi tạo Cuộc đàm đạo 1
+            </button>
+          </div>
+        )}
+        {(sessions || [])
           .filter(
             (s: any) =>
               s.type === "chat" || s.type === "chat|script" || !s.type,
           )
           .sort((a: any, b: any) => {
-            // Pinned luôn lên trên
             if (b.isPinned !== a.isPinned) return b.isPinned ? 1 : -1;
-            // Sau đó sort theo createdAt mới nhất lên đầu
             const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
             const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
             return dateB - dateA;
@@ -253,7 +276,7 @@ export const SessionsSidebar = () => {
                 <div
                   className="flex-1 cursor-pointer truncate mr-2"
                   onClick={() => {
-                    setCurrentSessionId(session.id);
+                    if (typeof setCurrentSessionId === 'function') setCurrentSessionId(session.id);
                   }}
                 >
                   {editingSessionId === session.id ? (
@@ -284,7 +307,7 @@ export const SessionsSidebar = () => {
                         {session.isPinned && (
                           <Pin
                             size={12}
-                            className="inline mr-1 text-emerald-400"
+                            className="inline mr-1 text-amber-400 fill-amber-400 -rotate-45"
                           />
                         )}{" "}
                         {session.title}
@@ -307,29 +330,38 @@ export const SessionsSidebar = () => {
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={(e: any) => {
+                      e.preventDefault();
                       e.stopPropagation();
                       togglePin(session.id);
                     }}
-                    className={`hover:text-emerald-400 ${session.isPinned ? "text-emerald-400" : "text-slate-400"}`}
+                    className={`p-1.5 rounded-lg transition-all ${session.isPinned ? "text-amber-400 bg-amber-400/10" : "text-slate-400 hover:text-amber-300 hover:bg-white/5"}`}
+                    title={session.isPinned ? "Bỏ ghim cuộc đàm đạo" : "Ghim cuộc đàm đạo lên đầu"}
                   >
-                    <Pin size={14} />
+                    <Pin size={14} className={session.isPinned ? "text-amber-400 fill-amber-400 -rotate-45" : ""} />
                   </button>
                   <button
                     onClick={(e: any) => {
+                      e.preventDefault();
                       e.stopPropagation();
                       setEditingSessionId(session.id);
                       setEditSessionTitle(session.title);
                     }}
-                    className="hover:text-indigo-400 text-slate-400"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-400 hover:bg-white/5 transition-all"
+                    title="Đổi tên cuộc đàm đạo"
                   >
                     <Pencil size={14} />
                   </button>
                   <button
-                    onClick={(e: any) => handleDeleteSession(session.id, e)}
-                    className="hover:text-rose-400 text-slate-400"
+                    onClick={(e: any) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleDeleteSession(session.id, e);
+                    }}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-white/5 transition-all"
+                    title="Xóa cuộc đàm đạo"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -341,4 +373,5 @@ export const SessionsSidebar = () => {
     </aside>
   );
 };
+
 export default SessionsSidebar;

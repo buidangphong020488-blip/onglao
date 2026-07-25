@@ -357,7 +357,9 @@ export const usePoemDb = ({
     geminiApiKeyRef,
     selectedAiConfigIdRef,
     cleanTextForTTS,
-    showToastMsg
+    showToastMsg,
+    laoVoiceName: laoVoiceRef?.current || 'Puck',
+    laoVoiceStyle: laoVoiceStyleRef?.current || 'Trầm ấm, từ hòa, thong dong, minh triết, từ tốn, ngắt nhịp rõ ràng'
   });
 
   // --- BỘ ĐẾM THỜI GIAN CHỜ (IDLE TIMER) ---

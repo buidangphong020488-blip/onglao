@@ -30,7 +30,9 @@ export const usePoemGenerator = ({
   geminiApiKeyRef,
   selectedAiConfigIdRef,
   cleanTextForTTS,
-  showToastMsg
+  showToastMsg,
+  laoVoiceName,
+  laoVoiceStyle
 }: any) => {
 
   const [isBatchGeneratingPoems, setIsBatchGeneratingPoems] = useState(false);
@@ -75,10 +77,12 @@ export const usePoemGenerator = ({
 
       let dbClone = JSON.parse(JSON.stringify(poemDatabase)); 
 
-      const voiceName = "Algieba";
-      const promptPrefix = appLanguage === 'Tiếng Việt' 
-          ? "Giọng ấm áp, mạnh mẽ, dứt khoát, miền nam việt nam, đúng chính tả, ngắt nhịp rõ ràng giữa các câu: " 
-          : `Read slowly, pause between lines, warm, strong, and emotional voice in ${appLanguage}: `;
+      const voiceName = laoVoiceName || "Puck";
+      const promptPrefix = laoVoiceStyle
+          ? `${laoVoiceStyle}: `
+          : (appLanguage === 'Tiếng Việt' 
+              ? "Giọng trầm ấm, từ hòa, thong dong, minh triết, từ tốn, ngắt nhịp rõ ràng: " 
+              : `Read slowly, pause between lines, warm, wise, and emotional voice in ${appLanguage}: `);
 
       const CONCURRENCY_LIMIT = 5;
       let currentIndex = 0;
@@ -101,6 +105,7 @@ export const usePoemGenerator = ({
                           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${geminiApiKeyRef.current}` },
                           body: JSON.stringify({
                               text: `${promptPrefix} ${optimizedText}`,
+                              voiceName,
                               aiConfigId: selectedAiConfigIdRef.current
                           })
                       }, 3, 2000);
@@ -210,6 +215,7 @@ export const usePoemGenerator = ({
                           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${geminiApiKeyRef.current}` },
                           body: JSON.stringify({
                               text: `${promptPrefix} ${optimizedText}`,
+                              voiceName,
                               aiConfigId: selectedAiConfigIdRef.current
                           })
                       }, 3, 2000);
@@ -292,10 +298,12 @@ export const usePoemGenerator = ({
       isBatchGeneratingGreetingsRef.current = true;
       setBatchGreetingProgress({ current: 0, total: missing.length });
 
-      const voiceName = "Algieba";
-      const promptPrefix = appLanguage === 'Tiếng Việt' 
-          ? "Giọng ấm áp, mạnh mẽ, dứt khoát, miền nam việt nam, đúng chính tả, ngắt nhịp rõ ràng giữa các câu: " 
-          : `Read slowly, pause between lines, warm, strong, and emotional voice in ${appLanguage}: `;
+      const voiceName = laoVoiceName || "Puck";
+      const promptPrefix = laoVoiceStyle
+          ? `${laoVoiceStyle}: `
+          : (appLanguage === 'Tiếng Việt' 
+              ? "Giọng trầm ấm, từ hòa, thong dong, minh triết, từ tốn, ngắt nhịp rõ ràng: " 
+              : `Read slowly, pause between lines, warm, wise, and emotional voice in ${appLanguage}: `);
 
       const CONCURRENCY_LIMIT = 5;
       let currentIndex = 0;
@@ -315,6 +323,7 @@ export const usePoemGenerator = ({
                           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${geminiApiKeyRef.current}` },
                           body: JSON.stringify({
                               text: `${promptPrefix} ${optimizedText}`,
+                              voiceName,
                               aiConfigId: selectedAiConfigIdRef.current
                           })
                       }, 3, 2000);

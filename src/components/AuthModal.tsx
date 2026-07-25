@@ -7,10 +7,11 @@ import { loginWithGiacNgoAction } from "@/actions/auth";
 interface AuthModalProps {
   onClose?: () => void;
   showCloseButton?: boolean;
-  onLogin: (user: { id: string; name: string; email: string; avatar: string | null }, token: string) => void;
+  onLogin?: (user: { id: string; name: string; email: string; avatar: string | null }, token: string) => void;
+  onSuccess?: () => void;
 }
 
-export default function AuthModal({ onClose, showCloseButton = true, onLogin }: AuthModalProps) {
+export default function AuthModal({ onClose, showCloseButton = true, onLogin, onSuccess }: AuthModalProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -19,14 +20,18 @@ export default function AuthModal({ onClose, showCloseButton = true, onLogin }: 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim()) {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    console.log("[AuthModal Debug] Submitting cleanEmail:", cleanEmail, "password length:", password.length);
+    if (!cleanEmail || !password.trim()) {
       setError("Vui lòng nhập đầy đủ email và mật khẩu.");
       return;
     }
     setLoading(true);
     setError("");
+
     try {
-      let res = await loginWithGiacNgoAction(email.trim(), password);
+      let res: any = await loginWithGiacNgoAction(cleanEmail, password).catch((e) => ({ success: false, error: String(e) }));
+      console.log("[AuthModal Debug] loginWithGiacNgoAction result:", JSON.stringify(res));
       let userData: any = res?.success ? res.data : null;
 
       // Nếu Server Action bị chặn do truy cập qua IP trên mobile, gọi API route trực tiếp
@@ -34,7 +39,7 @@ export default function AuthModal({ onClose, showCloseButton = true, onLogin }: 
         const apiRes = await fetch("/api/giacngo/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: email.trim(), password }),
+          body: JSON.stringify({ email: cleanEmail, password }),
         });
         const apiData = await apiRes.json().catch(() => ({}));
         if (apiRes.ok && apiData.apiToken) {
@@ -53,21 +58,24 @@ export default function AuthModal({ onClose, showCloseButton = true, onLogin }: 
               space: apiData.space || null,
             },
           };
-        } else {
-          setError(apiData.message || res?.error || "Email hoặc mật khẩu không chính xác.");
-          return;
         }
       }
 
       if (userData) {
-        // Lưu token + user vào localStorage
         localStorage.setItem("onglao_token", userData.token || "");
         localStorage.setItem("onglao_user", JSON.stringify(userData.user));
         if (userData.refreshToken) {
           localStorage.setItem("onglao_refresh_token", userData.refreshToken);
         }
-        onLogin(userData.user as any, userData.token || "");
+        if (typeof onLogin === 'function') {
+          onLogin(userData.user as any, userData.token || "");
+        }
+        if (typeof onSuccess === 'function') {
+          onSuccess();
+        }
         onClose?.();
+      } else {
+        setError(res?.error || "Email hoặc mật khẩu không chính xác.");
       }
     } catch (err: any) {
       setError("Không thể kết nối máy chủ. Vui lòng thử lại.");
@@ -79,9 +87,6 @@ export default function AuthModal({ onClose, showCloseButton = true, onLogin }: 
   return (
     <div
       className="fixed inset-0 z-[300] bg-black/70 backdrop-blur-md flex items-center justify-center p-4"
-      onClick={() => {
-        if (onClose && showCloseButton) onClose();
-      }}
     >
       <div
         className="relative w-full max-w-sm bg-slate-900/95 border border-indigo-500/30 rounded-2xl shadow-2xl shadow-indigo-900/40 overflow-hidden"
@@ -102,14 +107,6 @@ export default function AuthModal({ onClose, showCloseButton = true, onLogin }: 
               <span className="text-indigo-300 font-semibold">GiacNgo</span> để đăng nhập
             </p>
           </div>
-          {onClose && showCloseButton && (
-            <button
-              onClick={onClose}
-              className="text-slate-500 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"
-            >
-              <X size={18} />
-            </button>
-          )}
         </div>
 
         {/* Form */}
@@ -163,9 +160,14 @@ export default function AuthModal({ onClose, showCloseButton = true, onLogin }: 
 
           {/* Submit */}
           <button
+            id="auth-submit-btn"
             type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-60 disabled:cursor-wait text-white font-bold py-2.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-900/40 mt-1"
+            onClick={(e) => {
+              console.log("[AuthModal Debug] Button onClick fired!");
+              e.preventDefault();
+              handleSubmit(e);
+            }}
+            className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-60 text-white font-bold py-2.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-900/40 mt-1"
           >
             {loading ? (
               <>

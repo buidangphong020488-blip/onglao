@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   createChatSessionAction, 
   getChatSessionsAction 
@@ -12,18 +12,19 @@ import {
 } from '../constants';
 
 interface UseAuthProps {
-  setSessions: (sessions: any) => void;
-  setCurrentSessionId: (id: any) => void;
-  showToastMsg: (msg: string, type?: string, duration?: number) => void;
-  activeAudioRef: React.MutableRefObject<HTMLAudioElement | null>;
+  setSessions?: (sessions: any) => void;
+  setCurrentSessionId?: (id: any) => void;
+  showToastMsg?: (msg: string, type?: string, duration?: number) => void;
+  activeAudioRef?: React.MutableRefObject<HTMLAudioElement | null>;
 }
 
-export const useAuth = ({
-  setSessions,
-  setCurrentSessionId,
-  showToastMsg,
-  activeAudioRef
-}: UseAuthProps) => {
+export const useAuth = (props: Partial<UseAuthProps> = {}) => {
+  const {
+    setSessions,
+    setCurrentSessionId,
+    showToastMsg,
+    activeAudioRef
+  } = props;
   const [user, setUser] = useState<any>(null);
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [publicAis, setPublicAis] = useState<any[]>([]);
@@ -85,7 +86,7 @@ export const useAuth = ({
   useEffect(() => { laoCallUserRef.current = laoCallUser; }, [laoCallUser]);
   useEffect(() => { userSelfCallRef.current = userSelfCall; }, [userSelfCall]);
   useEffect(() => { userCallLaoRef.current = userCallLao; }, [userCallLao]);
-  useEffect(() => { if(userName && customUserName === 'Con') setCustomUserName(userName); }, [userName]);
+  // customUserName luôn mặc định là 'Con', không bị ghi đè bởi tên tài khoản đăng nhập (Giac Ngo)
 
   useEffect(() => {
     fetch('/api/settings/public')
@@ -95,6 +96,10 @@ export const useAuth = ({
         if (data.defaultAiConfigId) {
           setSelectedAiConfigId(Number(data.defaultAiConfigId));
         }
+        if (data.laoVoiceName) setLaoVoice(data.laoVoiceName);
+        if (data.laoVoiceStyle) setLaoVoiceStyle(data.laoVoiceStyle);
+        if (data.userVoiceName) setUserVoice(data.userVoiceName);
+        if (data.userVoiceStyle) setUserVoiceStyle(data.userVoiceStyle);
       })
       .catch(err => console.error("Lỗi tải cấu hình công khai:", err));
 
@@ -313,97 +318,116 @@ export const useAuth = ({
     }
   }, []);
 
-  // Tải danh sách đàm đạo khi user đăng nhập hoặc reload trang
+  // Tải danh sách đàm đạo từ PostgreSQL DB khi user mở trang hoặc đổi trạng thái đăng nhập
   const isFetchingSessionsRef = useRef<string | null>(null);
   
   useEffect(() => {
-    const targetUserId = currentUser?.id || user?.uid;
-    if (!targetUserId) return;
-    
-    // Ngăn chặn Race Condition do Firebase onAuthStateChanged và localStorage chạy song song
-    if (isFetchingSessionsRef.current === targetUserId) return;
-    isFetchingSessionsRef.current = targetUserId;
+    const targetUserId = currentUser?.id || user?.uid || 'guest_user';
     
     const loadUserSessions = async () => {
       try {
-        const fetchRes = await fetch(`/api/sessions?userId=${targetUserId}`);
-        const res = await fetchRes.json();
+        const fetchRes = await fetch(`/api/sessions?userId=${encodeURIComponent(targetUserId)}`);
+        const res = await fetchRes.json().catch(() => ({ success: false }));
       
-      if (res.success && res.data && res.data.length > 0) {
-        const pinnedIds = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('onglao_pinned_sessions') || '[]') : [];
-        const dbSessions = res.data.map((s: any) => ({
-          id: s.id, title: s.title, isPinned: pinnedIds.includes(s.id), messages: [], messageCount: s._count?.messages || 0, messagesLoaded: false, type: s.type || 'chat', createdAt: s.createdAt
-        }));
-        setSessions(dbSessions);
-        setCurrentSessionId(dbSessions[0].id);
-      } else {
-        const createRes = await createChatSessionAction(targetUserId, 'Cuoc dam dao 1');
-        if (createRes.success && createRes.data) {
+        if (res.success && res.data && res.data.length > 0) {
           const pinnedIds = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('onglao_pinned_sessions') || '[]') : [];
-          setSessions([{ id: createRes.data.id, title: createRes.data.title, isPinned: pinnedIds.includes(createRes.data.id), messages: [], messageCount: 0, messagesLoaded: true, createdAt: createRes.data.createdAt }]);
-          setCurrentSessionId(createRes.data.id);
+          const dbSessions = res.data.map((s: any) => ({
+            id: s.id,
+            title: s.title || 'Cuộc đàm đạo',
+            isPinned: pinnedIds.includes(s.id),
+            messages: [],
+            messageCount: s._count?.messages || 0,
+            messagesLoaded: false,
+            type: s.type || 'chat',
+            createdAt: s.createdAt
+          }));
+          setSessions?.(dbSessions);
+          setCurrentSessionId?.(dbSessions[0].id);
+        } else {
+          let defaultSession: any = null;
+          try {
+            const createRes = await createChatSessionAction(targetUserId !== 'guest_user' ? targetUserId : null, 'Cuộc đàm đạo 1');
+            if (createRes.success && createRes.data) {
+              const pinnedIds = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('onglao_pinned_sessions') || '[]') : [];
+              defaultSession = { id: createRes.data.id, title: createRes.data.title, isPinned: pinnedIds.includes(createRes.data.id), messages: [], messageCount: 0, messagesLoaded: true, createdAt: createRes.data.createdAt };
+            }
+          } catch (e) {
+            console.warn("[useAuth] Không thể tạo session DB, dùng fallback local:", e);
+          }
+
+          if (!defaultSession) {
+            defaultSession = {
+              id: `session_${Date.now()}`,
+              title: 'Cuộc đàm đạo 1',
+              isPinned: false,
+              messages: [],
+              messageCount: 0,
+              messagesLoaded: true,
+              type: 'chat',
+              createdAt: new Date().toISOString()
+            };
+          }
+          setSessions?.([defaultSession]);
+          setCurrentSessionId?.(defaultSession.id);
         }
-      }
       } catch (err) {
         console.error("=== useAuth loadUserSessions ERROR ===", err);
       }
     };
     loadUserSessions();
-
-    return () => {
-      // Clear ref on unmount so Strict Mode remount can fetch again
-      if (isFetchingSessionsRef.current === targetUserId) {
-         isFetchingSessionsRef.current = null;
-      }
-    };
   }, [currentUser?.id, user?.uid]);
 
   const handleLogin = (loginUser: any, _token: string) => {
     setCurrentUser(loginUser);
     setIsLoggedIn(true);
+    setIsProfileCompleted(true);
+    setHasEntered(true);
+    setShowAuthModal(false);
     currentUserRef.current = loginUser;
-    
-    const profileLoaded = loadUserProfile(loginUser.id, loginUser);
-    if (profileLoaded) {
-      setHasEntered(true);
-    } else {
-      setUserName(loginUser.name || '');
-      setHasEntered(false);
+
+    const completedKey = loginUser?.id ? `onglao_profile_completed_${loginUser.id}` : 'onglao_profile_completed_guest';
+    const profileKey = loginUser?.id ? `onglao_profile_${loginUser.id}` : 'onglao_profile_guest';
+    localStorage.setItem(completedKey, 'true');
+
+    if (!localStorage.getItem(profileKey)) {
+      const defaultProfile = {
+        userName: loginUser.name || 'Giac Ngo',
+        userGender: loginUser.userGender || 'Nam',
+        userAge: loginUser.userAge || 25,
+        appLanguage: 'Tiếng Việt'
+      };
+      localStorage.setItem(profileKey, JSON.stringify(defaultProfile));
     }
     
-    if (!activeAudioRef.current) {
+    loadUserProfile(loginUser.id, loginUser);
+    if (loginUser.name) setUserName(loginUser.name);
+    
+    if (activeAudioRef && !activeAudioRef.current) {
       activeAudioRef.current = new Audio();
       activeAudioRef.current.crossOrigin = "anonymous";
     }
-    const playPromise = activeAudioRef.current?.play();
+    const playPromise = activeAudioRef?.current?.play();
     if (playPromise !== undefined) {
       playPromise.then(() => {
-        activeAudioRef.current?.pause();
+        activeAudioRef?.current?.pause();
       }).catch(() => {});
     }
 
-    showToastMsg(`Chào mừng trở lại, ${loginUser.name}!`, 'success', 3000);
+    showToastMsg?.(`Chào mừng trở lại, ${loginUser.name}!`, 'success', 3000);
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('onglao_token');
-    localStorage.removeItem('onglao_user');
-    localStorage.removeItem('onglao_refresh_token');
+    localStorage.clear();
     setCurrentUser(null);
     setIsLoggedIn(false);
     currentUserRef.current = null;
-    setSessions([]);
-    setCurrentSessionId(null);
+    setSessions?.([]);
+    setCurrentSessionId?.(null);
     setHasEntered(false);
+    setIsProfileCompleted(false);
     setUserName('');
-
-    const guestLoaded = loadUserProfile();
-    if (guestLoaded) {
-      setHasEntered(true);
-    } else {
-      setIsProfileCompleted(false);
-    }
-    showToastMsg('Đã đăng xuất.', 'info', 2000);
+    setShowAuthModal(true);
+    showToastMsg?.('Đã đăng xuất và xóa sạch bộ nhớ tạm.', 'info', 2000);
   };
 
   useEffect(() => {
@@ -420,6 +444,13 @@ export const useAuth = ({
       let moodDesc = userGender === 'Nam' ? "tha thiết, khẩn cầu, thắc mắc" : "tỏ vẻ rối rắm, thắc mắc";
       setUserVoiceStyle(`${ageDesc}, phong cách đọc ${moodDesc}, chuẩn giọng miền Nam Việt Nam, đúng chính tả`);
   }, [userGender, userAge, hasEntered, isProfileCompleted]);
+
+  const handleEnterApp = useCallback(() => {
+    const targetUserId = currentUser?.id || user?.id || null;
+    saveUserProfile(targetUserId);
+    setHasEntered(true);
+    showToastMsg?.('Đã lưu thay đổi thông tin profile thành công!', 'success', 2000);
+  }, [currentUser, user, saveUserProfile, showToastMsg]);
 
   return {
     user, setUser,
@@ -462,6 +493,7 @@ export const useAuth = ({
     userCallLaoRef,
     saveUserProfile,
     loadUserProfile,
+    handleEnterApp,
     handleLogin,
     handleLogout,
     publicAis, setPublicAis,

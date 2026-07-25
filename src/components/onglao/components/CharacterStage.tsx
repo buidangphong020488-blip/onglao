@@ -1,21 +1,20 @@
 "use client";
 
 import React, { useRef, useEffect } from 'react';
-import { useOngLaoContext } from '../context/OngLaoContext';
 import MiniLaoFace from './MiniLaoFace';
 import { Sparkles, FlipHorizontal, Sliders, RotateCcw, X } from 'lucide-react';
 
-export const CharacterStage = () => {
-  const p = useOngLaoContext();
+export const CharacterStage = (props?: { p?: any }) => {
+  const p = props?.p || {};
   const {
     showLaoAura,
     setShowLaoAura,
-    charOffsets,
-    setCharOffsets,
     showChatLaoControls,
     setShowChatLaoControls,
-    chatLaoTransform,
+    chatLaoTransform = { x: -4, y: 164, s: 1.8 },
     setChatLaoTransform,
+    charOffsets = { lao: { flip: false } },
+    setCharOffsets,
     allCharacters,
     currentLaoPresetId,
     laoAppearance,
@@ -51,6 +50,11 @@ export const CharacterStage = () => {
     return () => el.removeEventListener('wheel', handler);
   }, [setChatLaoTransform]);
 
+  const transformX = chatLaoTransform?.x ?? -4;
+  const transformY = chatLaoTransform?.y ?? 164;
+  const transformS = chatLaoTransform?.s ?? 1.8;
+  const isFlipped = charOffsets?.lao?.flip ?? false;
+
   return (
     <div className="flex-1 flex flex-col items-center justify-center relative px-4 overflow-hidden mb-32">
       <div className="relative scale-[0.6] sm:scale-80 md:scale-105 transition-transform duration-700">
@@ -73,28 +77,28 @@ export const CharacterStage = () => {
                 onPointerLeave={handleChatLaoPointerUp}
                 ref={laoStageRef}
                 style={{
-                    transform: `translate(${chatLaoTransform.x}px, ${chatLaoTransform.y}px) scale(${chatLaoTransform.s})`,
-                    transition: p.chatLaoDragInfo.current?.isDragging ? 'none' : 'transform 0.1s ease-out'
+                    transform: `translate(${transformX}px, ${transformY}px) scale(${transformS})`,
+                    transition: p.chatLaoDragInfo?.current?.isDragging ? 'none' : 'transform 0.1s ease-out'
                 }}
             >
-                <MiniLaoFace className="w-full h-full drop-shadow-2xl pointer-events-none" mouthOpen={mouthOpen} appearance={laoAppearance} visualType={laoVisualType} customImages={processedLaoImages} customVideos={chatLaoVideos} chromaSettings={laoChromaSettings} flipped={charOffsets.lao.flip} isSpeakingSession={isLaoSpeakingSession} enableFX={enableAutoHarmonization} shadowConfig={laoShadow} harmonizeSettings={harmonizeSettings} />
+                <MiniLaoFace className="w-full h-full drop-shadow-2xl pointer-events-none" mouthOpen={mouthOpen} appearance={laoAppearance} visualType={laoVisualType || 'video'} customImages={processedLaoImages} customVideos={chatLaoVideos} chromaSettings={laoChromaSettings} flipped={isFlipped} isSpeakingSession={isLaoSpeakingSession} enableFX={enableAutoHarmonization} shadowConfig={laoShadow} harmonizeSettings={harmonizeSettings} />
             </div>
          </div>
          
          {/* BẢNG ĐIỀU KHIỂN NHANH CHO LÃO (Lật, Hào quang) */}
          <div className="absolute -right-6 md:-right-16 top-1/2 -translate-y-1/2 flex flex-col gap-3 z-20">
-            <button onClick={() => setShowLaoAura(!showLaoAura)} className={`p-2.5 md:p-3 rounded-full shadow-lg transition-all border ${showLaoAura ? 'bg-yellow-500 text-white border-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.5)]' : 'bg-slate-800 text-slate-500 hover:text-yellow-500 border-white/10'}`} title="Bật/Tắt Hào Quang">
+            <button onClick={() => typeof setShowLaoAura === 'function' && setShowLaoAura(!showLaoAura)} className={`p-2.5 md:p-3 rounded-full shadow-lg transition-all border ${showLaoAura ? 'bg-yellow-500 text-white border-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.5)]' : 'bg-slate-800 text-slate-500 hover:text-yellow-500 border-white/10'}`} title="Bật/Tắt Hào Quang">
                <Sparkles size={18} />
             </button>
-            <button onClick={() => setCharOffsets((prev: any) => ({...prev, lao: {...prev.lao, flip: !prev.lao.flip}}))} className={`p-2.5 md:p-3 rounded-full shadow-lg transition-all border ${charOffsets.lao.flip ? 'bg-orange-500 text-white border-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.5)]' : 'bg-slate-800 text-slate-500 hover:text-orange-500 border-white/10'}`} title="Lật hướng nhìn">
+            <button onClick={() => typeof setCharOffsets === 'function' && setCharOffsets((prev: any) => ({...prev, lao: {...(prev?.lao || {}), flip: !(prev?.lao?.flip)}}))} className={`p-2.5 md:p-3 rounded-full shadow-lg transition-all border ${charOffsets?.lao?.flip ? 'bg-orange-500 text-white border-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.5)]' : 'bg-slate-800 text-slate-500 hover:text-orange-500 border-white/10'}`} title="Lật hướng nhìn">
                <FlipHorizontal size={18} />
             </button>
-            <button onClick={() => setShowChatLaoControls(!showChatLaoControls)} className={`p-2.5 md:p-3 rounded-full shadow-lg transition-all border ${showChatLaoControls ? 'bg-indigo-500 text-white border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'bg-slate-800 text-slate-500 hover:text-indigo-500 border-white/10'}`} title="Mở bảng điều chỉnh vị trí bằng thanh kéo">
+            <button onClick={() => typeof setShowChatLaoControls === 'function' && setShowChatLaoControls(!showChatLaoControls)} className={`p-2.5 md:p-3 rounded-full shadow-lg transition-all border ${showChatLaoControls ? 'bg-indigo-500 text-white border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'bg-slate-800 text-slate-500 hover:text-indigo-500 border-white/10'}`} title="Mở bảng điều chỉnh vị trí bằng thanh kéo">
                <Sliders size={18} />
             </button>
             <button 
                 onClick={() => { 
-                    const preset = allCharacters.find((c: any) => c.id === currentLaoPresetId);
+                    const preset = (allCharacters || []).find((c: any) => c.id === currentLaoPresetId);
                     setChatLaoTransform({ 
                         x: preset?.recommendedX !== undefined ? preset.recommendedX : -4, 
                         y: preset?.recommendedY !== undefined ? preset.recommendedY : 164, 
@@ -134,4 +138,22 @@ export const CharacterStage = () => {
     </div>
   );
 };
-export default CharacterStage;
+
+const CharacterStageMemoized = React.memo(CharacterStage, (prevProps, nextProps) => {
+  const p1 = prevProps?.p || {};
+  const p2 = nextProps?.p || {};
+  return (
+    p1.isLaoSpeakingSession === p2.isLaoSpeakingSession &&
+    p1.mouthOpen === p2.mouthOpen &&
+    p1.showLaoAura === p2.showLaoAura &&
+    p1.laoAppearance === p2.laoAppearance &&
+    p1.laoVisualType === p2.laoVisualType &&
+    p1.chatLaoVideos === p2.chatLaoVideos &&
+    p1.chatLaoTransform?.x === p2.chatLaoTransform?.x &&
+    p1.chatLaoTransform?.y === p2.chatLaoTransform?.y &&
+    p1.chatLaoTransform?.s === p2.chatLaoTransform?.s &&
+    p1.charOffsets?.lao?.flip === p2.charOffsets?.lao?.flip
+  );
+});
+
+export default CharacterStageMemoized;
