@@ -6,29 +6,26 @@
  *   text      : string   — văn bản cần đọc
  *   voiceName?: string   — tên giọng Gemini (mặc định: 'Algieba')
  *   model?    : string   — TTS model (mặc định: 'gemini-2.5-flash-preview-tts')
- *   apiKey?   : string   — Gemini API key (nếu không truyền qua header)
  * }
- * Headers:
- *   Authorization: Bearer <GEMINI_API_KEY>   (ưu tiên hơn body.apiKey)
  *
- * Response: { audioContent: string (base64), mimeType: string }
+ * Response: { audioUrl: string (/uploads/audio/xxx.wav), mimeType: string }
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getSystemSettingsAsync } from '@/lib/settings';
+import fs from 'fs';
+import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
 const DEFAULT_VOICE = 'Algieba';
-
 const DEFAULT_MODEL = 'gemini-2.5-flash-preview-tts';
 const GEMINI_BASE   = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { text, voiceName, model } = body;
+    const { text, voiceName, model, userId } = body;
 
-    // Luôn lấy API Key từ cấu hình hệ thống lưu trong DB (PostgreSQL)
     const systemSettings = await getSystemSettingsAsync();
     const apiKey = systemSettings.apiKey || '';
 
@@ -70,13 +67,9 @@ export async function POST(req: NextRequest) {
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
       console.error('[/api/tts] Gemini error:', errText);
-      
       let parsedErr: any = null;
       try { parsedErr = JSON.parse(errText); } catch {}
-
       const googleMsg = parsedErr?.error?.message || errText;
-
-      // Trả chi tiết lỗi từ Google về client
       return NextResponse.json(
         { message: `Google Gemini lỗi: ${googleMsg}`, details: parsedErr },
         { status: geminiRes.status }
@@ -93,50 +86,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Gemini TTS không trả về dữ liệu âm thanh.' }, { status: 500 });
     }
 
-    // Convert raw PCM (L16) sang WAV 44-bytes header
-    let finalAudioBase64 = rawAudioBase64;
-    let finalMimeType = originalMimeType;
+    // Convert raw PCM (L16) sang WAV với 44-byte header
+    let wavBuffer: Buffer;
 
     if (originalMimeType.includes('L16') || originalMimeType.includes('pcm')) {
       const pcmBuffer = Buffer.from(rawAudioBase64, 'base64');
       const sampleRate = 24000;
-      
       const wavHeader = Buffer.alloc(44);
-      // RIFF identifier
       wavHeader.write('RIFF', 0);
-      // File length (PCM length + 36 bytes for headers)
       wavHeader.writeUInt32LE(36 + pcmBuffer.length, 4);
-      // WAVE identifier
       wavHeader.write('WAVE', 8);
-      // format chunk identifier
       wavHeader.write('fmt ', 12);
-      // format chunk length (16)
       wavHeader.writeUInt32LE(16, 16);
-      // sample format (1 = PCM)
-      wavHeader.writeUInt16LE(1, 20);
-      // channel count (1 = Mono)
-      wavHeader.writeUInt16LE(1, 22);
-      // sample rate (24000)
+      wavHeader.writeUInt16LE(1, 20);  // PCM
+      wavHeader.writeUInt16LE(1, 22);  // Mono
       wavHeader.writeUInt32LE(sampleRate, 24);
-      // byte rate (sampleRate * blockAlign = 24000 * 2)
       wavHeader.writeUInt32LE(sampleRate * 2, 28);
-      // block align (channelCount * bytesPerSample = 1 * 2)
       wavHeader.writeUInt16LE(2, 32);
-      // bits per sample (16)
       wavHeader.writeUInt16LE(16, 34);
-      // data chunk identifier
       wavHeader.write('data', 36);
-      // data chunk length
       wavHeader.writeUInt32LE(pcmBuffer.length, 40);
-
-      // Ghép header với data PCM
-      const wavBuffer = Buffer.concat([wavHeader, pcmBuffer]);
-      finalAudioBase64 = wavBuffer.toString('base64');
-      finalMimeType = 'audio/wav';
+      wavBuffer = Buffer.concat([wavHeader, pcmBuffer]);
+    } else {
+      wavBuffer = Buffer.from(rawAudioBase64, 'base64');
     }
 
-    // Trả về cùng định dạng với /api/giacngo/tts để không cần sửa call sites
-    return NextResponse.json({ audioContent: finalAudioBase64, mimeType: finalMimeType });
+    // ✅ Lưu file WAV theo từng user: /uploads/audio/{userId}/
+    const userFolder = userId ? String(userId).replace(/[^a-zA-Z0-9_-]/g, '') : 'guest';
+    const audioDir = path.join(process.cwd(), 'public', 'uploads', 'audio', userFolder);
+    if (!fs.existsSync(audioDir)) {
+      fs.mkdirSync(audioDir, { recursive: true });
+    }
+    const filename = `${Date.now()}${Math.random().toString(36).slice(2, 6)}.wav`;
+    const filePath = path.join(audioDir, filename);
+    fs.writeFileSync(filePath, wavBuffer);
+
+    const audioUrl = `/uploads/audio/${userFolder}/${filename}`;
+
+    // Trả audioUrl (đường dẫn file) + audioContent (base64 cho backward compat)
+    return NextResponse.json({ audioUrl, audioContent: rawAudioBase64, mimeType: 'audio/wav' });
   } catch (err: any) {
     console.error('[/api/tts]', err);
     return NextResponse.json({ message: `Lỗi TTS: ${err.message}` }, { status: 500 });

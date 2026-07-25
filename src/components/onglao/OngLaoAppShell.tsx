@@ -393,7 +393,8 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
         },
         body: JSON.stringify({
           text: voiceStylePrefix ? `${voiceStylePrefix} ${cleanText}` : cleanText,
-          aiConfigId: currentAiId
+          aiConfigId: currentAiId,
+          userId: authState?.user?.id || null
         })
       });
 

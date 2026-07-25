@@ -21,7 +21,8 @@ export async function POST(req: NextRequest) {
     }
 
     const metadata = JSON.parse(metadataStr);
-    const { scenes, bgmVolume = 0.15, resolution = '1080', aspectRatio = '16x9', format = 'mp4' } = metadata;
+    const { scenes, bgmVolume = 0.15, resolution = '1080', aspectRatio = '16x9', format = 'mp4', userId } = metadata;
+    const userFolder = userId ? String(userId).replace(/[^a-zA-Z0-9_-]/g, '') : 'guest';
 
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
       return NextResponse.json({ message: 'Danh sách cảnh quay rỗng' }, { status: 400 });
@@ -154,15 +155,15 @@ export async function POST(req: NextRequest) {
       throw new Error('File video xuất ra rỗng hoặc không tồn tại');
     }
 
-    // 6. Lưu file vật lý vĩnh viễn trực tiếp vào thư mục dự án public/exports/
-    const exportsDir = path.join(process.cwd(), 'public', 'exports');
+    // 6. Lưu file vật lý theo từng user: /exports/{userId}/
+    const exportsDir = path.join(process.cwd(), 'public', 'exports', userFolder);
     if (!fs.existsSync(exportsDir)) {
       fs.mkdirSync(exportsDir, { recursive: true });
     }
     const filename = `OngLao_Video_${Date.now()}.${format === 'webm' ? 'webm' : 'mp4'}`;
     const projectFilePath = path.join(exportsDir, filename);
     fs.copyFileSync(finalOutputPath, projectFilePath);
-    const publicUrl = `/exports/${filename}`;
+    const publicUrl = `/exports/${userFolder}/${filename}`;
 
     const videoBuffer = fs.readFileSync(finalOutputPath);
 

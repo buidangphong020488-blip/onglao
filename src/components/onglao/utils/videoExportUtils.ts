@@ -108,16 +108,33 @@ export const combineWavs = async (items: any[]) => {
   
   for (let i = 0; i < items.length; i++) {
     try {
-      const r = await fetch(items[i].url);
-      if (!r.ok) continue;
-      const contentType = r.headers.get('content-type') || '';
-      if (contentType.includes('text/html')) continue;
-      const buf = await r.arrayBuffer();
+      let buf: ArrayBuffer;
+      const url = items[i].url || '';
+
+      if (url.startsWith('data:')) {
+        // Xử lý data:audio/wav;base64,... trực tiếp — không cần fetch
+        const base64 = url.split(',')[1];
+        if (!base64) continue;
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let j = 0; j < binary.length; j++) bytes[j] = binary.charCodeAt(j);
+        buf = bytes.buffer;
+      } else {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const r = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!r.ok) continue;
+        const contentType = r.headers.get('content-type') || '';
+        if (contentType.includes('text/html')) continue;
+        buf = await r.arrayBuffer();
+      }
+
       const decoded = await tempCtx.decodeAudioData(buf);
       decodedBuffers.push(decoded);
       metadata.push(items[i]);
     } catch (e) {
-      console.warn(`[combineWavs] Failed for ${items[i].url}:`, e);
+      console.warn(`[combineWavs] Failed for ${items[i].url?.slice(0, 60)}:`, e);
     }
   }
 

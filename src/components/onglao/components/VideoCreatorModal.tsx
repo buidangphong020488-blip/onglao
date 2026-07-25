@@ -6,43 +6,69 @@ import { useOngLaoContext } from "../context/OngLaoContext";
 import { idb } from "../constants";
 import { updateChatMessageContentAction, getChatMessagesAction } from "@/actions/chat";
 // Hàm tự động chụp 1 khung ảnh tĩnh JPEG (Poster Snapshot 160x160) từ video mà KHÔNG giữ thẻ video HTML5 trong bộ nhớ
-const generateVideoPoster = (videoUrl: string): Promise<string> => {
-    if (!videoUrl || videoUrl.startsWith('idb://')) return Promise.resolve('');
+export const generateVideoPoster = (videoUrl: string): Promise<string> => {
+    if (!videoUrl) return Promise.resolve('');
     return new Promise((resolve) => {
+        let resolved = false;
         const video = document.createElement('video');
         video.crossOrigin = 'anonymous';
         video.muted = true;
         video.playsInline = true;
         video.preload = 'metadata';
-        let resolved = false;
 
         const cleanup = () => {
             if (resolved) return;
             resolved = true;
+            video.onerror = null;
             video.onloadeddata = null;
             video.onseeked = null;
-            video.onerror = null;
-            video.removeAttribute('src');
-            try { video.load(); } catch(e) {}
+            video.src = '';
+            video.remove();
         };
 
         const captureFrame = () => {
-            if (resolved) return;
-            clearTimeout(timeout);
             try {
                 const canvas = document.createElement('canvas');
                 canvas.width = 160;
                 canvas.height = 160;
                 const ctx = canvas.getContext('2d');
                 if (ctx) {
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    if (video.videoWidth && video.videoHeight) {
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    } else {
+                        ctx.fillStyle = '#0f172a';
+                        ctx.fillRect(0, 0, 160, 160);
+                        ctx.fillStyle = '#1e293b';
+                        ctx.fillRect(10, 10, 140, 140);
+                        ctx.fillStyle = '#f97316';
+                        ctx.font = 'bold 12px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('🎬 VIDEO CLIP', 80, 85);
+                    }
                     const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
                     cleanup();
                     resolve(dataUrl);
                     return;
                 }
             } catch (e) {
-                console.warn('Canvas poster capture failed:', e);
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 160;
+                    canvas.height = 160;
+                    const ctx = canvas.getContext('2d');
+                    if (ctx) {
+                        ctx.fillStyle = '#0f172a';
+                        ctx.fillRect(0, 0, 160, 160);
+                        ctx.fillStyle = '#f97316';
+                        ctx.font = 'bold 12px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('🎬 VIDEO CLIP', 80, 85);
+                        const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+                        cleanup();
+                        resolve(dataUrl);
+                        return;
+                    }
+                } catch (err) {}
             }
             cleanup();
             resolve('');
@@ -50,22 +76,23 @@ const generateVideoPoster = (videoUrl: string): Promise<string> => {
 
         const timeout = setTimeout(() => {
             captureFrame();
-        }, 2000);
+        }, 1500);
 
         video.onerror = () => {
-            cleanup();
-            resolve('');
+            clearTimeout(timeout);
+            captureFrame();
         };
 
         video.onloadeddata = () => {
-            if (video.duration && video.duration > 0.5) {
-                try { video.currentTime = 0.2; } catch(e) { captureFrame(); }
+            if (video.duration && video.duration > 0.1) {
+                try { video.currentTime = 0.1; } catch(e) { captureFrame(); }
             } else {
                 captureFrame();
             }
         };
 
         video.onseeked = () => {
+            clearTimeout(timeout);
             captureFrame();
         };
 
@@ -101,6 +128,11 @@ const SceneThumbnailItem = React.memo(({ scene, setFfScenes }: { scene: any; set
         let createdBlobUrl: string | null = null;
 
         const resolveSceneUrl = async () => {
+            // Nạp ảnh Poster (.jpg) trực tiếp từ CSDL / Ổ đĩa nếu có
+            if (scene.poster && isMounted) {
+                setPoster(resolvePhysicalUrl(scene.poster));
+            }
+
             const keyToFetch = scene.idbKey || (scene.url && scene.url.startsWith('idb://') ? scene.url.replace('idb://', '') : null);
             if (keyToFetch) {
                 try {
@@ -109,7 +141,7 @@ const SceneThumbnailItem = React.memo(({ scene, setFfScenes }: { scene: any; set
                         createdBlobUrl = URL.createObjectURL(blob);
                         setActiveUrl(createdBlobUrl);
                         setHasError(false);
-                        if (!scene.poster) {
+                        if (!poster && !scene.poster) {
                             const p = await generateVideoPoster(createdBlobUrl);
                             if (p && isMounted) setPoster(p);
                         }
@@ -122,13 +154,13 @@ const SceneThumbnailItem = React.memo(({ scene, setFfScenes }: { scene: any; set
                 const targetUrl = resolvePhysicalUrl(scene.url);
                 setActiveUrl(targetUrl);
                 setHasError(false);
-                if (!scene.poster) {
+                if (!poster && !scene.poster) {
                     const p = await generateVideoPoster(targetUrl);
                     if (p && isMounted) setPoster(p);
                 }
             } else if (!scene.url && isMounted) {
                 setActiveUrl(null);
-                setPoster('');
+                if (!scene.poster) setPoster('');
                 setHasError(false);
             }
         };
@@ -205,7 +237,6 @@ const SceneThumbnailItem = React.memo(({ scene, setFfScenes }: { scene: any; set
                         src={activeUrl} 
                         muted 
                         playsInline 
-                        onError={() => setHasError(true)}
                         className="w-full h-full object-cover" 
                     />
                 )
@@ -501,6 +532,7 @@ const VideoCreatorModal = (props?: any) => {
             idbKey: matchedKey,
             msgId: m.id,
             textSnippet: m.text,
+            audioUrl: m.audioUrl || m.audio_url || m.audio || null
         };
       });
       if (autoScenes.length > 0) {
@@ -703,28 +735,59 @@ const VideoCreatorModal = (props?: any) => {
         }));
 
         if (currentScenes.length > 0) {
-            // MERGE MODE: Map staged clips directly into existing scenes
-            const updatedScenes = currentScenes.map((scene: any, sIdx: number) => {
-                if (sIdx < resolvedStagedClips.length) {
-                    const stg = resolvedStagedClips[sIdx];
+            // REUSE-FRIENDLY SMART MATCHING:
+            // Mỗi phân cảnh (Scene) sẽ tìm clip chọn phù hợp nhất theo Vai Trò + Cảm Xúc.
+            // Nếu kịch bản có nhiều câu thoại cùng "Con - Buồn", 1 clip "con_buon" được chọn từ kho sẽ tự động phủ lên CẢ các câu đó!
+            const getClipInfo = (stg: any) => {
+                let role = stg.role || 'user';
+                let emotion = stg.emotion || 'calm';
+                const name = (stg.name || stg.title || stg.url || '').toLowerCase();
+                if (name.includes('lao') || name.includes('lão')) role = 'lao';
+                else if (name.includes('outro')) role = 'outro';
+                else if (name.includes('con') || name.includes('nghe') || name.includes('noi')) role = 'user';
+
+                if (name.includes('buon') || name.includes('buồn') || name.includes('sad')) emotion = 'sad';
+                else if (name.includes('vui') || name.includes('joy')) emotion = 'joy';
+                return { role, emotion };
+            };
+
+            let matchedCount = 0;
+            const updatedScenes = currentScenes.map((scene: any) => {
+                // 1. Tìm clip trùng khớp 100% cả Vai Trò và Cảm Xúc
+                let match = resolvedStagedClips.find((stg: any) => {
+                    const info = getClipInfo(stg);
+                    return info.role === scene.role && info.emotion === scene.emotion;
+                });
+
+                // 2. Nếu không có trùng cả cảm xúc, tìm clip trùng Vai Trò (Lão / Con / Outro)
+                if (!match) {
+                    match = resolvedStagedClips.find((stg: any) => {
+                        const info = getClipInfo(stg);
+                        return info.role === scene.role;
+                    });
+                }
+
+                // 3. Nếu vẫn không trùng vai trò, lấy clip đầu tiên trong danh sách chờ
+                if (!match && resolvedStagedClips.length > 0) {
+                    match = resolvedStagedClips[0];
+                }
+
+                if (match) {
+                    matchedCount++;
                     return {
                         ...scene,
-                        url: stg.activeBlobUrl,
-                        idbKey: stg.targetKey || scene.idbKey || null,
-                        name: stg.name || stg.title || stg.fileName || scene.name || null
+                        url: match.activeBlobUrl,
+                        idbKey: match.targetKey || scene.idbKey || null,
+                        poster: match.poster || scene.poster || null,
+                        name: match.name || match.title || scene.name || null
                     };
                 }
+
                 return scene;
             });
 
-            // Append remaining staged clips if more staged clips were selected than existing scenes
-            if (resolvedStagedClips.length > currentScenes.length) {
-                const remaining = newScenesFromStaged.slice(currentScenes.length);
-                p.setFfScenes([...updatedScenes, ...remaining]);
-            } else {
-                p.setFfScenes(updatedScenes);
-            }
-            if (p.showToastMsg) p.showToastMsg(`Đã nạp ${resolvedStagedClips.length} video clip từ kho vào kịch bản!`, 'success');
+            p.setFfScenes(updatedScenes);
+            if (p.showToastMsg) p.showToastMsg(`Đã phủ video clip chọn cho toàn bộ ${updatedScenes.length} câu thoại kịch bản!`, 'success');
         } else {
             // CREATION MODE: Set ffScenes directly to newScenesFromStaged
             p.setFfScenes(newScenesFromStaged);

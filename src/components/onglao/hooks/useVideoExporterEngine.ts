@@ -469,20 +469,43 @@ export const useVideoExporterEngine = ({
 
       exportAudioCtxRef.current = new AudioContextClass();
 
-      let validMessages = Array.isArray(messages) && messages.length > 0 ? [...messages] : [];
+      let validMessages: any[] = [];
 
-      // 1. Nếu messages rỗng hoặc thiếu audio, trích xuất danh sách thoại trực tiếp từ các cảnh ffScenes
-      if ((!validMessages || validMessages.length === 0) && Array.isArray(ffScenes) && ffScenes.length > 0) {
-          validMessages = ffScenes.map((s: any, idx: number) => {
-              const matchedMsg = messages?.find((m: any) => m.id === s.msgId);
-              return {
-                  id: s.msgId || s.id || `scene_msg_${idx}`,
-                  role: s.role === 'lao' ? 'ai' : (s.role === 'outro' ? 'outro' : 'user'),
-                  text: s.textSnippet || s.name || '',
-                  emotion: s.emotion || 'calm',
-                  audioUrl: s.audioUrl || matchedMsg?.audioUrl || null
-              };
-          }).filter((m: any) => m.text);
+      if (Array.isArray(messages) && messages.length > 0) {
+          // Log để kiểm tra cấu trúc thực tế của messages từ CSDL
+          console.log('[Render DEBUG] messages[0] keys:', Object.keys(messages[0]), 'sample:', JSON.stringify(messages[0]).slice(0, 300));
+          validMessages = messages.map((m: any) => ({
+              id: m.id || m.msgId,
+              role: m.role === 'ASSISTANT' ? 'ai' : (m.role === 'OUTRO' ? 'outro' : (m.role === 'ai' ? 'ai' : 'user')),
+              text: m.content || m.text || '',
+              emotion: m.emotion || 'calm',
+              audioUrl: m.audioUrl || m.audio_url || m.audio || m.audiourl || m.AudioUrl || null
+          })).filter((m: any) => m.text);
+      }
+
+      // Trích xuất bổ sung audioUrl từ các phân cảnh ffScenesRef.current nếu messages thiếu
+      const currentScenesList = ffScenesRef?.current || [];
+      if (currentScenesList.length > 0) {
+          if (validMessages.length === 0) {
+              validMessages = currentScenesList.map((s: any, idx: number) => {
+                  const matchedMsg = messages?.find((m: any) => m.id === s.msgId);
+                  return {
+                      id: s.msgId || s.id || `scene_msg_${idx}`,
+                      role: s.role === 'lao' ? 'ai' : (s.role === 'outro' ? 'outro' : 'user'),
+                      text: s.textSnippet || s.name || '',
+                      emotion: s.emotion || 'calm',
+                      audioUrl: s.audioUrl || matchedMsg?.audioUrl || matchedMsg?.audio_url || null
+                  };
+              }).filter((m: any) => m.text);
+          } else {
+              // Ghép nối bù audioUrl từ scene vào validMessages nếu tin nhắn chưa có
+              validMessages.forEach((vm: any, idx: number) => {
+                  const matchedScene = currentScenesList.find((s: any) => s.msgId === vm.id) || currentScenesList[idx];
+                  if (!vm.audioUrl && matchedScene && matchedScene.audioUrl) {
+                      vm.audioUrl = matchedScene.audioUrl;
+                  }
+              });
+          }
       }
 
       // Fallback an toàn nếu hoàn toàn không tìm thấy thoại nào
@@ -493,30 +516,10 @@ export const useVideoExporterEngine = ({
           ];
       }
 
-      // TỰ ĐỘNG TẠO AUDIO TTS BẰNG /api/tts CHO BẤT KỲ CÂU THOẠI NÀO CHƯA CÓ FILE MP3
-      const missingAudioTurns = validMessages.filter((m: any) => m && !m.audioUrl);
-      if (missingAudioTurns.length > 0) {
-          if (showToastMsg) showToastMsg(`Đang tự động sinh ${missingAudioTurns.length} file audio MP3 còn thiếu...`, 'loading', 0);
-          for (const m of validMessages) {
-              if (m && !m.audioUrl && m.text) {
-                  try {
-                      const voice = m.role === 'ai' || m.role === 'lao' ? 'Puck' : 'Kore';
-                      const ttsRes = await fetch('/api/tts', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ text: m.text, voice, role: m.role })
-                      });
-                      const ttsData = await ttsRes.json();
-                      if (ttsData.audioUrl) {
-                          m.audioUrl = ttsData.audioUrl;
-                      } else if (ttsData.audioBase64) {
-                          m.audioUrl = `data:audio/mp3;base64,${ttsData.audioBase64}`;
-                      }
-                  } catch (e) {
-                      console.warn("Auto-generate TTS for render error:", e);
-                  }
-              }
-          }
+      // Chỉ dùng audio sẵn có trên ổ cứng/CSDL — không sinh TTS tự động
+      const missingAudioCount = validMessages.filter((m: any) => m && !m.audioUrl).length;
+      if (missingAudioCount > 0) {
+          console.warn(`[Render] ${missingAudioCount} câu thoại chưa có audioUrl — sẽ bỏ qua khi ghép âm thanh.`);
       }
 
       const audioUrl = await combineWavs(validMessages.filter((m: any) => m && m.audioUrl).map((m: any) => ({ url: m.audioUrl, role: m.role, text: m.text, emotion: m.emotion || 'calm', msgId: m.id })));
@@ -804,20 +807,16 @@ export const useVideoExporterEngine = ({
     return null;
   };
 
-            blobToConvert = await getBlobWithPhysicalAndIdbFallbacks(clipUrl, matchedScene?.idbKey);
-
-            if (!blobToConvert && ffScenesRef.current && ffScenesRef.current.length > 0) {
-              for (const altSc of ffScenesRef.current) {
-                blobToConvert = await getBlobWithPhysicalAndIdbFallbacks(altSc?.url, altSc?.idbKey);
-                if (blobToConvert) break;
+            // Chỉ upload blob nếu clip đến từ IndexedDB (file upload từ máy người dùng)
+            // Clip từ /uploads/... trên server → truyền path cho FFmpeg tự đọc, không fetch về browser
+            const isIdbClip = matchedScene?.idbKey || clipUrl?.startsWith('idb://') || clipUrl?.startsWith('blob:');
+            if (isIdbClip) {
+              blobToConvert = await getBlobWithPhysicalAndIdbFallbacks(clipUrl, matchedScene?.idbKey);
+              if (blobToConvert) {
+                formData.append(`clip_${i}`, blobToConvert, `clip_${i}.mp4`);
               }
             }
-
-            if (blobToConvert) {
-
-              formData.append(`clip_${i}`, blobToConvert, `clip_${i}.mp4`);
-
-            }
+            // Nếu không phải IDB → truyền URL path để FFmpeg server đọc trực tiếp từ ổ cứng
 
             scenesList.push({
 
@@ -999,15 +998,14 @@ export const useVideoExporterEngine = ({
 
       // Cấu hình tham số xuất video (Kích thước tùy thuộc vào độ phân giải đã chọn)
 
-      let width = 1920;
+      // Giảm kích thước canvas render xuống mức vừa đủ để không treo Chrome
+      let width = 1280;
 
-      let height = 1080;
+      let height = 720;
 
-      if (videoResolution === '720') { width = 1280; height = 720; }
+      if (videoResolution === '4k' || videoResolution === '1080') { width = 1920; height = 1080; }
 
-      else if (videoResolution === '4k') { width = 3840; height = 2160; }
-
-      else if (videoResolution === '1080') { width = 1920; height = 1080; }
+      // 720p là mặc định an toàn với mọi máy
 
       // Tráo đổi chiều rộng/cao nếu là khung hình dọc (9x16)
 
@@ -1035,7 +1033,8 @@ export const useVideoExporterEngine = ({
 
       // Chuẩn bị luồng MediaStream ghi hình từ Canvas (60 FPS chuẩn xác để khử 100% giật lag)
 
-      const canvasStream = canvas.captureStream(60);
+      // 30fps đủ mượt mà không ngốn RAM như 60fps
+      const canvasStream = canvas.captureStream(30);
 
       const videoTrack = canvasStream.getVideoTracks()[0] as any;
 
@@ -1117,11 +1116,12 @@ export const useVideoExporterEngine = ({
 
       // Bắt đầu khởi tạo bộ mã hóa (Recorder) để đóng gói video (Dùng VP8 phần cứng siêu mượt)
 
-      let options: any = { mimeType: 'video/webm;codecs=vp8,opus', videoBitsPerSecond: 12000000 };
+      // Bitrate giảm để phù hợp mọi máy tính — 6Mbps cho 1080p, 4Mbps cho 720p
+      let options: any = { mimeType: 'video/webm;codecs=vp8,opus', videoBitsPerSecond: 4000000 };
 
-      if (videoResolution === '4k') options.videoBitsPerSecond = 35000000;
+      if (videoResolution === '4k' || videoResolution === '1080') options.videoBitsPerSecond = 6000000;
 
-      else if (videoResolution === '720') options.videoBitsPerSecond = 6000000;
+      else if (videoResolution === '720') options.videoBitsPerSecond = 4000000;
 
       if (videoExt === 'mp4' && MediaRecorder.isTypeSupported('video/mp4;codecs=h264,aac')) {
 
