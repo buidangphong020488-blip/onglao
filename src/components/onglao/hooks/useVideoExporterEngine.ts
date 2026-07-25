@@ -466,8 +466,37 @@ export const useVideoExporterEngine = ({
 
       exportAudioCtxRef.current = new AudioContextClass();
 
-      let validMessages = Array.isArray(messages) ? [...messages] : [];
+      let validMessages = Array.isArray(messages) && messages.length > 0 ? [...messages] : [];
 
+      // 1. Nếu messages rỗng hoặc thiếu audio, kiểm tra từ danh sách sessions đang mở theo currentSessionId
+      if ((!validMessages || validMessages.length === 0 || !validMessages.some(m => m && m.audioUrl)) && p.sessions && p.currentSessionId) {
+          const activeSess = p.sessions.find((s: any) => s.id === p.currentSessionId);
+          if (activeSess && Array.isArray(activeSess.messages) && activeSess.messages.length > 0) {
+              validMessages = activeSess.messages.map((m: any) => ({
+                  id: m.id || m.msgId,
+                  role: m.role === 'ASSISTANT' ? 'ai' : (m.role === 'OUTRO' ? 'outro' : (m.role === 'ai' ? 'ai' : 'user')),
+                  text: m.content || m.text || '',
+                  emotion: m.emotion || 'calm',
+                  audioUrl: m.audioUrl || null
+              })).filter((m: any) => m.text);
+          }
+      }
+
+      // 2. Nếu vẫn rỗng, trích xuất danh sách thoại trực tiếp từ các cảnh ffScenes
+      if ((!validMessages || validMessages.length === 0) && Array.isArray(ffScenes) && ffScenes.length > 0) {
+          validMessages = ffScenes.map((s: any, idx: number) => {
+              const matchedMsg = messages?.find((m: any) => m.id === s.msgId);
+              return {
+                  id: s.msgId || s.id || `scene_msg_${idx}`,
+                  role: s.role === 'lao' ? 'ai' : (s.role === 'outro' ? 'outro' : 'user'),
+                  text: s.textSnippet || s.name || '',
+                  emotion: s.emotion || 'calm',
+                  audioUrl: s.audioUrl || matchedMsg?.audioUrl || null
+              };
+          }).filter((m: any) => m.text);
+      }
+
+      // Fallback an toàn nếu hoàn toàn không tìm thấy thoại nào
       if (!validMessages || validMessages.length === 0) {
           validMessages = [
               { id: 'fallback_render_1', role: 'user', text: 'Con kính chào Lão! Hôm nay tâm con an nhiên.', emotion: 'joy' },
@@ -475,17 +504,30 @@ export const useVideoExporterEngine = ({
           ];
       }
 
-      // KIỂM TRA NGHIÊM NGẶT SỐ LƯỢNG MP3 SO VỚI TỔNG SỐ CÂU THOẠI
-      const totalTurns = validMessages.length;
-      const audioTurns = validMessages.filter((m: any) => m && m.audioUrl).length;
-
-      if (totalTurns > 0 && audioTurns < totalTurns) {
-          if (showToastMsg) {
-              showToastMsg(`Kịch bản có ${totalTurns} câu thoại nhưng mới có ${audioTurns} file audio. Vui lòng tạo đủ MP3 trước khi render video!`, 'warning', 6000);
+      // TỰ ĐỘNG TẠO AUDIO TTS BẰNG /api/tts CHO BẤT KỲ CÂU THOẠI NÀO CHƯA CÓ FILE MP3
+      const missingAudioTurns = validMessages.filter((m: any) => m && !m.audioUrl);
+      if (missingAudioTurns.length > 0) {
+          if (showToastMsg) showToastMsg(`Đang tự động sinh ${missingAudioTurns.length} file audio MP3 còn thiếu...`, 'loading', 0);
+          for (const m of validMessages) {
+              if (m && !m.audioUrl && m.text) {
+                  try {
+                      const voice = m.role === 'ai' || m.role === 'lao' ? (p.laoVoicePersona || 'Puck') : (p.conVoicePersona || 'Kore');
+                      const ttsRes = await fetch('/api/tts', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ text: m.text, voice, role: m.role })
+                      });
+                      const ttsData = await ttsRes.json();
+                      if (ttsData.audioUrl) {
+                          m.audioUrl = ttsData.audioUrl;
+                      } else if (ttsData.audioBase64) {
+                          m.audioUrl = `data:audio/mp3;base64,${ttsData.audioBase64}`;
+                      }
+                  } catch (e) {
+                      console.warn("Auto-generate TTS for render error:", e);
+                  }
+              }
           }
-          if (setIsPreparingVideoData) setIsPreparingVideoData(false);
-          if (setIsExportingVideo) setIsExportingVideo(false);
-          return;
       }
 
       const audioUrl = await combineWavs(validMessages.filter((m: any) => m && m.audioUrl).map((m: any) => ({ url: m.audioUrl, role: m.role, text: m.text, emotion: m.emotion || 'calm', msgId: m.id })));

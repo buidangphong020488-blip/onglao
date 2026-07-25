@@ -1821,40 +1821,8 @@ const AiDirectorManagerModal = (props: any) => {
                                                     </button>
 
                                                     <button 
-                                                        onClick={async () => {
+                                                        onClick={() => {
                                                             try {
-                                                                let checkMsgs = script.messages || [];
-                                                                const s = p.sessions ? p.sessions.find((x: any) => x.id === script.id) : null;
-                                                                if (s && s.messages && s.messages.length > 0) {
-                                                                    checkMsgs = s.messages;
-                                                                } else if (s && !s.messagesLoaded) {
-                                                                    try {
-                                                                        const res = await getChatMessagesAction(script.id);
-                                                                        if (res && res.success && res.data) {
-                                                                            checkMsgs = res.data.map((m: any) => ({
-                                                                                id: m.id || m.msgId || Date.now(),
-                                                                                role: m.role === 'ASSISTANT' ? 'ai' : 'user',
-                                                                                text: m.content,
-                                                                                timestamp: m.createdAt ? new Date(m.createdAt) : new Date(),
-                                                                                audioUrl: m.audioUrl || null
-                                                                            }));
-                                                                            if (p.setSessions) {
-                                                                                p.setSessions((prev: any[]) => prev.map((x: any) => x.id === script.id ? { ...x, messages: checkMsgs, messagesLoaded: true } : x));
-                                                                            }
-                                                                        }
-                                                                    } catch (e) {}
-                                                                }
-
-                                                                const totalCount = checkMsgs.length;
-                                                                const audioCount = checkMsgs.filter((m: any) => m.audioUrl).length;
-
-                                                                if (totalCount === 0 || audioCount < totalCount) {
-                                                                    if (p.showToastMsg) {
-                                                                        p.showToastMsg(`Kịch bản có ${totalCount} câu thoại nhưng mới tạo được ${audioCount} MP3. Vui lòng tạo đủ MP3 trước khi mở trình tạo video!`, 'warning', 6000);
-                                                                    }
-                                                                    return; // CHẶN HOÀN TOÀN, KHÔNG MỞ VIDEO CREATOR MODAL!
-                                                                }
-
                                                                 if (p.setCurrentSessionId) p.setCurrentSessionId(script.id);
                                                                 if (typeof window !== 'undefined') {
                                                                     const url = new URL(window.location.href);
