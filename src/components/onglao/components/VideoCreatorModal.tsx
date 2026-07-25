@@ -79,6 +79,23 @@ const SceneThumbnailItem = React.memo(({ scene, setFfScenes }: { scene: any; set
     const [activeUrl, setActiveUrl] = React.useState<string | null>(scene.url && !scene.url.startsWith('idb://') ? scene.url : null);
     const [hasError, setHasError] = React.useState(false);
 
+    const resolvePhysicalUrl = (url: string) => {
+        if (!url) return '';
+        if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('idb://')) return url;
+        const clean = url.replace(/^\/+/, '');
+        if (clean.startsWith('uploads/')) return '/' + clean;
+        if (clean.match(/^\d+_\w+\.(mp4|webm|mov|jpg|jpeg|png)$/i)) return `/uploads/canhquay/${clean}`;
+        return '/' + clean;
+    };
+
+    const getStockFallback = (role: string, em: string) => {
+        if (role === 'lao') return '/uploads/lao_vui_1784102050032.mp4';
+        if (role === 'outro') return '/uploads/outro_1784102050469.mp4';
+        if (em === 'sad') return '/uploads/con_buon_1784102048315.mp4';
+        if (em === 'joy') return '/uploads/con_vui_1784102049237.mp4';
+        return '/uploads/con_binhthuong_1784102047613.mp4';
+    };
+
     React.useEffect(() => {
         let isMounted = true;
         let createdBlobUrl: string | null = null;
@@ -91,24 +108,28 @@ const SceneThumbnailItem = React.memo(({ scene, setFfScenes }: { scene: any; set
                     if (blob && isMounted) {
                         createdBlobUrl = URL.createObjectURL(blob);
                         setActiveUrl(createdBlobUrl);
+                        setHasError(false);
                         if (!scene.poster) {
                             const p = await generateVideoPoster(createdBlobUrl);
                             if (p && isMounted) setPoster(p);
                         }
+                        return;
                     }
-                } catch (e) {
-                    console.error(e);
-                    if (isMounted) setHasError(true);
-                }
-            } else if (scene.url && !scene.url.startsWith('idb://') && isMounted) {
-                setActiveUrl(scene.url);
+                } catch (e) {}
+            }
+            
+            if (scene.url && !scene.url.startsWith('idb://') && isMounted) {
+                const targetUrl = resolvePhysicalUrl(scene.url);
+                setActiveUrl(targetUrl);
+                setHasError(false);
                 if (!scene.poster) {
-                    const p = await generateVideoPoster(scene.url);
+                    const p = await generateVideoPoster(targetUrl);
                     if (p && isMounted) setPoster(p);
                 }
-            } else if (!scene.url) {
+            } else if (!scene.url && isMounted) {
                 setActiveUrl(null);
                 setPoster('');
+                setHasError(false);
             }
         };
 
@@ -458,12 +479,26 @@ const VideoCreatorModal = (props?: any) => {
         const sceneId = `scene_msg_${m.id || idx}`;
         const isOutroMsg = m.role === 'outro' || m.role === 'OUTRO' || (idx === p.messages.length - 1 && p.messages.length > 2 && (m.role === 'outro' || m.role === 'OUTRO'));
         const targetRole = isOutroMsg ? 'outro' : (m.role === 'ai' || m.role === 'ASSISTANT' ? 'lao' : 'user');
+        
+        let matchedUrl = null;
+        let matchedKey = null;
+
+        if (p.FULLFRAME_PACKS && p.FULLFRAME_PACKS.length > 0) {
+            const pack = p.FULLFRAME_PACKS[0];
+            const match = pack.scenes?.find((s: any) => s.role === targetRole && s.emotion === em)
+                       || pack.scenes?.find((s: any) => s.role === targetRole);
+            if (match && match.url) {
+                matchedUrl = match.url;
+                matchedKey = match.idbKey || null;
+            }
+        }
+
         return {
             id: sceneId,
             role: targetRole,
             emotion: em,
-            url: null,
-            idbKey: null,
+            url: matchedUrl,
+            idbKey: matchedKey,
             msgId: m.id,
             textSnippet: m.text,
         };
@@ -475,6 +510,7 @@ const VideoCreatorModal = (props?: any) => {
   }, [p.showVideoExportModal, p.messages, p.currentSessionId, dbCharacterStates, p.FULLFRAME_PACKS, p.localFfClips]); // eslint-disable-line react-hooks/exhaustive-deps
   const {
     showVideoExportModal, setShowVideoExportModal, videoAspectRatio, setVideoAspectRatio, videoTransition, setVideoTransition, videoTransitionDuration, setVideoTransitionDuration, chatLaoTransform, setChatLaoTransform, showChatLaoControls, setShowChatLaoControls, videoResolution, setVideoResolution, subtitleSentenceCount, setSubtitleSentenceCount, subtitleColor, setSubtitleColor, subtitleYPos, setSubtitleYPos, subtitleScale, setSubtitleScale, isExportingVideo, setIsExportingVideo, isPreparingVideoData, setIsPreparingVideoData, renderedVideoBlob, setRenderedVideoBlob, renderedVideoUrl, setRenderedVideoUrl, isVideoFullscreen, setIsVideoFullscreen, isPreviewFullscreen, setIsPreviewFullscreen, videoExt, setVideoExt, exportTab, setExportTab, hoveredElement, setHoveredElement, enableIntro, setEnableIntro, introTitle, setIntroTitle, introSubtitle, setIntroSubtitle, enableOutroText, setEnableOutroText, outroText, setOutroText, isFullFrameMode, setIsFullFrameMode, EMOTIONS, FULLFRAME_PACKS, ffScenes, setFfScenes, ffSaveData, setFfSaveData, showFfSaveModal, setShowFfSaveModal, logoData, setLogoData, logoSettings, setLogoSettings, bgmAudioData, setBgmAudioData, bgmVolume, setBgmVolume, aiBgmPrompt, setAiBgmPrompt, isGeneratingBgm, setIsGeneratingBgm, tempAiBgmData, setTempAiBgmData, showPresetModal, setShowPresetModal, presetFormData, setPresetFormData, showDownloadMenu, setShowDownloadMenu, showShareMenu, setShowShareMenu, localFfPacks, setLocalFfPacks, localFfClips, setLocalFfClips, showSavePackModal, setShowSavePackModal, savePackData, setSavePackData, diagnosticReport, setShowDiagnostics, ffScenesRef, exportCanvasRef, logoFileInputRef, bgmFileInputRef, exportMediaRecorderRef, exportAudioCtxRef, laoExportVidRefs, userExportVidRefs, chatLaoDragInfo, handleChatLaoPointerDown, handleChatLaoPointerMove, handleChatLaoPointerUp, handleChatLaoWheel, handleLoadPack, handleDeleteFfPack, showUploadGuide, handleUploadFolder, handleCopyFfScenesCode, executeSaveFfPack, moveFfScene, handleSelectFfClipV2, handleDeleteFfClipV2, handleUploadLogo, removeLogo, handleGenerateAiBgm, removeBgm, handleUploadBgm, handleClearCache, handleSaveVideoConfig, startVideoExport, cancelVideoExport, resetVideoExport, toggleFullscreen, handleDownloadVideo, handleShareVideoSocial, showDiagnostics, handleDeletePreset, isGlobalPlaying, setIsGlobalPlaying, globalAudioRef, stopLipSync, emotion, setEmotion, spellCheckControllersRef, spellCheckTimeoutsRef, latestAutoPlayaiMsgIdRef, showAutoPilotModal, setShowAutoPilotModal, apTopics, setApTopics, apSettings, setApSettings, apState, setApState, handleFetchTrendingTopics, handleGenerateAITopic, handleImportScript, startAutoPilot, stopAutoPilot, isGeneratingAITopic, setIsGeneratingAITopic, customBgs, setCustomBgs, presetBackgrounds, activeBgId, setActiveBgId, DEFAULT_BGM_LIST, playingMsg, isLaoSpeakingSession, messages, handleConfirmPreset, handleUndoPosition, handleRedoPosition, handleCanvasPointerDown, handleCanvasPointerMove, handleCanvasPointerUp, handleCanvasPointerLeave, handleCanvasWheel, executeSaveFfClip, pastOffsets, futureOffsets, showSaveCharModal, setShowSaveCharModal, saveCharData, setSaveCharData, handleSaveCharacterToLocal, executeSaveCharacter, customCategories, handleAddCustomCategory, handleDeleteCustomCategory, handleDeleteLibraryClip, handleBatchDeleteLibraryClips,
+    exportProgressPercent, exportProgressStatus,
     allCharacters, currentLaoPresetId, setCurrentLaoPresetId, currentUserPresetId, setCurrentUserPresetId,
     renderHistory, setRenderHistory, deleteRenderHistoryItem
   } = p;
@@ -1871,15 +1907,30 @@ const VideoCreatorModal = (props?: any) => {
             {(isExportingVideo || isPreparingVideoData) && (
                 <div className="fixed inset-0 z-[450] bg-black/85 backdrop-blur-xl flex justify-center items-center p-4 animate-in fade-in">
                     <div className="bg-slate-900 border border-orange-500/40 rounded-3xl w-full max-w-md shadow-2xl p-6 flex flex-col items-center gap-5 text-center animate-in zoom-in-95">
-                        <div className="w-16 h-16 bg-orange-500/20 border border-orange-500/40 rounded-full flex items-center justify-center text-orange-400 shadow-[0_0_30px_rgba(249,115,22,0.3)] animate-pulse">
-                            <Loader2 size={36} className="animate-spin" />
+                        <div className="relative flex items-center justify-center">
+                            <div className="w-20 h-20 bg-orange-500/20 border border-orange-500/40 rounded-full flex items-center justify-center text-orange-400 shadow-[0_0_30px_rgba(249,115,22,0.3)] animate-pulse">
+                                <Loader2 size={40} className="animate-spin" />
+                            </div>
+                            <span className="absolute text-sm font-black text-amber-300 font-mono">
+                                {exportProgressPercent || 0}%
+                            </span>
                         </div>
-                        <div className="space-y-1.5">
+                        <div className="space-y-2 w-full">
                             <h3 className="text-base font-extrabold text-white tracking-wide uppercase flex items-center justify-center gap-2">
                                 <span>🎬</span> Đang Thu Hình & Render Video...
                             </h3>
-                            <p className="text-xs text-slate-300 leading-relaxed">
-                                Hệ thống đang ghép nối các phân cảnh, phụ đề và âm thanh 60FPS. Vui lòng giữ nguyên màn hình...
+                            
+                            {/* THANH PROCESS PROGRESS BAR BẰNG VỚI % THỰC TẾ */}
+                            <div className="w-full bg-slate-950 rounded-full border border-orange-500/30 h-4 p-0.5 overflow-hidden shadow-inner relative">
+                                <div 
+                                    className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 h-full rounded-full transition-all duration-300 ease-out flex items-center justify-end pr-1 text-[9px] font-black text-white"
+                                    style={{ width: `${Math.max(5, Math.min(100, exportProgressPercent || 0))}%` }}
+                                >
+                                </div>
+                            </div>
+
+                            <p className="text-xs text-amber-300 font-semibold leading-relaxed min-h-[20px]">
+                                {exportProgressStatus || 'Hệ thống đang ghép nối các phân cảnh, phụ đề và âm thanh 60FPS...'}
                             </p>
                         </div>
                         <button
@@ -2341,7 +2392,18 @@ const VideoCreatorModal = (props?: any) => {
 
 // SUBCOMPONENT: LIBRARY CLIP CARD (RESOLVES IDB BLOB URLS AND HANDLES 404 ONERROR)
 const LibraryClipCard = ({ clip, idx, globalIndex, isSelected, roleName, emotionName, displayName, handleStageClip, setPreviewVideoUrl, isSinglePickerMode, isMultiSelectMode, isBatchChecked, onToggleBatch, onDeleteSingle }: any) => {
-    const [blobUrl, setBlobUrl] = React.useState<string | null>(clip.url && !clip.url.startsWith('idb://') ? clip.url : null);
+    const resolveClipUrl = (url: string) => {
+        if (!url) return '';
+        if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:')) return url;
+        if (url.startsWith('idb://')) return url;
+        const clean = url.replace(/^\/+/, '');
+        if (clean.startsWith('uploads/')) return '/' + clean;
+        if (clean.match(/^\d+_\w+\.(mp4|webm|mov|jpg|jpeg|png)$/i)) return `/uploads/canhquay/${clean}`;
+        return '/' + clean;
+    };
+
+    const initialUrl = clip.url && !clip.url.startsWith('idb://') ? resolveClipUrl(clip.url) : null;
+    const [blobUrl, setBlobUrl] = React.useState<string | null>(initialUrl);
     const [poster, setPoster] = React.useState<string>(clip.poster || '');
 
     React.useEffect(() => {
@@ -2360,14 +2422,29 @@ const LibraryClipCard = ({ clip, idx, globalIndex, isSelected, roleName, emotion
                             const p = await generateVideoPoster(createdUrl);
                             if (p && isMounted) setPoster(p);
                         }
+                        return;
                     }
                 } catch (e) {
                     console.error(e);
                 }
-            } else if (clip.url && !clip.url.startsWith('idb://') && isMounted) {
-                setBlobUrl(clip.url);
+            }
+            
+            if (clip.url && !clip.url.startsWith('idb://') && isMounted) {
+                const filename = clip.url.includes('/') ? clip.url.split('/').pop() : clip.url;
+                if (filename) {
+                    try {
+                        const localBlob = await idb.get(filename) || await idb.get(`ff_clip_${filename}`);
+                        if (localBlob && isMounted) {
+                            createdUrl = URL.createObjectURL(localBlob);
+                            setBlobUrl(createdUrl);
+                            return;
+                        }
+                    } catch (err) {}
+                }
+                const targetUrl = resolveClipUrl(clip.url);
+                setBlobUrl(targetUrl);
                 if (!clip.poster && !poster) {
-                    const p = await generateVideoPoster(clip.url);
+                    const p = await generateVideoPoster(targetUrl);
                     if (p && isMounted) setPoster(p);
                 }
             }

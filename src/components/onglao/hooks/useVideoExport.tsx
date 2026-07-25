@@ -3930,7 +3930,9 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
     startVideoExport,
     cancelVideoExport,
     resetVideoExport,
-    handleClearCache
+    handleClearCache,
+    exportProgressPercent,
+    exportProgressStatus
   } = useVideoExporterEngine({
     showToastMsg,
     messages,
@@ -4207,6 +4209,8 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
     startVideoExport,
     cancelVideoExport,
     resetVideoExport,
+    exportProgressPercent,
+    exportProgressStatus,
     toggleFullscreen,
     handleDownloadVideo,
     handleShareVideoSocial,

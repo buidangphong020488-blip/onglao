@@ -27,10 +27,15 @@ export async function GET(
   const possibleDirs = [
     path.join(process.cwd(), 'public', 'uploads', 'canhquay'),
     path.join(process.cwd(), 'uploads', 'canhquay'),
+    path.join(process.cwd(), 'public', 'uploads'),
+    path.join(process.cwd(), 'uploads'),
+    path.join(process.cwd(), 'public', 'uploads', 'lao_co_nen'),
     path.join(process.cwd(), '..', 'public', 'uploads', 'canhquay'),
     path.join(process.cwd(), '..', '..', 'public', 'uploads', 'canhquay'),
     '/www/wwwroot/onglao.giac.ngo/public/uploads/canhquay',
     '/www/wwwroot/onglao.giac.ngo/uploads/canhquay',
+    '/www/wwwroot/onglao.giac.ngo/public/uploads',
+    '/www/wwwroot/onglao.giac.ngo/uploads',
   ];
 
   let filePath = '';
@@ -43,8 +48,7 @@ export async function GET(
   }
 
   if (!filePath) {
-    console.error(`[/api/files/canhquay] File not found anywhere: ${safeName}. Checked dirs:`, possibleDirs);
-    return new NextResponse('Not found', { status: 404 });
+    return new NextResponse(`File not found: ${safeName}`, { status: 404 });
   }
 
   try {

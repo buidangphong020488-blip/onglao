@@ -198,10 +198,11 @@ export const useVideoExporterEngine = ({
   ffScenesRef,
 
   setFfScenes
-
 }: any) => {
 
   const blurCanvasRef = useRef<any>(null);
+  const [exportProgressPercent, setExportProgressPercent] = useState<number>(0);
+  const [exportProgressStatus, setExportProgressStatus] = useState<string>('Đang khởi tạo...');
 
   const resetVideoExport = () => {
 
@@ -390,6 +391,8 @@ export const useVideoExporterEngine = ({
     if (setIsPreparingVideoData) setIsPreparingVideoData(true);
     if (setIsExportingVideo) setIsExportingVideo(true);
 
+    setExportProgressPercent(5);
+    setExportProgressStatus('Đang khởi tạo trình gộp âm thanh & video...');
     setDiagnosticReport(null); // Reset báo cáo cũ
 
     // TÂM AN FIX: Tiêu diệt triệt để vòng lặp bóng ma từ lần render trước
@@ -468,21 +471,7 @@ export const useVideoExporterEngine = ({
 
       let validMessages = Array.isArray(messages) && messages.length > 0 ? [...messages] : [];
 
-      // 1. Nếu messages rỗng hoặc thiếu audio, kiểm tra từ danh sách sessions đang mở theo currentSessionId
-      if ((!validMessages || validMessages.length === 0 || !validMessages.some(m => m && m.audioUrl)) && p.sessions && p.currentSessionId) {
-          const activeSess = p.sessions.find((s: any) => s.id === p.currentSessionId);
-          if (activeSess && Array.isArray(activeSess.messages) && activeSess.messages.length > 0) {
-              validMessages = activeSess.messages.map((m: any) => ({
-                  id: m.id || m.msgId,
-                  role: m.role === 'ASSISTANT' ? 'ai' : (m.role === 'OUTRO' ? 'outro' : (m.role === 'ai' ? 'ai' : 'user')),
-                  text: m.content || m.text || '',
-                  emotion: m.emotion || 'calm',
-                  audioUrl: m.audioUrl || null
-              })).filter((m: any) => m.text);
-          }
-      }
-
-      // 2. Nếu vẫn rỗng, trích xuất danh sách thoại trực tiếp từ các cảnh ffScenes
+      // 1. Nếu messages rỗng hoặc thiếu audio, trích xuất danh sách thoại trực tiếp từ các cảnh ffScenes
       if ((!validMessages || validMessages.length === 0) && Array.isArray(ffScenes) && ffScenes.length > 0) {
           validMessages = ffScenes.map((s: any, idx: number) => {
               const matchedMsg = messages?.find((m: any) => m.id === s.msgId);
@@ -511,7 +500,7 @@ export const useVideoExporterEngine = ({
           for (const m of validMessages) {
               if (m && !m.audioUrl && m.text) {
                   try {
-                      const voice = m.role === 'ai' || m.role === 'lao' ? (p.laoVoicePersona || 'Puck') : (p.conVoicePersona || 'Kore');
+                      const voice = m.role === 'ai' || m.role === 'lao' ? 'Puck' : 'Kore';
                       const ttsRes = await fetch('/api/tts', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
@@ -767,76 +756,61 @@ export const useVideoExporterEngine = ({
 
             }
 
-            if (matchedScene?.idbKey) {
+  const getBlobWithPhysicalAndIdbFallbacks = async (url: string, idbKey?: string): Promise<Blob | null> => {
+    if (idbKey) {
+      try {
+        const b = await idb.get(idbKey);
+        if (b) return b;
+      } catch (e) {}
+    }
+    if (!url) return null;
+    if (url.startsWith('idb://')) {
+      try {
+        const b = await idb.get(url.replace('idb://', ''));
+        if (b) return b;
+      } catch (e) {}
+    }
+    const filename = url.includes('/') ? url.split('/').pop() : url;
+    if (filename) {
+      try {
+        const b = await idb.get(filename) || await idb.get(`ff_clip_${filename}`);
+        if (b) return b;
+      } catch (e) {}
+    }
 
-              try { blobToConvert = await idb.get(matchedScene.idbKey); } catch (e) {}
+    const targets: string[] = [];
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) {
+      targets.push(url);
+    } else {
+      const clean = url.replace(/^\/+/, '');
+      if (clean.startsWith('uploads/')) {
+        targets.push(window.location.origin + '/' + clean);
+      } else {
+        targets.push(window.location.origin + '/uploads/canhquay/' + clean);
+        targets.push(window.location.origin + '/uploads/' + clean);
+        targets.push(window.location.origin + '/' + clean);
+      }
+    }
 
-            }
+    for (const t of targets) {
+      try {
+        const res = await fetch(t);
+        if (res.ok) {
+          const b = await res.blob();
+          if (b && b.size > 0) return b;
+        }
+      } catch (e) {}
+    }
+    return null;
+  };
 
-            if (!blobToConvert && clipUrl.startsWith('idb://')) {
-
-              try { blobToConvert = await idb.get(clipUrl.replace('idb://', '')); } catch (e) {}
-
-            }
-
-            if (!blobToConvert && clipUrl) {
-
-              try {
-
-                const fetchTarget = (clipUrl.startsWith('http') || clipUrl.startsWith('blob:'))
-
-                  ? clipUrl 
-
-                  : (clipUrl.startsWith('/') ? window.location.origin + clipUrl : window.location.origin + '/' + clipUrl);
-
-                const vRes = await fetch(fetchTarget);
-
-                if (vRes.ok) blobToConvert = await vRes.blob();
-
-              } catch (e) {}
-
-            }
+            blobToConvert = await getBlobWithPhysicalAndIdbFallbacks(clipUrl, matchedScene?.idbKey);
 
             if (!blobToConvert && ffScenesRef.current && ffScenesRef.current.length > 0) {
-
               for (const altSc of ffScenesRef.current) {
-
-                let altUrl = altSc?.url || '';
-
-                if (altSc?.idbKey) {
-
-                  try { blobToConvert = await idb.get(altSc.idbKey); } catch (e) {}
-
-                }
-
-                if (!blobToConvert && altUrl.startsWith('idb://')) {
-
-                  try { blobToConvert = await idb.get(altUrl.replace('idb://', '')); } catch (e) {}
-
-                }
-
-                if (!blobToConvert && altUrl) {
-
-                  try {
-
-                    const fetchTarget = (altUrl.startsWith('http') || altUrl.startsWith('blob:'))
-
-                      ? altUrl 
-
-                      : (altUrl.startsWith('/') ? window.location.origin + altUrl : window.location.origin + '/' + altUrl);
-
-                    const vRes = await fetch(fetchTarget);
-
-                    if (vRes.ok) blobToConvert = await vRes.blob();
-
-                  } catch (e) {}
-
-                }
-
+                blobToConvert = await getBlobWithPhysicalAndIdbFallbacks(altSc?.url, altSc?.idbKey);
                 if (blobToConvert) break;
-
               }
-
             }
 
             if (blobToConvert) {
@@ -2570,15 +2544,12 @@ export const useVideoExporterEngine = ({
   };
 
   return {
-
     startVideoExport,
-
     cancelVideoExport,
-
     resetVideoExport,
-
-    handleClearCache
-
+    handleClearCache,
+    exportProgressPercent,
+    exportProgressStatus
   };
 
 };
