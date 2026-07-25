@@ -1,6 +1,6 @@
 # BẢN MÔ TẢ CHI TIẾT TOÀN BỘ GIAO DIỆN FRONTEND & TÍNH NĂNG HỆ THỐNG AI THIỀN ĐƯỜNG ÔNG LÃO
 
-> **Phiên bản**: 3.5.0  
+> **Phiên bản**: 3.6.0  
 > **Dự án**: Ông Lão — AI Thiền Đường Tâm Linh  
 > **Kiến trúc**: Next.js App Router (Client Side) + PostgreSQL + Gemini 2.5 Flash & TTS Engine  
 > **Tài liệu tham chiếu**: `docs/RULES_AND_TESTS.md` & `docs/TEST_REPORT_ONG_LAO.html`
@@ -142,19 +142,67 @@ Sản xuất hàng loạt video ngắn (Tiktok, Shorts, Reels) tự động từ
 ## 5. MÀN HÌNH 5: QUẢN LÝ KỊCH BẢN AI DIRECTOR (AiDirectorManagerModal.tsx)
 
 ### 📌 Mục đích:
-Soạn thảo, quản lý và biên tập các kịch bản đàm đạo chuyên nghiệp trước khi xuất phim.
+Soạn thảo, quản lý, thiết lập giọng đọc TTS và biên tập kịch bản đàm đạo chuyên nghiệp trước khi xuất phim.
 
-### 🎨 Chi tiết Giao diện & Linh kiện UI:
-* **Màn Hình Danh Sách Kịch Bản**:
-  - Ô tìm kiếm kịch bản theo tiêu đề & ngày tạo.
-  - **[3.2] Nút "Tạo Kịch Bản Mới"**: Mở form soạn kịch bản.
-  - Nút 🗑️ **Xóa Kịch Bản**: Xóa kịch bản khỏi cơ sở dữ liệu.
-* **Màn Hình Soạn & Chỉnh Sửa Kịch Bản**:
-  - **[3.3] Nút "AI Đạo Diễn Soạn Kịch Bản"**: Nhờ Gemini AI viết kịch bản theo chủ đề.
-  - **[3.4] Nút "Nhập Kịch Bản Từ File"**: Upload file văn bản `.txt` / `.json`.
-  - **[3.7, 3.8, 3.9] Nút Chèn Thoại Lão / Con / Outro**: Chèn nhanh định dạng `Lão:`, `Con:`, `Outro:`.
-  - **[3.5] Nút "Lưu Kịch Bản"**: Lưu nội dung kịch bản (Hỗ trợ phím tắt `Ctrl + S`).
-  - **[3.10] Nút "🎥 Chuyển Sang Studio Dựng Video"**: Đưa kịch bản sang màn hình Video Studio (Giữ trạng thái URL `?modal=ai-director&childmodal=create-video`).
+### 🎨 Chi tiết Giao diện & Linh kiện UI Cực Kỳ Chi Tiết:
+
+#### A. Thanh Header Modal & Nút Điều Hướng:
+* **Tiêu đề Modal**: *"🎬 Đạo Diễn AI & Quản Lý Kịch Bản Video"*.
+* **Nút Close `X` (Top-Right)**: Đóng modal, làm sạch các tham số URL searchParams (`action`, `type`, `id`), khôi phục trạng thái Thiền đường an toàn.
+
+#### B. Màn Hình 1: Danh Sách Kịch Bản (View Mode = `'list'`):
+* **Ô Tìm Kiếm Kịch Bản (`input[type="text"]`)**:
+  - Lọc nhanh danh sách kịch bản theo tiêu đề, từ khóa chủ đề hoặc ngày khởi tạo.
+* **Nút "⚡ Tạo Kịch Bản Mới" (`button`)**:
+  - Mở menu lựa chọn: **🤖 Nhờ AI Soạn Tự Động** hoặc **✍️ Soạn Thủ Công Tự Do**.
+* **Thẻ Kịch Bản (Script Card)**:
+  - **Badge Loại Kịch Bản**: Hiển thị nhãn `[AI]` (Màu xanh cyan) hoặc `[Thủ công]` (Màu vàng amber).
+  - **Tiêu đề & Ngày khởi tạo**: Hiển thị tên kịch bản và mốc thời gian local `vi-VN`.
+  - **Badge Tiến Trình Audio TTS**: Hiển thị tỷ lệ thoại đã sẵn sàng audio (VD: `5/5 câu ready`).
+  - **Nút ✏️ "Chỉnh Sửa"**: Chuyển sang màn hình biên tập kịch bản chi tiết (`view = 'edit'`).
+  - **Nút 🎙️ "Tạo Audio Hàng Loạt"**: Tự động gọi Gemini TTS tạo âm thanh nối tiếp cho các thoại chưa có tiếng.
+  - **Nút ▶️ "Phát Tất Cả (Playlist Player)"**: Phát âm thanh nối tiếp toàn kịch bản, hiển thị thanh tua thời gian real-time (Seek Slider).
+  - **Nút 🎥 "Dựng Video"**: Đưa kịch bản trực tiếp sang Studio Dựng Video (`childmodal=create-video&scriptid=xxx`).
+  - **Nút 🗑️ "Xóa Kịch Bản"**: Xóa kịch bản vĩnh viễn khỏi cơ sở dữ liệu PostgreSQL.
+
+#### C. Màn Hình 2: Form Biên Tập Kịch Bản Chi Tiết (View Mode = `'edit'`):
+* **1. Ô Nhập Tiêu Đề Kịch Bản (`input[type="text"]`)**:
+  - Cho phép sửa tên kịch bản (Tự động cắt bỏ các tiền tố `[AI]`, `[Thủ công]`).
+* **2. Ô Chọn Ngày & Giờ (`input[type="datetime-local"]`)**:
+  - Lựa chọn mốc thời gian hiển thị kịch bản.
+* **3. Bảng Công Cụ Gợi Ý AI (AiGeneratorPanel)**:
+  - **Textarea Chủ Đề Đàm Đạo**: Nhập bế tắc / chủ đề tâm lý (VD: *Nợ nần, bế tắc cuộc sống, áp lực gia đình*).
+  - **Dropdown Độ Dài Kịch Bản**: *Khoảng 3-5 câu (Ngắn), 6-10 câu (Vừa), 10-15 câu (Dài)*.
+  - **Dropdown Phong Cách Lão**: *Từ bi ôn hòa, Uy nghiêm dứt khoát, Thong dong tự tại, Ngắn gọn minh triết...*
+  - **Dropdown Diễn Biến Cảm Xúc Con**: *Từ đau khổ/bế tắc chuyển dần sang an lạc/bừng sáng*.
+  - **Checkbox Trích Dẫn 4 Câu Kệ Sư Cha Tam Vô**: Bắt buộc AI tìm và trích dẫn bài kệ phù hợp.
+  - **Nút "🤖 Nhờ AI Soạn Lại Kịch Bản"**: Gửi prompt chuẩn tới Gemini 2.5 Flash API.
+* **4. Bộ Cấu Hình Mẫu Giọng & Văn Phong TTS**:
+  - **Giọng Lão**: Dropdown chọn mẫu giọng Gemini Nam/Nữ (`Puck`, `Charon`, `Fenrir`...) + Input phong cách giọng Lão.
+  - **Giọng Con**: Dropdown chọn mẫu giọng Gemini Nam/Nữ (`Kore`, `Zephyr`, `Aoede`...) + Input phong cách giọng Con.
+* **5. Khung Văn Bản Thoại Gộp (`textarea`)**:
+  - Nhập và biên tập toàn bộ hội thoại dưới dạng văn bản thô:
+    ```text
+    Lão: [vui] Chào con, tâm con hôm nay thế nào?
+    Con: [buồn] Thưa Lão, con đang rất bế tắc...
+    Outro: [kết] Sư Cha Tam Vô đã khai thị.
+    ```
+  - **Hỗ trợ Phím Tắt `Ctrl + S`**: Bấm `Ctrl + S` để lưu kịch bản tức thì.
+* **6. Thanh Nút Chèn Nhanh Vai Trò & Tag Cảm Xúc**:
+  - Nút chèn vai: `Lão:`, `Con:`, `Outro:`.
+  - Nút chèn cảm xúc: `[vui]`, `[buồn]`, `[bình thường]`, `[intro]`, `[outtro]`.
+* **7. Danh Sách Khối Thoại Chi Tiết (Dialogue Blocks List)**:
+  - Phân tách từng câu thoại thành 1 ô điều khiển riêng biệt:
+    + Thẻ vai trò màu sắc: `Lão` (Cam), `Con` (Xanh), `Outro` (Tím).
+    + Dropdown chọn cảm xúc riêng cho câu thoại: *Bình thường, Vui vẻ, Buồn bế tắc, Mào đầu, Outro*.
+    + Textarea chỉnh sửa nội dung văn bản thoại inline.
+    + Nút 🎙️ **Tạo Audio Này**: Tạo/tái sinh âm thanh TTS cho câu thoại cụ thể.
+    + Nút ▶️ **Nghe Thử**: Phát file MP3 thoại vừa sinh.
+    + Nút 🗑️ **Xóa Dòng**: Xóa câu thoại khỏi danh sách.
+* **8. Thanh Chân Trang Form Biên Tập**:
+  - Nút **"💾 Lưu Kịch Bản"**: Lưu thay đổi vào PostgreSQL DB (`batchSaveScriptAction`).
+  - Nút **"🎵 Tải MP3 Hợp Nhất Đa Nhân Vật"**: Gọi API `/api/tts/multispeaker` tổng hợp 1 file MP3 hợp nhất toàn bộ thoại.
+  - Nút **"🎥 Chuyển Sang Studio Dựng Video"**: Đưa kịch bản sang Studio Dựng Video (`childmodal=create-video`).
 
 ---
 
@@ -162,39 +210,113 @@ Soạn thảo, quản lý và biên tập các kịch bản đàm đạo chuyên
 ## 6. MÀN HÌNH 6: STUDIO DỰNG VIDEO & KHO CẢNH QUAY (VideoCreatorModal.tsx)
 
 ### 📌 Mục đích:
-Ghép nối video clips, ghép thoại MP3, nhép miệng tự động và xuất video MP4 sắc nét 60FPS.
+Studio dựng video chuyên nghiệp, ghép nối video clips, khớp phụ đề, nhép miệng tự động 60FPS và quản lý Kho Cảnh Quay phân mục.
 
-### 🎨 Chi tiết Giao diện & Linh kiện UI:
+### 🎨 Chi tiết Giao diện & Linh kiện UI Cực Kỳ Chi Tiết:
 
-#### A. Studio Dựng Video (VideoCreatorModal.tsx):
-* **Tab 1: Cơ Bản**:
-  - Chọn tỷ lệ màn hình: **Ngang 16:9 (Youtube)** hoặc **Dọc 9:16 (Tiktok/Reels)**.
-  - Độ phân giải: **720p HD**, **1080p Full HD**, **4K**.
-  - Hiệu ứng chuyển cảnh: *Cắt cứng, Dip to Black, Flash White, Spirit Glow*.
-* **Tab 2: Thông Điệp & Phụ Đề**:
-  - Tùy chỉnh kích thước font chữ, màu sắc phụ đề và vị trí Y trên màn hình.
-  - Nhập tiêu đề Intro & nội dung Lời kết Outro.
-* **Tab 3: Lịch Sử Render**:
-  - Danh sách các video đã render thành công (Xem lại, Tải về, Xóa).
-* **Màn Hình Preview Video Canvas**:
-  - Xem trước tiến trình dựng video 60FPS thời gian thực.
-  - Nút **Tải Video MP4** & Nút **Chia Sẻ Mạng Xã Hội**.
+#### A. Studio Dựng Video Phim Pháp Bảo (VideoCreatorModal.tsx):
 
-#### B. Kho Cảnh Quay Video & Phân Mục (Library Picker Modal):
-* **Thanh Header & Nút Tải Clip**:
-  - Nút **"Nạp Thêm Clip Mới"**: Upload file video từ máy tính vào IndexedDB.
-* **Thanh Tiêu Đề Trung Tâm**:
-  - **Nút "⚡ Chọn Tất Cả (N clip)"**: Chọn nhanh toàn bộ clip đang hiển thị vào danh sách chờ.
-  - **Nút "🗑️ Bỏ Chọn (N clip)"**: Xóa danh sách chờ.
-* **Cột Phân Mục Trái**:
-  - Các phân mục mặc định: *Tất Cả Clip, Cảnh Lão Đàm Đạo, Cảnh Con Hỏi Đạo, Cảnh Outro*.
-  - **Chuyên Mục Tùy Chỉnh**:
-    + Nút ✏️ **Edit (Đổi tên chuyên mục)**: Mở Modal đổi tên chuyên mục (`z-[9999]`).
-    + Nút 🗑️ **Trash (Xóa chuyên mục)**: Xóa chuyên mục trực tiếp không bật alert trình duyệt.
-* **Card Video Clip (LibraryClipCard)**:
-  - **Dấu Check 🟢 (Góc trên trái)**: Tích chọn / Bỏ chọn từng clip trực tiếp trên thumbnail.
-  - Nút **"▶️ Xem thử"**: Phát video clip ngắn.
-  - Nút **"+ Thêm" / "✔ Đã Chọn"**: Thêm clip vào hàng chờ dựng.
+##### 1. Cột Trái: Bảng Điều Chỉnh Thông Số & Lịch Sử Render:
+* **Thanh Sub-Tab Điều Hướng**: *Cơ bản*, *Thông điệp & Phụ đề*, *📜 Lịch sử (N)*.
+
+* **Sub-Tab 1: Cơ Bản (Thiết lập Video & Clips)**:
+  - **Selector Tỷ Lệ Màn Hình (`videoAspectRatio`)**:
+    + `Ngang (16:9 Youtube)`: Tỉ lệ chuẩn màn hình ngang.
+    + `Dọc (9:16 Tiktok/Reels)`: Tỉ lệ chuẩn video ngắn dọc.
+  - **Selector Độ Phân Giải Output (`videoResolution`)**:
+    + `480p (Rất nhẹ)`
+    + `720p (HD tiêu chuẩn)`
+    + `1080p (Full HD - Mặc định)`
+    + `1440p (2K siêu nét)`
+    + `2160p (4K điện ảnh)`
+  - **Selector Định Dạng Tệp (`videoExt`)**: `MP4 (.mp4)` hoặc `WebM (.webm)`.
+  - **Selector Hiệu Ứng Chuyển Cảnh (`videoTransition`)**:
+    + `Cắt cứng (Cut - Mặc định)`
+    + `Mờ đen (Dip to Black)`
+    + `Chớp trắng (Flash White)`
+    + `Lóa sáng tâm linh (Spirit Glow)`
+    + `Ngẫu nhiên tự động`
+  - **Slider Thời Gian Kéo Dài Hiệu Ứng (`videoTransitionDuration`)**: Chỉnh từ `0.1s` đến `2.0s`.
+
+* **Nút Lệnh Thao Tác Cảnh Quay**:
+  - Nút **"✨ Chia cảnh theo thoại"**: Tự động ánh xạ từng câu thoại trong kịch bản thành 1 cảnh video riêng.
+  - Nút **"+ Thêm cảnh tự do"**: Tạo cảnh quay trống thủ công.
+  - Nút **"💾 Lưu Bộ Cảnh Này"**: Lưu cấu hình bộ cảnh quay vào cơ sở dữ liệu.
+  - Nút **"🗑️ Xóa tất cả cảnh"**: Xóa toàn bộ danh sách cảnh quay hiện tại.
+  - **Vùng Kéo Thả Upload Hàng Loạt (Batch Dropzone)**: Kéo thả nhiều file video clip từ máy tính (AI tự phân loại vai qua tên file: `lao_vui.mp4`, `con_buon.mp4`...).
+
+* **Sub-Tab 1.2: Logo & Nhạc Nền (Logo & Music)**:
+  - **Tải Lên Logo Thương Hiệu**: Nhập URL hoặc tải ảnh Logo đóng dấu bản quyền.
+  - **Vị Trí Đóng Dấu Logo**: *Top-Right, Top-Left, Bottom-Right, Bottom-Left, Custom (X%, Y%)*.
+  - **Toggle Logo Hình Tròn (Circular)** & **Slider Độ Mờ Opacity** (`0.1` đến `1.0`).
+  - **Selector Nhạc Nền Thiền Định**: Chọn nhạc thiền tĩnh tâm.
+  - **Slider Âm Lượng Nhạc Nền (`bgmVolume`)**: Căn chỉnh âm lượng nhạc nền không bị đè tiếng thoại.
+
+* **Sub-Tab 2: Thông Điệp & Phụ Đề**:
+  - **Tùy Chỉnh Phụ Đề**: Chọn Màu chữ phụ đề (Vàng, Trắng, Xanh...), Cỡ chữ (Scale `0.5x` đến `2.0x`) và Vị trí Y% hiển thị trên màn hình.
+  - **Thiết Lập Intro & Outro**:
+    + **Intro**: Nhập Tiêu đề Mở đầu & Subtitle Intro.
+    + **Outro**: Nhập Thông điệp Lời kết Outro cuối video.
+
+* **Sub-Tab 3: Lịch Sử Render**:
+  - Danh sách các video đã xuất bản thành công kèm thumbnail, ngày khởi tạo và dung lượng.
+  - Nút **"▶️ Xem"**: Phát video trực tiếp trên player.
+  - Nút **"💾 Tải Về"**: Tải tệp MP4 về máy tính.
+  - Nút **"🗑️ Xóa"**: Xóa video khỏi lịch sử render.
+
+##### 2. Cột Phải: Màn Hình Preview Render Canvas 60FPS:
+* **Khung Hình Live Preview Canvas**:
+  - Hiển thị video render 60FPS thời gian thực với công nghệ tách nền xanh Chroma-Key (Chroma Keying Engine).
+* **Nút Thao Tác Màn Hình Preview**:
+  - Nút **"💾 Tải Video MP4"**: Tải tệp phim MP4 vừa xuất.
+  - Nút **"🔵 Chia Sẻ"**: Chia sẻ video lên mạng xã hội.
+  - Nút **"Phóng To Toàn Màn Hình"**: Bật/tắt chế độ Fullscreen Preview (`isPreviewFullscreen`).
+
+---
+
+#### B. Kho Cảnh Quay Video & Phân Mục Tùy Chỉnh (Library Picker Modal):
+
+##### 1. Thanh Header & Nút Nạp Clip Mới:
+* Tiêu đề: *"Kho Cảnh Quay Video & Phân Mục"*.
+* Nút **"📥 Nạp Thêm Clip Mới"**: Chọn 1 hoặc nhiều tệp video từ máy tính để nạp trực tiếp vào IndexedDB trình duyệt.
+* Nút **`X` Đóng Modal**: Đóng Kho Cảnh Quay.
+
+##### 2. Thanh Tiêu Đề Trung Tâm & Thao Tác Hàng Loạt:
+* Hiển thị tổng số clip kết quả đang lọc.
+* **Nút "⚡ Chọn Tất Cả (N clip)"**: Tích chọn nhanh toàn bộ video clip đang hiển thị vào danh sách chờ dựng.
+* **Nút "🗑️ Bỏ Chọn (N clip)"**: Xóa toàn bộ danh sách clip đang chờ.
+
+##### 3. Cột Phân Mục Trái (Left Sidebar Categories):
+* **Phân Mục Mặc Định**:
+  - `📁 Tất Cả Clip`
+  - `🧘 Cảnh Lão Đàm Đạo`
+  - `👤 Cảnh Con Hỏi Đạo`
+  - `🎬 Cảnh Outro Kết Thúc`
+* **Chuyên Mục Tùy Chỉnh**:
+  - **Nút "+ Thêm Chuyên Mục Mới"**: Mở Modal nhập tên chuyên mục mới (`showAddCatModal`).
+  - **Danh Sách Chuyên Mục Tùy Chỉnh**:
+    + Nút ✏️ **Edit (Đổi Tên Chuyên Mục)**: Mở Modal đổi tên chuyên mục với `z-[9999]`.
+    + Nút 🗑️ **Trash (Xóa Chuyên Mục)**: Xóa chuyên mục trực tiếp không hiển thị alert trình duyệt.
+
+##### 4. Khung Tìm Kiếm & Phân Trang Clip:
+* **Ô Nhập Tìm Kiếm (`input[type="text"]`)**: Tìm kiếm video clip theo tên, nhân vật, cảm xúc hoặc phân mục.
+* **Selector Số Lượng Clip Trên Trang**: *5, 10, 25, 50, 100 clip/trang*.
+* **Nút Điều Hướng Phân Trang**: Nút **« Đầu**, **‹ Trước**, **Trang Hiện Tại / Tổng Trang**, **Sau ›**, **Cuối »**.
+
+##### 5. Danh Sách Card Video Clip (LibraryClipCard):
+* **Nút Check 🟢 (Góc Trên Trái Thumbnail)**:
+  - Tích chọn / Bỏ chọn từng clip cá nhân. Hiển thị viền xanh lá `border-emerald-500` và dấu check nổi bật khi được chọn.
+* **Thumbnail Video Snap Poster**: Chụp ảnh tĩnh JPEG snapshot khung hình video không gây lãng phí bộ nhớ RAM.
+* **Nút "▶️ Xem thử"**: Click thumbnail để phát thử video clip trong modal xem trước.
+* **Badge Vai Trò & Cảm Xúc**:
+  - Badge Vai trò: `Lão` (Màu cam), `Con` (Màu xanh), `Outro` (Màu tím).
+  - Badge Cảm xúc: `Vui Vẻ`, `Buồn Bế Tắc`, `Mào Đầu`, `Bình Thường`.
+* **Nút Lệnh Card**: Nút **"+ Thêm"** / **"✔ Đã Chọn"**.
+
+##### 6. Bảng Danh Sách Chờ Dựng Video (Staged Clips Sidebar - Cột Phải Kho):
+* Danh sách các clip đã chọn được xếp hàng theo thứ tự.
+* Nút **"✅ Xác Nhận Nạp N Clip Vào Kịch Bản"**: Nạp toàn bộ danh sách chờ vào kịch bản dựng video.
+* Nút **"❌ Hủy Bỏ"**: Hủy bỏ và đóng kho.
 
 ---
 
