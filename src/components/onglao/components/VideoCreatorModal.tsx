@@ -397,6 +397,33 @@ const VideoCreatorModal = (props?: any) => {
           .catch(err => console.error('Lỗi fetch character states:', err));
   }, []);
 
+  // Tự động nạp tin nhắn và file audio MP3 từ CSDL PostgreSQL theo scriptid trên URL
+  React.useEffect(() => {
+    if (!p.showVideoExportModal) return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetScriptId = urlParams.get('scriptid') || p.currentSessionId;
+    
+    if (targetScriptId) {
+      if (p.setCurrentSessionId && p.currentSessionId !== targetScriptId) {
+        p.setCurrentSessionId(targetScriptId);
+      }
+      
+      getChatMessagesAction(targetScriptId).then(res => {
+        if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
+          const mapped = res.data.map((m: any) => ({
+            id: m.id,
+            role: m.role.toLowerCase() === 'user' ? 'user' : (m.role.toLowerCase() === 'outro' ? 'outro' : 'ai'),
+            text: m.content,
+            audioUrl: m.audioUrl || null,
+            emotion: m.emotion || 'calm',
+            sessionId: targetScriptId
+          }));
+          p.updateCurrentMessages?.(mapped);
+        }
+      }).catch(err => console.error("Lỗi nạp tin nhắn kịch bản từ DB:", err));
+    }
+  }, [p.showVideoExportModal, p.currentSessionId]);
+
   // Tự động chia cảnh theo từng câu thoại khi mở modal (nếu chưa có scene gán message cụ thể)
   React.useEffect(() => {
     if (!p.showVideoExportModal) return;
