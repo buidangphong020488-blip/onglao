@@ -423,27 +423,27 @@ const VideoCreatorModal = (props?: any) => {
         if (lower.match(/vui|cười|hạnh phúc|tuyệt vời|thích|yêu|cảm ơn|biết ơn|tuyệt/)) return 'joy';
         return 'calm';
     };
-    const autoScenes = p.messages.map((m: any, idx: number) => {
-      let em = m.emotion;
-      if (!em || em === 'calm') em = detectEmotion(m.text);
-      const sceneId = `scene_msg_${m.id || idx}`;
-      const existing = p.ffScenes?.find((s: any) => s.id === sceneId || s.msgId === m.id);
-      if (existing) return existing;
-      const isOutroMsg = m.role === 'outro' || m.role === 'OUTRO' || (idx === p.messages.length - 1 && p.messages.length > 2 && (m.role === 'outro' || m.role === 'OUTRO'));
-      const targetRole = isOutroMsg ? 'outro' : (m.role === 'ai' || m.role === 'ASSISTANT' ? 'lao' : 'user');
-      return {
-          id: sceneId,
-          role: targetRole,
-          emotion: em,
-          url: null,
-          idbKey: null,
-          msgId: m.id,
-          textSnippet: m.text,
-      };
-    });
-    const isSame = p.ffScenes?.length === autoScenes.length && p.ffScenes.every((s: any, i: number) => s.id === autoScenes[i].id && s.url === autoScenes[i].url && s.role === autoScenes[i].role && s.emotion === autoScenes[i].emotion);
-    if (!isSame) {
+    if (!p.ffScenes || p.ffScenes.length === 0) {
+      if (!p.messages || p.messages.length === 0) return;
+      const autoScenes = p.messages.map((m: any, idx: number) => {
+        let em = m.emotion;
+        if (!em || em === 'calm') em = detectEmotion(m.text);
+        const sceneId = `scene_msg_${m.id || idx}`;
+        const isOutroMsg = m.role === 'outro' || m.role === 'OUTRO' || (idx === p.messages.length - 1 && p.messages.length > 2 && (m.role === 'outro' || m.role === 'OUTRO'));
+        const targetRole = isOutroMsg ? 'outro' : (m.role === 'ai' || m.role === 'ASSISTANT' ? 'lao' : 'user');
+        return {
+            id: sceneId,
+            role: targetRole,
+            emotion: em,
+            url: null,
+            idbKey: null,
+            msgId: m.id,
+            textSnippet: m.text,
+        };
+      });
+      if (autoScenes.length > 0) {
         p.setFfScenes(autoScenes);
+      }
     }
   }, [p.showVideoExportModal, p.messages, p.currentSessionId, dbCharacterStates, p.FULLFRAME_PACKS, p.localFfClips]); // eslint-disable-line react-hooks/exhaustive-deps
   const {
