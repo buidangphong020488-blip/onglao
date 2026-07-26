@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import ScriptModal from './ScriptModal';
-import { Sparkles, X, Users, Info, Loader2, Wand2, Volume2 } from 'lucide-react';
+import { Sparkles, X, Users, Info, Loader2, Wand2, Volume2, Home, ChevronLeft } from 'lucide-react';
 
 interface AiDirectorModalProps {
     show: boolean;
@@ -369,25 +369,45 @@ const AiDirectorModal = (p: AiDirectorModalProps) => {
     }
 
     return (
-        <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" onClick={() => !p.isGenerating && p.onClose()}>
-            <div className="bg-slate-900 border border-indigo-500/30 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
-                <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-800">
-                    <h2 className="font-black text-indigo-400 tracking-widest flex items-center gap-2"><Sparkles size={18}/> Đạo Diễn AI (Tối ưu đàm đạo)</h2>
-                    {!p.isGenerating && (
-                        <button 
-                            type="button" 
-                            onClick={(e) => { 
-                                e.stopPropagation(); 
-                                if (typeof p.onClose === 'function') p.onClose(); 
-                            }} 
-                            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer" 
-                            title="Đóng modal"
-                        >
-                            <X size={20}/>
-                        </button>
-                    )}
+        <div className="fixed inset-0 z-[150] bg-slate-950 flex flex-col w-full h-full min-h-screen overflow-hidden animate-in fade-in duration-300">
+            {/* Header Trang Fullscreen */}
+            <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-slate-900/90 backdrop-blur-md shrink-0 shadow-lg z-20">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl text-indigo-400">
+                        <Sparkles size={22} />
+                    </div>
+                    <div>
+                        <h1 className="font-black text-slate-100 tracking-wide text-base sm:text-lg">Tạo Kịch Bản Đạo Diễn AI</h1>
+                        <p className="text-xs text-slate-400">Cấu hình nhân vật, ngôn ngữ và phát sinh kịch bản đàm đạo bằng AI</p>
+                    </div>
                 </div>
-                <div className="p-6 flex flex-col gap-4 max-h-[75vh] overflow-y-auto scrollbar-hide">
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={() => {
+                            if (typeof p.onClose === 'function') p.onClose();
+                            window.location.href = '/?modal=ai-director';
+                        }} 
+                        className="px-3.5 py-2 bg-indigo-900/60 hover:bg-indigo-800 border border-indigo-500/30 text-indigo-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                        title="Quay lại Quản lý Kịch bản"
+                    >
+                        <ChevronLeft size={16} /> Quay lại Kịch bản
+                    </button>
+                    <button 
+                        onClick={() => {
+                            if (typeof p.onClose === 'function') p.onClose();
+                            window.location.href = '/';
+                        }} 
+                        className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                        title="Quay lại Thiền đường"
+                    >
+                        <Home size={15} /> Quay lại Thiền đường
+                    </button>
+                </div>
+            </div>
+
+            {/* Body Content - Fullscreen */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 flex flex-col max-w-5xl w-full mx-auto">
+                <div className="bg-slate-900/80 border border-indigo-500/20 rounded-3xl p-5 md:p-8 shadow-2xl backdrop-blur-xl flex-1 flex flex-col gap-6">
                     {/* Ngôn ngữ */}
                     <div className="flex flex-col gap-1.5">
                        <label className="text-xs font-bold text-slate-400">Ngôn ngữ kịch bản:</label>

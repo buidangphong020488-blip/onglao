@@ -3,7 +3,7 @@ import React, {
     useEffect, useState, useRef, useCallback, useMemo,
     useImperativeHandle, forwardRef,
 } from 'react';
-import { FileText, X, Check, Plus, Trash2 } from 'lucide-react';
+import { FileText, X, Check, Plus, Trash2, Home, ChevronLeft } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface ScriptBlock {
@@ -329,32 +329,61 @@ const ScriptModalInner = (
     if (asTab) return contentNode;
 
     return (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-slate-950 border border-white/10 rounded-2xl w-full max-w-3xl p-6 shadow-2xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
-                <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                    <div className="flex items-center gap-2 text-amber-400 font-bold text-lg">
-                        <FileText size={20} /> Chỉnh Sửa Kịch Bản Thoại
+        <div className="fixed inset-0 z-[160] bg-slate-950 flex flex-col w-full h-full min-h-screen overflow-hidden animate-in fade-in duration-300">
+            {/* Header Trang Fullscreen */}
+            <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-slate-900/90 backdrop-blur-md shrink-0 shadow-lg z-20">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-400">
+                        <FileText size={22} />
                     </div>
-                    <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
-                        <X size={20} />
+                    <div>
+                        <h1 className="font-black text-slate-100 tracking-wide text-base sm:text-lg">Biên Tập Kịch Bản Thoại Thủ Công</h1>
+                        <p className="text-xs text-slate-400">Chỉnh sửa từng block thoại, chọn cảm xúc nhân vật và xem kết quả</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={() => {
+                            onClose();
+                            window.location.href = '/?modal=ai-director';
+                        }} 
+                        className="px-3.5 py-2 bg-indigo-900/60 hover:bg-indigo-800 border border-indigo-500/30 text-indigo-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                        title="Quay lại Quản lý Kịch bản"
+                    >
+                        <ChevronLeft size={16} /> Quay lại Kịch bản
+                    </button>
+                    <button 
+                        onClick={() => {
+                            onClose();
+                            window.location.href = '/';
+                        }} 
+                        className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                        title="Quay lại Thiền đường"
+                    >
+                        <Home size={15} /> Quay lại Thiền đường
                     </button>
                 </div>
+            </div>
 
-                {contentNode}
+            {/* Body Content - Fullscreen */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 flex flex-col max-w-5xl w-full mx-auto">
+                <div className="bg-slate-900/80 border border-amber-500/20 rounded-3xl p-5 md:p-8 shadow-2xl backdrop-blur-xl flex-1 flex flex-col gap-6">
+                    {contentNode}
 
-                <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
-                    <button
-                        onClick={onClose}
-                        className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:bg-white/5 transition-colors"
-                    >
-                        Hủy
-                    </button>
-                    <button
-                        onClick={handleSave}
-                        className="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-xl text-xs shadow-lg transition-all flex items-center gap-1.5"
-                    >
-                        <Check size={14} /> Lưu & Áp Dụng
-                    </button>
+                    <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10 mt-auto">
+                        <button
+                            onClick={onClose}
+                            className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:bg-white/5 transition-colors cursor-pointer"
+                        >
+                            Hủy
+                        </button>
+                        <button
+                            onClick={handleSave}
+                            className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-xl text-xs shadow-lg transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                            <Check size={14} /> Lưu & Áp Dụng
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
