@@ -879,18 +879,30 @@ const VideoCreatorModal = (props?: any) => {
   if (!p.showVideoExportModal && !p.show) return null;
 
   return (
-         <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-md flex justify-center items-center p-4 md:p-6">
-           <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-7xl shadow-2xl flex flex-col h-[92vh] md:h-[88vh] overflow-hidden">
-              <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-800 shrink-0">
-                <div className="flex items-center gap-3">
-                  <a href="/" className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-200 hover:text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm">
-                    <ChevronLeft size={14} /> Quay lại Thiền đường
-                  </a>
-                  <h2 className="font-black text-orange-400 tracking-widest flex items-center gap-2"><Film size={18}/> Xuất video pháp bảo</h2>
-                </div>
-                <a href="/" className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors" title="Quay lại Thiền đường"><X size={22}/></a>
-              </div>
-              <div className="flex flex-col md:flex-row gap-6 p-4 md:p-6 flex-1 min-h-0">
+    <div className="fixed inset-0 z-[200] bg-slate-950 flex flex-col w-full h-full min-h-screen overflow-hidden animate-in fade-in duration-300">
+      {/* Header Trang Xuất Video (Fullscreen Page) */}
+      <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-slate-900/90 backdrop-blur-md shrink-0 shadow-lg z-20">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-orange-500/10 border border-orange-500/25 rounded-2xl text-orange-400">
+            <Film size={22} />
+          </div>
+          <div>
+            <h1 className="font-black text-slate-100 tracking-wide text-base sm:text-lg">Xuất Video Pháp Bảo</h1>
+            <p className="text-xs text-slate-400">Cắt ghép cảnh quay, nhạc nền, mào đầu và xuất video pháp bảo</p>
+          </div>
+        </div>
+        <a 
+          href="/" 
+          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-md cursor-pointer"
+          title="Quay lại Thiền đường"
+        >
+          <ChevronLeft size={16} /> Quay lại Thiền đường
+        </a>
+      </div>
+
+      {/* Main Page Body */}
+      <div className="flex-1 overflow-hidden p-4 md:p-6 flex flex-col max-w-7xl w-full mx-auto">
+        <div className="flex flex-col md:flex-row gap-6 p-4 md:p-6 flex-1 min-h-0 bg-slate-900/80 border border-white/10 rounded-3xl shadow-2xl backdrop-blur-xl">
                  {/* BÊN TRÁI: BẢNG ĐIỀU CHỈNH THÔNG SỐ & LỊCH SỬ RENDER */}
                  <div className={`w-full md:w-1/2 flex flex-col gap-4 overflow-y-auto pb-4 pr-3 scrollbar-thin scrollbar-thumb-slate-700 h-full ${isPreviewFullscreen ? 'hidden md:flex opacity-0 pointer-events-none' : ''}`}>
                     <div className="flex border-b border-white/10 mb-2 shrink-0 overflow-x-auto scrollbar-hide">
