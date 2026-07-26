@@ -236,36 +236,6 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
   const audioQueueRef = React.useRef<Array<{ audioUrl: string; msgId: string }>>([]);
   const isPlayingQueueRef = React.useRef(false);
 
-  const tryWebAudio = React.useCallback(async (audioUrl: string, onFinish: () => void) => {
-    try {
-      if (typeof window === 'undefined' || !audioUrl) return onFinish();
-      if (!audioCtxRef.current) {
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-        audioCtxRef.current = new AudioCtx();
-      }
-      const ctx = audioCtxRef.current;
-      if (ctx.state === 'suspended') {
-        await ctx.resume().catch(() => {});
-      }
-      const response = await fetch(audioUrl).catch(() => null);
-      if (!response || !response.ok) return onFinish();
-      const contentType = response.headers.get('content-type') || '';
-      if (contentType.includes('json') || contentType.includes('html')) return onFinish();
-      const arrayBuffer = await response.arrayBuffer().catch(() => null);
-      if (!arrayBuffer || arrayBuffer.byteLength < 100) return onFinish();
-      const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0)).catch(() => null);
-      if (!audioBuffer) return onFinish();
-      const source = ctx.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(ctx.destination);
-      source.onended = onFinish;
-      source.start(0);
-    } catch (e) {
-      console.log('WebAudio API fallback handled gracefully:', e);
-      onFinish();
-    }
-  }, []);
-
   const playAudioWithWebAudioFallback = React.useCallback(async (audioUrl: string, msgId: string, onFinish: () => void) => {
     if (!audioUrl || typeof audioUrl !== 'string' || !audioUrl.trim()) {
       onFinish();
@@ -297,21 +267,20 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
       activeAudioRef.current = audio;
       audio.onended = finishOnce;
       audio.onerror = () => {
-        tryWebAudio(audioUrl, finishOnce);
+        // Chỉ phát audio có tệp thực tế trên ổ cứng — không fallback sang bất kỳ cơ chế nào khác
+        finishOnce();
       };
 
       const p = audio.play();
       if (p !== undefined) {
-        await p.catch((err) => {
-          console.log('HTML5 Audio play handled with WebAudio API fallback:', err?.message || err);
-          tryWebAudio(audioUrl, finishOnce);
+        await p.catch(() => {
+          finishOnce();
         });
       }
     } catch (err) {
-      console.log('HTML5 Audio play handled with WebAudio API fallback:', err);
-      tryWebAudio(audioUrl, finishOnce);
+      finishOnce();
     }
-  }, [tryWebAudio]);
+  }, []);
 
   const processAudioQueue = React.useCallback(async () => {
     if (isPlayingQueueRef.current || audioQueueRef.current.length === 0) return;
