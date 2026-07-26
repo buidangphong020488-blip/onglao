@@ -46,13 +46,24 @@ OngLao.zip
 # Large database dumps
 /docs/160-mao-dau.json
 
-# Data folder
+# Data folder & heavy media
+/data/
 /data
 /backup/
 /scratch/
 /public/test_screenshots/
 /public/uploads/
+/public/data/
+/public/video/
+/public/audio/
+/public/canhquay/
+/uploads/
 
 # Media files
 *.wav
 *.mp4
+*.webm
+*.mov
+*.m4v
+*.avi
+*.mkv
