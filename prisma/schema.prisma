@@ -89,6 +89,7 @@ model ChatSession {
   userVoice      String?
   userVoiceStyle String?
   type           String        @default("chat")
+  videoConfig    Json?
   messages       ChatMessage[]
   user           User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -188,6 +189,7 @@ model RenderHistory {
   thumbnailUrl String?
   duration     Float?
   aspectRatio  String?  @default("16:9")
+  sessionId    String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }

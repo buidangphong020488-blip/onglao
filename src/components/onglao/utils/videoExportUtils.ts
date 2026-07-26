@@ -167,6 +167,7 @@ export const combineWavs = async (items: any[]) => {
       text: metadata[i].text,
       emotion: metadata[i].emotion || 'calm',
       msgId: metadata[i].msgId,
+      duration: durationSec,
       start: timeOffset,
       end: timeOffset + durationSec
     });

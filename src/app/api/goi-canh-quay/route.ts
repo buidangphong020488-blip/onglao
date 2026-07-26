@@ -3,9 +3,25 @@ import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
-// GET — Lay danh sach Goi Canh Quay tu PostgreSQL DB
-export async function GET() {
+// GET — Lấy danh sách Gói Cảnh Quay hoặc 1 gói cụ thể theo name/id từ PostgreSQL DB
+export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const name = searchParams.get('name');
+    const id = searchParams.get('id');
+
+    if (name || id) {
+      const pack = await prisma.goiCanhQuay.findFirst({
+        where: {
+          OR: [
+            ...(name ? [{ name }] : []),
+            ...(id ? [{ id }] : []),
+          ],
+        },
+      });
+      return NextResponse.json({ success: true, pack });
+    }
+
     const list = await prisma.goiCanhQuay.findMany({
       orderBy: { createdAt: 'desc' },
     });

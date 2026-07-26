@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import fs from 'fs';
+import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +25,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: 'Invalid payload' }, { status: 400 });
     }
 
-    const item = await prisma.renderHistory.upsert({
+    const item = await (prisma.renderHistory as any).upsert({
       where: { id: String(body.id || `rh_${Date.now()}`) },
       update: {
         title: body.title || undefined,
@@ -31,6 +33,7 @@ export async function POST(req: Request) {
         thumbnailUrl: body.thumbnailUrl || body.poster || undefined,
         duration: body.duration ? Number(body.duration) : undefined,
         aspectRatio: body.aspectRatio || body.aspect || undefined,
+        sessionId: body.sessionId || undefined,
       },
       create: {
         id: String(body.id || `rh_${Date.now()}`),
@@ -39,6 +42,7 @@ export async function POST(req: Request) {
         thumbnailUrl: body.thumbnailUrl || body.poster || undefined,
         duration: body.duration ? Number(body.duration) : undefined,
         aspectRatio: body.aspectRatio || body.aspect || undefined,
+        sessionId: body.sessionId || undefined,
       },
     });
 
@@ -60,6 +64,17 @@ export async function DELETE(req: Request) {
     const id = searchParams.get('id');
     if (!id) {
       return NextResponse.json({ success: false, message: 'Missing id' }, { status: 400 });
+    }
+
+    const item = await prisma.renderHistory.findUnique({ where: { id } }).catch(() => null);
+    if (item && item.videoUrl && item.videoUrl.startsWith('/exports/')) {
+      try {
+        const cleanUrl = item.videoUrl.replace(/^\/+/, '');
+        const diskPath = path.join(process.cwd(), 'public', cleanUrl);
+        if (fs.existsSync(diskPath)) {
+          fs.unlinkSync(diskPath);
+        }
+      } catch (e) {}
     }
 
     await prisma.renderHistory.deleteMany({

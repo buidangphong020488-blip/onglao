@@ -52,6 +52,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (!laoVoice || !laoVoice.trim() || !userVoice || !userVoice.trim()) {
+      return NextResponse.json({ message: 'Chưa chọn Giọng đọc cho Lão hoặc Con. Vui lòng mở Cấu hình kịch bản để chọn giọng.' }, { status: 400 });
+    }
+
     const ai = new GoogleGenAI({ apiKey });
     
     const config = {
@@ -60,8 +64,8 @@ export async function POST(req: NextRequest) {
       speechConfig: {
         multiSpeakerVoiceConfig: {
           speakerVoiceConfigs: [
-            { speaker: laoName || 'Lão', voiceConfig: { prebuiltVoiceConfig: { voiceName: laoVoice || 'Algieba' } } },
-            { speaker: userName || 'Con', voiceConfig: { prebuiltVoiceConfig: { voiceName: userVoice || 'Aoede' } } },
+            { speaker: laoName || 'Lão', voiceConfig: { prebuiltVoiceConfig: { voiceName: laoVoice } } },
+            { speaker: userName || 'Con', voiceConfig: { prebuiltVoiceConfig: { voiceName: userVoice } } },
           ]
         },
       },

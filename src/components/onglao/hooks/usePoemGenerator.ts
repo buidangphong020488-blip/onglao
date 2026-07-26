@@ -189,7 +189,7 @@ export const usePoemGenerator = ({
 
       let dbClone = JSON.parse(JSON.stringify(poemDatabase)); 
 
-      const voiceName = "Algieba";
+      const voiceName = laoVoiceName || "";
       const promptPrefix = appLanguage === 'Tiếng Việt' 
           ? "Giọng ấm áp, nhẹ nhàng, diễn giải từ tốn, miền nam việt nam, đúng chính tả, ngắt nhịp rõ ràng giữa các câu: " 
           : `Read slowly, gently explain, pause between lines, warm voice in ${appLanguage}: `;

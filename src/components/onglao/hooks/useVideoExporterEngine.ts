@@ -716,12 +716,12 @@ export const useVideoExporterEngine = ({
 
             const meta = combinedAudioMetadata[i];
 
-            let segDuration = meta.duration || (meta.end && meta.start ? (meta.end - meta.start) : 0) || (meta.durationMs ? meta.durationMs / 1000 : 0);
+            let segDuration = Number(meta.duration) || (typeof meta.end === 'number' && typeof meta.start === 'number' ? (meta.end - meta.start) : 0) || (meta.durationMs ? meta.durationMs / 1000 : 0);
             if (!segDuration || segDuration <= 0) {
-              segDuration = 3.5;
+              segDuration = 4.0;
             }
-            // Thêm 0.2s padding an toàn vào cuối mỗi đoạn thoại để đảm bảo âm thanh nói xong trọn vẹn 100% rồi mới chuyển cảnh
-            segDuration = Math.round((segDuration + 0.2) * 100) / 100;
+            // Thêm 0.5s padding an toàn vào cuối mỗi đoạn thoại để đảm bảo âm thanh nói xong trọn vẹn 100% mới chuyển cảnh
+            segDuration = Math.round((segDuration + 0.5) * 100) / 100;
 
             let matchedScene = ffScenesRef.current.find((s: any) => s.msgId === meta.msgId || s.id.endsWith(`_${meta.msgId}`));
 
@@ -807,16 +807,23 @@ export const useVideoExporterEngine = ({
     return null;
   };
 
+            const isServerUrl = (url: string | null | undefined): boolean => {
+              if (!url) return false;
+              if (url.startsWith('idb://') || url.startsWith('blob:')) return false;
+              if (url.startsWith('/') || url.startsWith('http://') || url.startsWith('https://')) return true;
+              return false;
+            };
+
             // Chỉ upload blob nếu clip đến từ IndexedDB (file upload từ máy người dùng)
             // Clip từ /uploads/... trên server → truyền path cho FFmpeg tự đọc, không fetch về browser
-            const isIdbClip = matchedScene?.idbKey || clipUrl?.startsWith('idb://') || clipUrl?.startsWith('blob:');
+            const isIdbClip = !isServerUrl(clipUrl) && Boolean(clipUrl?.startsWith('idb://') || clipUrl?.startsWith('blob:'));
             if (isIdbClip) {
               blobToConvert = await getBlobWithPhysicalAndIdbFallbacks(clipUrl, matchedScene?.idbKey);
               if (blobToConvert) {
                 formData.append(`clip_${i}`, blobToConvert, `clip_${i}.mp4`);
               }
             }
-            // Nếu không phải IDB → truyền URL path để FFmpeg server đọc trực tiếp từ ổ cứng
+            // Nếu là server clip → truyền URL path để FFmpeg server đọc trực tiếp từ ổ cứng
 
             scenesList.push({
 
@@ -826,7 +833,9 @@ export const useVideoExporterEngine = ({
 
               url: clipUrl,
 
-              duration: segDuration
+              duration: segDuration,
+
+              textSnippet: meta.text || matchedScene?.textSnippet || matchedScene?.text || ''
 
             });
 
@@ -838,42 +847,24 @@ export const useVideoExporterEngine = ({
 
           let clipUrl = firstScene?.url || '';
 
-          let blobToConvert: Blob | null = null;
+          const isServerUrl = (url: string | null | undefined): boolean => {
+            if (!url) return false;
+            if (url.startsWith('idb://') || url.startsWith('blob:')) return false;
+            if (url.startsWith('/') || url.startsWith('http://') || url.startsWith('https://')) return true;
+            return false;
+          };
 
-          if (firstScene?.idbKey) {
-
-            try { blobToConvert = await idb.get(firstScene.idbKey); } catch (e) {}
-
-          }
-
-          if (!blobToConvert && clipUrl.startsWith('idb://')) {
-
-            try { blobToConvert = await idb.get(clipUrl.replace('idb://', '')); } catch (e) {}
-
-          }
-
-          if (!blobToConvert && clipUrl) {
-
-            try {
-
-              const fetchTarget = (clipUrl.startsWith('http') || clipUrl.startsWith('blob:'))
-
-                ? clipUrl 
-
-                : (clipUrl.startsWith('/') ? window.location.origin + clipUrl : window.location.origin + '/' + clipUrl);
-
-              const vRes = await fetch(fetchTarget);
-
-              if (vRes.ok) blobToConvert = await vRes.blob();
-
-            } catch (e) {}
-
-          }
-
-          if (blobToConvert) {
-
-            formData.append('clip_0', blobToConvert, 'clip_0.mp4');
-
+          const isIdbClip = !isServerUrl(clipUrl) && Boolean(clipUrl?.startsWith('idb://') || clipUrl?.startsWith('blob:'));
+          if (isIdbClip) {
+            if (firstScene?.idbKey) {
+              try { blobToConvert = await idb.get(firstScene.idbKey); } catch (e) {}
+            }
+            if (!blobToConvert && clipUrl.startsWith('idb://')) {
+              try { blobToConvert = await idb.get(clipUrl.replace('idb://', '')); } catch (e) {}
+            }
+            if (blobToConvert) {
+              formData.append('clip_0', blobToConvert, 'clip_0.mp4');
+            }
           }
 
           scenesList.push({
@@ -891,100 +882,117 @@ export const useVideoExporterEngine = ({
         }
 
         formData.append('metadata', JSON.stringify({
-
           scenes: scenesList,
-
+          sessionId: currentSessionId || p.currentSessionId || null,
+          title: introTitle || 'Video Pháp Bảo',
           bgmVolume: bgmVolume !== undefined ? bgmVolume : 0.15,
-
-          resolution: videoResolution,
-
-          aspectRatio: videoAspectRatio,
-
-          format: videoExt || 'mp4'
-
+          resolution: videoResolution || '1080',
+          aspectRatio: videoAspectRatio || '16x9',
+          format: videoExt || 'mp4',
+          transition: videoTransition || 'none',
+          transitionDuration: videoTransitionDuration || 0.5,
+          enableIntro: enableIntro ?? true,
+          introTitle: introTitle || '',
+          introSubtitle: introSubtitle || '',
+          enableOutroText: enableOutroText ?? true,
+          outroText: outroText || '',
+          subtitleSentenceCount: subtitleSentenceCount || 1,
+          subtitleColor: subtitleColor || '#ffffff',
+          subtitleYPos: subtitleYPos || 80,
+          subtitleScale: subtitleScale || 1.0,
+          logoData: logoData || null,
+          logoSettings: logoSettings || null,
+          bgmAudioData: bgmAudioData || null
         }));
 
-        let hasAnyClips = false;
+        // Kiểm tra xem có scenes hợp lệ để render không (blob clip hoặc server URL đều được)
+        const hasAnyBlobClips = scenesList.some((_: any, idx: number) => formData.has(`clip_${idx}`));
+        const hasAnyServerUrlClips = scenesList.some((s: any) => s.url && (s.url.startsWith('/') || s.url.startsWith('http')));
 
-        for (const pair of (formData as any).entries()) {
-
-          if (pair[0].startsWith('clip_')) {
-
-            hasAnyClips = true;
-
-            break;
-
-          }
-
+        if (!hasAnyBlobClips && !hasAnyServerUrlClips) {
+          showToastMsg('Không có đoạn video clip nào để render. Lão hãy chọn Kho Cảnh Quay trước!', 'error', 8000);
+          setIsExportingVideo(false);
+          setIsPreparingVideoData(false);
+          return;
         }
 
-        if (hasAnyClips) {
+        // Gọi FFmpeg API — server tự khởi chạy background task ngầm và trả về taskId trong 0.05s
+        console.log('[Render] scenesList:', JSON.stringify(scenesList.map((s: any) => ({ url: s.url, duration: s.duration, role: s.role })), null, 2));
+        console.log('[Render] hasAnyBlobClips:', hasAnyBlobClips, '| hasAnyServerUrlClips:', hasAnyServerUrlClips);
+        const res = await fetch('/api/export-video-ffmpeg', {
+          method: 'POST',
+          body: formData
+        });
 
-          const res = await fetch('/api/export-video-ffmpeg', {
+        const resData = await res.json().catch(() => ({}));
+        if (res.ok && resData.success && resData.taskId) {
+          const taskId = resData.taskId;
+          showToastMsg('⚡ Đã khởi tạo tác vụ Render ngầm thành công! Server đang xử lý video ngầm...', 'info', 5000);
 
-            method: 'POST',
+          if (setExportTab) setExportTab('history');
 
-            body: formData
+          // Polling nạp lịch sử Render từ DB đến khi video ngầm hoàn tất
+          const pollStartTime = Date.now();
+          let progressCounter = 10;
+          setExportProgressPercent(progressCounter);
+          setExportProgressStatus('Server đang khởi tạo và thu hình các phân cảnh...');
 
-          });
+          const pollInterval = setInterval(async () => {
+            progressCounter = Math.min(95, progressCounter + 6);
+            setExportProgressPercent(progressCounter);
+            if (progressCounter < 35) {
+              setExportProgressStatus('Server đang ghép các phân cảnh và nhép môi nhân vật...');
+            } else if (progressCounter < 75) {
+              setExportProgressStatus('Server đang gộp âm thanh thoại, nhạc nền và tạo phụ đề tự động...');
+            } else {
+              setExportProgressStatus('Server đang đóng gói video chất lượng cao và hoàn tất xuất file...');
+            }
 
-          if (res.ok) {
+            try {
+              const historyRes = await fetch('/api/render-history');
+              const historyJson = await historyRes.json();
+              if (historyJson.success && historyJson.data) {
+                if (typeof setRenderHistory === 'function') {
+                  setRenderHistory(historyJson.data);
+                }
 
-            const serverVideoUrlHeader = res.headers.get('X-Video-Url');
+                const match = historyJson.data.find((item: any) => item.id === taskId);
+                if (match && match.videoUrl && match.videoUrl !== 'PROCESSING') {
+                  clearInterval(pollInterval);
+                  setExportProgressPercent(100);
+                  setExportProgressStatus('🎉 Render video ngầm hoàn tất thành công!');
 
-            const serverFilenameHeader = res.headers.get('X-Video-Filename');
+                  if (match.videoUrl.startsWith('ERROR:')) {
+                    showToastMsg('Lỗi khi render: ' + match.videoUrl.replace('ERROR: ', ''), 'error', 10000);
+                  } else {
+                    setRenderedVideoUrl(match.videoUrl);
+                    if (typeof window !== 'undefined') {
+                      const url = new URL(window.location.href);
+                      url.searchParams.set('videoid', match.id);
+                      window.history.replaceState(null, '', url.toString());
+                    }
+                    showToastMsg('🎉 Render video ngầm hoàn tất thành công!', 'success', 6000);
+                  }
 
-            const exportedBlob = await res.blob();
-
-            const localBlobUrl = URL.createObjectURL(exportedBlob);
-            const videoUrl = serverVideoUrlHeader || localBlobUrl;
-
-            setRenderedVideoBlob(exportedBlob);
-            setRenderedVideoUrl(localBlobUrl);
-
-            if (saveRenderHistoryItem) {
-
-              const vidId = saveRenderHistoryItem(exportedBlob, videoUrl, serverFilenameHeader || undefined);
-
-              if (vidId && typeof window !== 'undefined') {
-
-                const url = new URL(window.location.href);
-
-                url.searchParams.set('videoid', vidId);
-
-                window.history.replaceState(null, '', url.toString());
-
+                  setTimeout(() => {
+                    setIsExportingVideo(false);
+                    setIsPreparingVideoData(false);
+                  }, 500);
+                }
               }
+            } catch (e) {}
 
+            if (Date.now() - pollStartTime > 300000) { // Timeout 5 phút
+              clearInterval(pollInterval);
+              setIsExportingVideo(false);
+              setIsPreparingVideoData(false);
             }
+          }, 2000);
 
-            if (setExportTab) setExportTab('history');
-
-            setIsExportingVideo(false);
-
-            setIsPreparingVideoData(false);
-
-            releaseExportRAM();
-
-            showToastMsg('🎉 Đã render xong video bằng FFmpeg Engine! Video mượt 100% không giật!', 'success', 5000);
-
-            return;
-
-          } else {
-            const errText = await res.text().catch(() => '');
-            let msg = `Lỗi từ Server FFmpeg (${res.status})`;
-            if (res.status === 413) {
-              msg = 'Lỗi HTTP 413 (Payload Too Large): Dung lượng upload quá lớn. Lão hãy mở aaPanel -> Nginx config và thêm "client_max_body_size 500M;".';
-            } else if (errText) {
-              msg += `: ${errText.slice(0, 150)}`;
-            }
-            showToastMsg(msg, 'error', 10000);
-            setIsExportingVideo(false);
-            setIsPreparingVideoData(false);
-            return;
-          }
+          return;
         } else {
-          showToastMsg('Không có đoạn video clip nào để render bằng FFmpeg. Lão hãy bấm chọn lại Kho Cảnh Quay.', 'error', 8000);
+          const msg = resData.message || `Lỗi từ Server FFmpeg (${res.status})`;
+          showToastMsg(msg, 'error', 10000);
           setIsExportingVideo(false);
           setIsPreparingVideoData(false);
           return;

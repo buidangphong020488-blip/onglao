@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, X, Pencil, Trash2, Plus, Play, Pause, Music, Loader2, Save, RefreshCw, ChevronLeft, ChevronRight, ArrowRight, Volume2, Film, Mic, Info, Video, Layers } from 'lucide-react';
+import { Sparkles, X, Pencil, Trash2, Plus, Play, Pause, Music, Loader2, Save, RefreshCw, ChevronLeft, ChevronRight, ArrowRight, Volume2, Film, Mic, Info, Video, Layers, CheckCircle2 } from 'lucide-react';
 import AiDirectorModal from './AiDirectorModal';
 import ScriptModal, { ScriptModalHandle } from './ScriptModal';
 import {
@@ -102,17 +102,38 @@ const AiDirectorManagerModal = (props: any) => {
     // Từ điển Trạng thái Nhân vật động từ Database (Admin Panel)
     const [dynamicCharacterStates, setDynamicCharacterStates] = useState<{ id: string; name: string }[]>([]);
 
+    // Tải & Theo dõi trạng thái Video Render Ngầm (Processing / Completed) cho từng kịch bản
+    const [renderHistoryList, setRenderHistoryList] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (!isVisible) return;
+        const fetchHistory = () => {
+            fetch('/api/render-history')
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success && d.data) setRenderHistoryList(d.data);
+                })
+                .catch(() => {});
+        };
+        fetchHistory();
+        const timer = setInterval(fetchHistory, 3000);
+        return () => clearInterval(timer);
+    }, [isVisible]);
+
     const handleCloseModal = () => {
         if (typeof window !== 'undefined') {
             const url = new URL(window.location.href);
             url.searchParams.delete('modal');
             url.searchParams.delete('scriptid');
+            url.searchParams.delete('childmodal');
+            url.searchParams.delete('videoid');
             url.searchParams.delete('action');
             url.searchParams.delete('id');
             url.searchParams.delete('type');
             url.searchParams.delete('slug');
             const cleanUrl = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '');
             window.history.replaceState(null, '', cleanUrl);
+            window.location.href = '/';
         }
         if (typeof props.onClose === 'function') props.onClose();
         if (typeof p.onClose === 'function') p.onClose();
@@ -372,9 +393,9 @@ const AiDirectorManagerModal = (props: any) => {
     const [itemsPerPage, setItemsPerPage] = useState(5);
     const [editingTitle, setEditingTitle] = useState('');
     const [editingDate, setEditingDate] = useState('');
-    const [editingLaoVoice, setEditingLaoVoice] = useState('Algieba');
+    const [editingLaoVoice, setEditingLaoVoice] = useState(p.laoVoice || '');
     const [editingLaoVoiceStyle, setEditingLaoVoiceStyle] = useState('');
-    const [editingUserVoice, setEditingUserVoice] = useState('Aoede');
+    const [editingUserVoice, setEditingUserVoice] = useState(p.userVoice || '');
     const [editingUserVoiceStyle, setEditingUserVoiceStyle] = useState('');
     const [showVoiceSettings, setShowVoiceSettings] = useState(true);
     const [showAiParams, setShowAiParams] = useState(true);
@@ -431,9 +452,9 @@ const AiDirectorManagerModal = (props: any) => {
     const handleStartEdit = async (script: any) => {
         setSelectedScript(script);
         setEditingTitle(script.title.replace(/^(\[AI\]|\[Thủ công\])?\s*/i, '').trim());
-        setEditingLaoVoice(script.laoVoice || p.laoVoice || 'Algieba');
+        setEditingLaoVoice(script.laoVoice || p.laoVoice || '');
         setEditingLaoVoiceStyle(script.laoVoiceStyle || p.laoVoiceStyle || 'Giọng ấm áp, mạnh mẽ, dứt khoát, miền nam việt nam, đúng chính tả, ngắt nhịp rõ ràng giữa các câu');
-        setEditingUserVoice(script.userVoice || p.userVoice || 'Aoede');
+        setEditingUserVoice(script.userVoice || p.userVoice || '');
         setEditingUserVoiceStyle(script.userVoiceStyle || p.userVoiceStyle || 'giọng thanh niên, phong cách đọc tỏ vẻ rối rắm, thắc mắc, chuẩn giọng miền Nam Việt Nam, đúng chính tả');
         setShowVoiceSettings(true);
         setShowAiParams(true);
@@ -973,9 +994,9 @@ const AiDirectorManagerModal = (props: any) => {
         setEditingMessages([]);
         setEditingRawText('');
         setEditingTitle('');
-        setEditingLaoVoice(p.laoVoice || 'Algieba');
+        setEditingLaoVoice(p.laoVoice || '');
         setEditingLaoVoiceStyle(p.laoVoiceStyle || 'Giọng ấm áp, mạnh mẽ, dứt khoát, miền nam việt nam, đúng chính tả, ngắt nhịp rõ ràng giữa các câu');
-        setEditingUserVoice(p.userVoice || 'Aoede');
+        setEditingUserVoice(p.userVoice || '');
         setEditingUserVoiceStyle(p.userVoiceStyle || 'giọng thanh niên, phong cách đọc tỏ vẻ rối rắm, thắc mắc, chuẩn giọng miền Nam Việt Nam, đúng chính tả');
         p.setCustomUserName?.('Con');
         p.setCustomLaoName?.('Lão');
@@ -1009,9 +1030,9 @@ const AiDirectorManagerModal = (props: any) => {
         setEditingMessages([]);
         setEditingRawText('');
         setEditingTitle('');
-        setEditingLaoVoice(p.laoVoice || 'Algieba');
+        setEditingLaoVoice(p.laoVoice || '');
         setEditingLaoVoiceStyle(p.laoVoiceStyle || 'Giọng ấm áp, mạnh mẽ, dứt khoát, miền nam việt nam, đúng chính tả, ngắt nhịp rõ ràng giữa các câu');
-        setEditingUserVoice(p.userVoice || 'Aoede');
+        setEditingUserVoice(p.userVoice || '');
         setEditingUserVoiceStyle(p.userVoiceStyle || 'giọng thanh niên, phong cách đọc tỏ vẻ rối rắm, thắc mắc, chuẩn giọng miền Nam Việt Nam, đúng chính tả');
         p.setCustomUserName?.('Con');
         p.setCustomLaoName?.('L\u00e3o');
@@ -1095,9 +1116,22 @@ const AiDirectorManagerModal = (props: any) => {
                 await handleSaveScript(false);
             }
             toast(`🎙️ Đang tạo audio thoại câu số ${index + 1}...`, 'loading');
-            const targetRole = msg.role === 'ai' ? 'ai' : 'user';
-            const targetVoice = targetRole === 'ai' ? (editingLaoVoice || p.laoVoice || 'Algieba') : (editingUserVoice || p.userVoice || 'Aoede');
-            const targetStyle = targetRole === 'ai' ? (editingLaoVoiceStyle || p.laoVoiceStyle || '') : (editingUserVoiceStyle || p.userVoiceStyle || '');
+            const isLaoRole = msg.role === 'ai' || msg.role === 'assistant' || msg.role === 'LAO';
+            const targetRole = isLaoRole ? 'ai' : 'user';
+            const targetVoice = isLaoRole 
+              ? (editingLaoVoice || selectedScript?.laoVoice || p.laoVoice) 
+              : (editingUserVoice || selectedScript?.userVoice || p.userVoice);
+            const targetStyle = isLaoRole 
+              ? (editingLaoVoiceStyle || selectedScript?.laoVoiceStyle || p.laoVoiceStyle || '') 
+              : (editingUserVoiceStyle || selectedScript?.userVoiceStyle || p.userVoiceStyle || '');
+
+            if (!targetVoice || !targetVoice.trim()) {
+                toast(`⚠️ Chưa chọn giọng đọc cho ${isLaoRole ? 'Lão' : 'Con'}! Vui lòng chọn giọng đọc.`, 'error', 8000);
+                setGeneratingAudio(false);
+                setAudioProgress(null);
+                return;
+            }
+
             const success = await p.generateVoice(msg.id, msg.text, targetRole, selectedScript.id, true, null, null, false, targetVoice, targetStyle);
             if (success) {
                 const res = await getChatMessagesAction(selectedScript.id);
@@ -1173,9 +1207,19 @@ const AiDirectorManagerModal = (props: any) => {
             for (let i = 0; i < toGenerate.length; i++) {
                 const msg = toGenerate[i];
                 setAudioProgress({ current: i + 1, total, percent: Math.round(((i) / total) * 100) });
-                const targetRole = msg.role === 'ai' ? 'ai' : 'user';
-                const targetVoice = targetRole === 'ai' ? (editingLaoVoice || p.laoVoice || 'Algieba') : (editingUserVoice || p.userVoice || 'Aoede');
-                const targetStyle = targetRole === 'ai' ? (editingLaoVoiceStyle || p.laoVoiceStyle || '') : (editingUserVoiceStyle || p.userVoiceStyle || '');
+                const isLaoRole = msg.role === 'ai' || msg.role === 'assistant' || msg.role === 'LAO';
+                const targetRole = isLaoRole ? 'ai' : 'user';
+                const targetVoice = isLaoRole 
+                  ? (editingLaoVoice || selectedScript?.laoVoice || p.laoVoice) 
+                  : (editingUserVoice || selectedScript?.userVoice || p.userVoice);
+                const targetStyle = isLaoRole 
+                  ? (editingLaoVoiceStyle || selectedScript?.laoVoiceStyle || p.laoVoiceStyle || '') 
+                  : (editingUserVoiceStyle || selectedScript?.userVoiceStyle || p.userVoiceStyle || '');
+
+                if (!targetVoice || !targetVoice.trim()) {
+                    toast(`⚠️ Chưa chọn giọng đọc cho ${isLaoRole ? 'Lão' : 'Con'}! Dừng tiến trình.`, 'error', 8000);
+                    break;
+                }
                 const success = await p.generateVoice(msg.id, msg.text, targetRole, selectedScript.id, forceAll, null, null, false, targetVoice, targetStyle);
                 if (success) {
                     successCount++;
@@ -1211,68 +1255,84 @@ const AiDirectorManagerModal = (props: any) => {
         }
     };
 
-    // Tạo audio cho 1 script cụ thể từ list view, hiển thị progress inline
+    // Tạo audio cho 1 script cụ thể phía SERVER NGẦM (bảo vệ F5 không bị mất)
     const handleGenerateScriptAudio = async (script: any, forceAll: boolean = false) => {
         const sessionId = script.id;
-        setScriptAudioProgress(prev => ({ ...prev, [sessionId]: { current: 0, total: 0, percent: 0 } }));
         try {
-            // Tải messages của script
-            const resFetch = await getChatMessagesAction(sessionId);
-            if (!resFetch.success || !resFetch.data) {
-                toast('Không thể tải tin nhắn kịch bản.', 'error');
+            toast('⚡ Đang khởi chạy tiến trình tạo audio ngầm trên Server...', 'info');
+            const laoVoice = script?.laoVoice || (selectedScript?.id === script.id ? editingLaoVoice : null) || editingLaoVoice || p.laoVoice;
+            const userVoice = script?.userVoice || (selectedScript?.id === script.id ? editingUserVoice : null) || editingUserVoice || p.userVoice;
+
+            if (!laoVoice || !laoVoice.trim()) {
+                toast('⚠️ Chưa chọn Giọng đọc của Lão! Vui lòng mở Sửa Kịch Bản để chọn giọng.', 'error', 8000);
                 return;
             }
-            const msgs = resFetch.data.map((m: any) => ({
-                id: m.id,
-                role: m.role.toLowerCase() === 'user' ? 'user' : 'ai',
-                text: m.content,
-                audioUrl: m.audioUrl,
-            }));
-            // Cập nhật session messages
-            p.setSessions((prev: any[]) => prev.map((x: any) => x.id === sessionId ? { ...x, messages: msgs, messagesLoaded: true } : x));
-
-            const toGenerate = forceAll
-                ? msgs.filter((m: any) => m.text.trim().length > 0)
-                : msgs.filter((m: any) => !m.audioUrl && m.text.trim().length > 0);
-            const total = toGenerate.length;
-            if (total === 0) {
-                toast('Tất cả thoại đã có audio!', 'success');
+            if (!userVoice || !userVoice.trim()) {
+                toast('⚠️ Chưa chọn Giọng đọc của Con! Vui lòng mở Sửa Kịch Bản để chọn giọng.', 'error', 8000);
                 return;
             }
-            setScriptAudioProgress(prev => ({ ...prev, [sessionId]: { current: 0, total, percent: 0 } }));
 
-            let successCount = 0;
-            for (let i = 0; i < toGenerate.length; i++) {
-                const msg = toGenerate[i];
-                const targetRole = msg.role === 'ai' ? 'ai' : 'user';
-                const targetVoice = targetRole === 'ai' ? (editingLaoVoice || p.laoVoice || 'Algieba') : (editingUserVoice || p.userVoice || 'Aoede');
-                const targetStyle = targetRole === 'ai' ? (editingLaoVoiceStyle || p.laoVoiceStyle || '') : (editingUserVoiceStyle || p.userVoiceStyle || '');
-                const success = await p.generateVoice(msg.id, msg.text, targetRole, sessionId, forceAll, null, null, false, targetVoice, targetStyle);
-                if (success) {
-                    successCount++;
-                    setScriptAudioProgress(prev => ({ ...prev, [sessionId]: { current: i + 1, total, percent: Math.round(((i + 1) / total) * 100) } }));
-                } else {
-                    const detailErr = (typeof window !== 'undefined' && (window as any).__lastTtsError) ? `: ${(window as any).__lastTtsError}` : '';
-                    toast(`Lỗi tạo audio thoại ${i + 1}/${total}${detailErr}. Dừng.`, 'error');
-                    break;
-                }
+            const resServer = await fetch('/api/sessions/generate-audio', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId, forceAll, laoVoice, userVoice })
+            });
+
+            const dataServer = await resServer.json();
+            if (!resServer.ok || !dataServer.success) {
+                toast(`Lỗi kích hoạt Server Audio: ${dataServer.error || 'Thất bại'}`, 'error');
+                return;
             }
-            if (successCount > 0) {
-                // Cập nhật lại messages mới
-                const res = await getChatMessagesAction(sessionId);
-                if (res.success && res.data) {
-                    const updated = res.data.map((m: any) => ({
-                        id: m.id, role: m.role.toLowerCase() === 'user' ? 'user' : 'ai',
-                        text: m.content, audioUrl: m.audioUrl, emotion: m.emotion || 'calm'
-                    }));
-                    p.setSessions((prev: any[]) => prev.map((x: any) => x.id === sessionId ? { ...x, messages: updated, messagesLoaded: true } : x));
+
+            toast('✅ Đã kích hoạt tạo audio ngầm trên Server! Bạn có thể F5 hoặc chuyển trang thoải mái.', 'success', 5000);
+
+            // Poll tiến trình & phát hiện lỗi Quota / API Key từ Server
+            let attempts = 0;
+            const maxAttempts = 60; // tối đa 2.5 phút polling
+            const pollInterval = setInterval(async () => {
+                attempts++;
+                try {
+                    const statusRes = await fetch(`/api/sessions/generate-audio?sessionId=${encodeURIComponent(sessionId)}`);
+                    const statusData = await statusRes.json();
+                    
+                    if (statusData.success) {
+                        const { total, done, hasError, errorMessage } = statusData;
+                        const percent = total > 0 ? Math.round((done / total) * 100) : 100;
+                        setScriptAudioProgress(prev => ({ ...prev, [sessionId]: { current: done, total, percent } }));
+
+                        if (hasError) {
+                            clearInterval(pollInterval);
+                            toast(`⚠️ [LỖI AUDIO QUOTA]: ${errorMessage}`, 'error', 12000);
+                            return;
+                        }
+
+                        if (done >= total || attempts >= maxAttempts) {
+                            clearInterval(pollInterval);
+                            if (done >= total) {
+                                toast(`🎉 Hoàn tất! Đã tạo xong ${done}/${total} audio cho kịch bản.`, 'success');
+                            }
+                        }
+
+                        // Cập nhật lại tin nhắn mới nhất vào React session state
+                        const resFetch = await getChatMessagesAction(sessionId);
+                        if (resFetch.success && resFetch.data) {
+                            const msgs = resFetch.data.map((m: any) => ({
+                                id: m.id,
+                                role: m.role.toLowerCase() === 'user' ? 'user' : 'ai',
+                                text: m.content,
+                                audioUrl: m.audioUrl,
+                            }));
+                            p.setSessions((prev: any[]) => prev.map((x: any) => x.id === sessionId ? { ...x, messages: msgs, messagesLoaded: true } : x));
+                        }
+                    }
+                } catch (e) {
+                    console.error("Lỗi polling audio status:", e);
                 }
-                toast(`Hoàn tất! Đã tạo ${successCount}/${total} audio cho kịch bản.`, 'success');
-            }
-        } catch (err) {
-            toast('Lỗi tạo âm thanh.', 'error');
-        } finally {
-            setScriptAudioProgress(prev => { const n = { ...prev }; delete n[sessionId]; return n; });
+            }, 2500);
+
+        } catch (err: any) {
+            console.error('Lỗi khởi chạy Server Audio:', err);
+            toast('Có lỗi xảy ra khi tạo audio ngầm.', 'error');
         }
     };
 
@@ -1323,9 +1383,19 @@ const AiDirectorManagerModal = (props: any) => {
                 const msg = currentEditingMessages[i];
                 if (!msg.audioUrl && msg.text.trim().length > 0) {
                     toast(`Đang tạo audio cho thoại ${i + 1}/${currentEditingMessages.length}...`, 'loading');
-                    const targetRole = msg.role === 'ai' ? 'ai' : 'user';
-                    const targetVoice = targetRole === 'ai' ? (editingLaoVoice || p.laoVoice || 'Algieba') : (editingUserVoice || p.userVoice || 'Aoede');
-                    const targetStyle = targetRole === 'ai' ? (editingLaoVoiceStyle || p.laoVoiceStyle || '') : (editingUserVoiceStyle || p.userVoiceStyle || '');
+                    const isLaoRole = msg.role === 'ai' || msg.role === 'assistant' || msg.role === 'LAO';
+                    const targetRole = isLaoRole ? 'ai' : 'user';
+                    const targetVoice = isLaoRole 
+                      ? (editingLaoVoice || selectedScript?.laoVoice || p.laoVoice) 
+                      : (editingUserVoice || selectedScript?.userVoice || p.userVoice);
+                    const targetStyle = isLaoRole 
+                      ? (editingLaoVoiceStyle || selectedScript?.laoVoiceStyle || p.laoVoiceStyle || '') 
+                      : (editingUserVoiceStyle || selectedScript?.userVoiceStyle || p.userVoiceStyle || '');
+
+                    if (!targetVoice || !targetVoice.trim()) {
+                        toast(`⚠️ Chưa chọn giọng đọc cho ${isLaoRole ? 'Lão' : 'Con'}! Dừng tiến trình.`, 'error', 8000);
+                        break;
+                    }
                     const success = await p.generateVoice(msg.id, msg.text, targetRole, selectedScript.id, false, null, null, false, targetVoice, targetStyle);
                     if (success) {
                         successCount++;
@@ -1536,9 +1606,19 @@ const AiDirectorManagerModal = (props: any) => {
         const msg = editingMessages[msgIndex];
         setSaving(true);
         try {
-            const targetRole = msg.role === 'ai' ? 'ai' : 'user';
-            const targetVoice = targetRole === 'ai' ? (editingLaoVoice || p.laoVoice || 'Algieba') : (editingUserVoice || p.userVoice || 'Aoede');
-            const targetStyle = targetRole === 'ai' ? (editingLaoVoiceStyle || p.laoVoiceStyle || '') : (editingUserVoiceStyle || p.userVoiceStyle || '');
+            const isLaoRole = msg.role === 'ai' || msg.role === 'assistant' || msg.role === 'LAO';
+            const targetRole = isLaoRole ? 'ai' : 'user';
+            const targetVoice = isLaoRole 
+              ? (editingLaoVoice || selectedScript?.laoVoice || p.laoVoice) 
+              : (editingUserVoice || selectedScript?.userVoice || p.userVoice);
+            const targetStyle = isLaoRole 
+              ? (editingLaoVoiceStyle || selectedScript?.laoVoiceStyle || p.laoVoiceStyle || '') 
+              : (editingUserVoiceStyle || selectedScript?.userVoiceStyle || p.userVoiceStyle || '');
+
+            if (!targetVoice || !targetVoice.trim()) {
+                toast(`⚠️ Chưa chọn giọng đọc cho ${isLaoRole ? 'Lão' : 'Con'}! Vui lòng chọn giọng đọc.`, 'error', 8000);
+                return;
+            }
             const success = await p.generateVoice(msg.id, msg.text, targetRole, selectedScript.id, true, null, null, false, targetVoice, targetStyle);
             if (success) {
                 // Fetch fresh messages
@@ -1600,13 +1680,13 @@ const AiDirectorManagerModal = (props: any) => {
                         <p className="text-xs text-slate-400">Trang quản lý danh sách kịch bản AI & Thủ công, biên tập thoại và xuất video</p>
                     </div>
                 </div>
-                <button 
-                    onClick={handleCloseModal} 
+                <a 
+                    href="/" 
                     className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-md cursor-pointer"
                     title="Quay lại Thiền đường"
                 >
                     <ChevronLeft size={16} /> Quay lại Thiền đường
-                </button>
+                </a>
             </div>
 
             {/* Main Body Page - Danh Sách Kịch Bản */}
@@ -1727,11 +1807,41 @@ const AiDirectorManagerModal = (props: any) => {
                                                         className="w-4 h-4 accent-indigo-500 cursor-pointer shrink-0"
                                                     />
                                                     <div className="min-w-0">
-                                                        <div className="flex items-center gap-2">
+                                                        <div className="flex items-center gap-2 flex-wrap">
                                                              <span className="font-bold text-sm text-slate-200 truncate">{script.title ? script.title.replace(/^\[(AI|Thủ công)\]\s*/i, '') : 'Kịch bản mới'}</span>
                                                              <span className="text-[10px] font-bold text-indigo-300 bg-indigo-950/70 border border-indigo-500/40 px-2 py-0.5 rounded-md shrink-0 flex items-center gap-1 shadow-sm">
                                                                  💬 {script.messages ? script.messages.filter((m: any) => m.role !== 'system').length : 0} câu thoại
                                                              </span>
+                                                             {(() => {
+                                                                 const renderItem = renderHistoryList.find((rh: any) => rh.sessionId === script.id);
+                                                                 if (!renderItem) return null;
+                                                                 if (renderItem.videoUrl === 'PROCESSING') {
+                                                                     return (
+                                                                         <span className="text-[10px] font-bold text-amber-300 bg-amber-950/80 border border-amber-500/60 px-2 py-0.5 rounded-md shrink-0 flex items-center gap-1 shadow-sm animate-pulse">
+                                                                             ⏳ Processing Video
+                                                                         </span>
+                                                                     );
+                                                                 }
+                                                                 if (renderItem.videoUrl && (renderItem.videoUrl.startsWith('/') || renderItem.videoUrl.startsWith('http'))) {
+                                                                     return (
+                                                                         <span className="text-[10px] font-bold text-emerald-300 bg-emerald-950/80 border border-emerald-500/60 px-2 py-0.5 rounded-md shrink-0 flex items-center gap-1 shadow-sm">
+                                                                             ✅ Video Completed
+                                                                         </span>
+                                                                     );
+                                                                 }
+                                                                 if (renderItem.videoUrl && renderItem.videoUrl.startsWith('ERROR:')) {
+                                                                     const errReason = renderItem.videoUrl.replace(/^ERROR:\s*/, '');
+                                                                     return (
+                                                                         <span 
+                                                                             title={`Lỗi Render Video: ${errReason}`}
+                                                                             className="text-[10px] font-bold text-rose-300 bg-rose-950/80 border border-rose-500/60 px-2 py-0.5 rounded-md shrink-0 flex items-center gap-1 shadow-sm cursor-help"
+                                                                         >
+                                                                             ❌ Render Lỗi ({errReason.length > 25 ? errReason.slice(0, 25) + '...' : errReason})
+                                                                         </span>
+                                                                     );
+                                                                 }
+                                                                 return null;
+                                                             })()}
                                                          </div>
                                                     <span className="text-[10px] text-slate-500 block mt-0.5">
                                                         Cập nhật: {(() => {
@@ -1819,29 +1929,98 @@ const AiDirectorManagerModal = (props: any) => {
                                                     >
                                                         <Pencil size={12} /> Sửa
                                                     </button>
-
-                                                    <button 
-                                                        onClick={() => {
-                                                            try {
-                                                                if (p.setCurrentSessionId) p.setCurrentSessionId(script.id);
-                                                                if (typeof window !== 'undefined') {
-                                                                    const url = new URL(window.location.href);
-                                                                    url.searchParams.set('childmodal', 'create-video');
-                                                                    url.searchParams.set('scriptid', script.id);
-                                                                    window.history.pushState(null, '', url.toString());
-                                                                }
-                                                                if (p.setVideoExportSource) p.setVideoExportSource('ai_director_childmodal');
-                                                                if (p.setShowVideoExportModal) p.setShowVideoExportModal(true);
-                                                                if (p.onClose) p.onClose();
-                                                            } catch (err) {
-                                                                console.error("Lỗi khi mở tạo video:", err);
-                                                            }
-                                                        }}
-                                                        title="Tạo video"
-                                                        className="bg-orange-600/20 border border-orange-500/30 hover:bg-orange-600/40 text-orange-400 px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors"
-                                                    >
-                                                        <Film size={12} /> Tạo video
-                                                    </button>
+                                                     {(() => {
+                                                         const renderItem = renderHistoryList.find((rh: any) => rh.sessionId === script.id);
+                                                         if (renderItem?.videoUrl === 'PROCESSING') {
+                                                             return (
+                                                                 <button 
+                                                                     onClick={() => {
+                                                                         if (p.setCurrentSessionId) p.setCurrentSessionId(script.id);
+                                                                         if (typeof window !== 'undefined') {
+                                                                             const url = new URL(window.location.href);
+                                                                             url.searchParams.set('childmodal', 'create-video');
+                                                                             url.searchParams.set('scriptid', script.id);
+                                                                             window.history.pushState(null, '', url.toString());
+                                                                         }
+                                                                         if (p.setVideoExportSource) p.setVideoExportSource('ai_director_childmodal');
+                                                                         if (p.setShowVideoExportModal) p.setShowVideoExportModal(true);
+                                                                         if (p.onClose) p.onClose();
+                                                                     }}
+                                                                     title="Video đang được render ngầm trên server..."
+                                                                     className="bg-amber-600/20 border border-amber-500/40 text-amber-300 px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors animate-pulse"
+                                                                 >
+                                                                     <Loader2 size={12} className="animate-spin" /> Processing Video...
+                                                                 </button>
+                                                             );
+                                                         }
+                                                         if (renderItem?.videoUrl && renderItem.videoUrl.startsWith('ERROR:')) {
+                                                             const errReason = renderItem.videoUrl.replace(/^ERROR:\s*/, '');
+                                                             return (
+                                                                 <button 
+                                                                     onClick={() => {
+                                                                         toast(`⚠️ [LỖI RENDER VIDEO]: ${errReason}`, 'error', 12000);
+                                                                         if (p.setCurrentSessionId) p.setCurrentSessionId(script.id);
+                                                                         if (typeof window !== 'undefined') {
+                                                                             const url = new URL(window.location.href);
+                                                                             url.searchParams.set('childmodal', 'create-video');
+                                                                             url.searchParams.set('scriptid', script.id);
+                                                                             window.history.pushState(null, '', url.toString());
+                                                                         }
+                                                                         if (p.setVideoExportSource) p.setVideoExportSource('ai_director_childmodal');
+                                                                         if (p.setShowVideoExportModal) p.setShowVideoExportModal(true);
+                                                                         if (p.onClose) p.onClose();
+                                                                     }}
+                                                                     title={`Chi tiết lỗi: ${errReason}`}
+                                                                     className="bg-rose-600/20 border border-rose-500/40 hover:bg-rose-600/40 text-rose-300 px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors"
+                                                                 >
+                                                                     ❌ Render Lỗi (Xem chi tiết)
+                                                                 </button>
+                                                             );
+                                                         }
+                                                         if (renderItem?.videoUrl && (renderItem.videoUrl.startsWith('/') || renderItem.videoUrl.startsWith('http'))) {
+                                                             return (
+                                                                 <button 
+                                                                     onClick={() => {
+                                                                         if (p.setCurrentSessionId) p.setCurrentSessionId(script.id);
+                                                                         if (typeof window !== 'undefined') {
+                                                                             const url = new URL(window.location.href);
+                                                                             url.searchParams.set('childmodal', 'create-video');
+                                                                             url.searchParams.set('scriptid', script.id);
+                                                                             url.searchParams.set('videoid', renderItem.id);
+                                                                             window.history.pushState(null, '', url.toString());
+                                                                         }
+                                                                         if (p.setVideoExportSource) p.setVideoExportSource('ai_director_childmodal');
+                                                                         if (p.setShowVideoExportModal) p.setShowVideoExportModal(true);
+                                                                         if (p.onClose) p.onClose();
+                                                                     }}
+                                                                     title="Xem Video đã hoàn tất"
+                                                                     className="bg-emerald-600/20 border border-emerald-500/40 hover:bg-emerald-600/40 text-emerald-300 px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors"
+                                                                 >
+                                                                     <CheckCircle2 size={12} /> Video Completed
+                                                                 </button>
+                                                             );
+                                                         }
+                                                         return (
+                                                             <button 
+                                                                 onClick={() => {
+                                                                     if (p.setCurrentSessionId) p.setCurrentSessionId(script.id);
+                                                                     if (typeof window !== 'undefined') {
+                                                                         const url = new URL(window.location.href);
+                                                                         url.searchParams.set('childmodal', 'create-video');
+                                                                         url.searchParams.set('scriptid', script.id);
+                                                                         window.history.pushState(null, '', url.toString());
+                                                                     }
+                                                                     if (p.setVideoExportSource) p.setVideoExportSource('ai_director_childmodal');
+                                                                     if (p.setShowVideoExportModal) p.setShowVideoExportModal(true);
+                                                                     if (p.onClose) p.onClose();
+                                                                 }}
+                                                                 title="Tạo video"
+                                                                 className="bg-orange-600/20 border border-orange-500/30 hover:bg-orange-600/40 text-orange-400 px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors"
+                                                             >
+                                                                 <Film size={12} /> Tạo video
+                                                             </button>
+                                                         );
+                                                     })()}
 
                                                     <button 
                                                         onClick={() => handleDeleteScript(script.id)} 

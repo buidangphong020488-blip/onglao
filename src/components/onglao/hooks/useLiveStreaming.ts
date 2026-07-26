@@ -282,7 +282,7 @@ export const useLiveStreaming = ({
           const emotion = emotionMatch ? emotionMatch[1] : 'calm';
 
           // 2. Tạo giọng đọc
-          const voiceName = laoVoiceRef.current || "Algieba";
+          const voiceName = laoVoiceRef.current || "";
           let prefix = (laoVoiceStyleRef.current || "").trim();
           if (appLanguage === 'Tiếng Việt' && prefix && !prefix.endsWith(':')) prefix += ':';
 
@@ -478,7 +478,7 @@ ${movieInstruction}${knowledgeInstruction}${liveContext}`;
           const textToSynthesize = missingPartsText + finalAiText;
           const ttsText = cleanTextForTTS(textToSynthesize);
 
-          let voiceName = laoVoiceRef.current || "Algieba";
+          let voiceName = laoVoiceRef.current || "";
           let prefix = (laoVoiceStyleRef.current || "").trim();
           if (isForeignLanguage) {
               prefix = prefix.replace(/miền nam việt nam/gi, '').replace(/chuẩn giọng/gi, '').replace(/đúng chính tả/gi, '').replace(/việt nam/gi, '').replace(/miền nam/gi, '').trim();

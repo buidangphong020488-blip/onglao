@@ -403,7 +403,7 @@ const VideoCreatorModal = (props?: any) => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlVideoId = urlParams.get('videoid');
     if (urlVideoId && p.renderHistory?.length > 0) {
-      const matchedVideo = p.renderHistory.find((v: any) => v.id === urlVideoId && (!v.sessionId || !p.currentSessionId || v.sessionId === p.currentSessionId));
+      const matchedVideo = p.renderHistory.find((v: any) => v.id === urlVideoId && v.sessionId === p.currentSessionId);
       if (matchedVideo) {
         p.setRenderedVideoUrl(matchedVideo.url);
         p.setRenderedVideoBlob?.(matchedVideo.blob || null);
@@ -482,11 +482,10 @@ const VideoCreatorModal = (props?: any) => {
     if (!p.messages?.length) return;
     if (p.messages[0]?.sessionId && p.messages[0]?.sessionId !== p.currentSessionId) return; // Đợi load đúng tin nhắn của session hiện tại
     const hasMessageScenes = p.ffScenes?.some((s: any) => s.msgId);
+    const isStale = Boolean(hasMessageScenes && p.ffScenes.some((s: any) => s.msgId && !p.messages.find((m: any) => m.id === s.msgId)));
+    const hasRedundant = Boolean(hasMessageScenes && p.ffScenes.some((s: any) => !s.msgId && s.role !== 'outro'));
+
     if (hasMessageScenes) {
-        // Kiểm tra xem các scene cũ có bị "lạc lõng" so với messages hiện tại không (do đổi kịch bản)
-        const isStale = p.ffScenes.some((s: any) => s.msgId && !p.messages.find((m: any) => m.id === s.msgId));
-        // Kiểm tra xem có các scene dư thừa (không có msgId và không phải outro) từ lần tải lên trước không
-        const hasRedundant = p.ffScenes.some((s: any) => !s.msgId && s.role !== 'outro');
         if (!isStale && !hasRedundant) return; // Đã sạch sẽ và đồng bộ rồi, không cần làm lại
         if (hasRedundant && !isStale) {
             // Lọc bỏ tất cả các scene dư thừa mà không reset lại URL của các scene hợp lệ
@@ -502,7 +501,8 @@ const VideoCreatorModal = (props?: any) => {
         if (lower.match(/vui|cười|hạnh phúc|tuyệt vời|thích|yêu|cảm ơn|biết ơn|tuyệt/)) return 'joy';
         return 'calm';
     };
-    if (!p.ffScenes || p.ffScenes.length === 0) {
+    const shouldRebuild = !p.ffScenes || p.ffScenes.length === 0 || !hasMessageScenes || isStale;
+    if (shouldRebuild) {
       if (!p.messages || p.messages.length === 0) return;
       const autoScenes = p.messages.map((m: any, idx: number) => {
         let em = m.emotion;
@@ -550,6 +550,7 @@ const VideoCreatorModal = (props?: any) => {
 
     const [showLibraryModal, setShowLibraryModal] = React.useState(false);
     const [showSaveSuccessModal, setShowSaveSuccessModal] = React.useState(false);
+    const [itemToDelete, setItemToDelete] = React.useState<any>(null);
     
     const [saveErrorModal, setSaveErrorModal] = React.useState<string | null>(null);
     const [targetPickerSceneId, setTargetPickerSceneId] = React.useState<string | null>(null);
@@ -859,7 +860,7 @@ const VideoCreatorModal = (props?: any) => {
     };
 
   const filteredHistory = React.useMemo(() => {
-    if (!renderHistory) return [];
+    if (!renderHistory || !Array.isArray(renderHistory)) return [];
     if (!p.currentSessionId) return renderHistory;
     return renderHistory.filter((item: any) => item.sessionId === p.currentSessionId);
   }, [renderHistory, p.currentSessionId]);
@@ -1557,13 +1558,13 @@ const VideoCreatorModal = (props?: any) => {
                                   )}
                               </div>
                               <div className="mt-auto pt-4 border-t border-white/5">
-                                 {!isExportingVideo ? (
-                                    <button onClick={startVideoExport} disabled={isPreparingVideoData} className="w-full bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 rounded-lg flex justify-center items-center gap-1.5 shadow-lg disabled:opacity-50 disabled:cursor-wait transition-all text-xs">
-                                       {isPreparingVideoData ? <><Loader2 size={14} className="animate-spin"/> Đang render...</> : <><Video size={14}/> Bắt Đầu Render Video</>}
-                                    </button>
-                                 ) : (
-                                    <button onClick={cancelVideoExport} className="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-3.5 rounded-xl tracking-wider shadow-lg flex items-center justify-center gap-2 animate-pulse text-xs">
-                                        <XCircle size={16}/> Dừng & Hủy Bỏ
+                                  {!isExportingVideo ? (
+                                     <button onClick={startVideoExport} disabled={isPreparingVideoData} className="w-full bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 rounded-lg flex justify-center items-center gap-1.5 shadow-lg disabled:opacity-50 disabled:cursor-wait transition-all text-xs">
+                                        {isPreparingVideoData ? <><Loader2 size={14} className="animate-spin"/> Đang chuẩn bị dữ liệu...</> : <><Video size={14}/> Bắt Đầu Render Video</>}
+                                     </button>
+                                  ) : (
+                                     <button onClick={cancelVideoExport} className="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 rounded-lg flex justify-center items-center gap-1.5 shadow-lg transition-all text-xs">
+                                        <XCircle size={14}/> Hủy Tiến Trình Render
                                      </button>
                                   )}
                                </div>
@@ -1584,7 +1585,7 @@ const VideoCreatorModal = (props?: any) => {
                               ) : (
                                  <div className="flex flex-col gap-3 overflow-y-auto pr-1 max-h-[60vh]">
                                     {filteredHistory.map((item: any, idx: number) => (
-                                       <div key={item.id || idx} className={`flex flex-col p-3 rounded-xl border transition-all ${renderedVideoUrl === item.url ? 'bg-emerald-950/40 border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.15)]' : 'bg-slate-950 border-white/10 hover:border-white/20'}`}>
+                                       <div key={item.id || idx} className={`flex flex-col p-3 rounded-xl border transition-all ${renderedVideoUrl === (item.videoUrl || item.url) ? 'bg-emerald-950/40 border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.15)]' : 'bg-slate-950 border-white/10 hover:border-white/20'}`}>
                                           <div className="flex items-center justify-between mb-1.5">
                                              <div className="flex items-center gap-2">
                                                 <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold flex items-center justify-center font-mono">#{filteredHistory.length - idx}</span>
@@ -1598,15 +1599,18 @@ const VideoCreatorModal = (props?: any) => {
                                              <span className="bg-slate-900 px-2 py-0.5 rounded font-mono uppercase text-emerald-300 border border-white/5">{item.format || 'mp4'}</span>
                                           </div>
                                           <div className="grid grid-cols-3 gap-2">
-                                             <button onClick={() => { 
-                                                setRenderedVideoUrl(item.url); 
-                                                setRenderedVideoBlob(item.blob || null); 
-                                                if (typeof window !== 'undefined') {
-                                                   const url = new URL(window.location.href);
-                                                   url.searchParams.set('videoid', item.id);
-                                                   window.history.replaceState(null, '', url.toString());
+                                              <button onClick={() => { 
+                                                 const targetUrl = item.videoUrl || item.url;
+                                                if (targetUrl) {
+                                                   setRenderedVideoUrl(targetUrl); 
+                                                   setRenderedVideoBlob(item.blob || null); 
+                                                   if (typeof window !== 'undefined') {
+                                                      const url = new URL(window.location.href);
+                                                      url.searchParams.set('videoid', item.id);
+                                                      window.history.replaceState(null, '', url.toString());
+                                                   }
                                                 }
-                                             }} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1.5 rounded-lg text-[10px] flex items-center justify-center gap-1 transition-all">
+                                             }} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1.5 rounded-lg text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer">
                                                 <PlayCircle size={12}/> Xem
                                              </button>
                                              <button onClick={() => {
@@ -1617,7 +1621,13 @@ const VideoCreatorModal = (props?: any) => {
                                              }} className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-1.5 rounded-lg text-[10px] flex items-center justify-center gap-1 border border-white/10 transition-all">
                                                 <Save size={12}/> Tải Về
                                              </button>
-                                             <button onClick={() => { if (deleteRenderHistoryItem) deleteRenderHistoryItem(item.id); }} className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold py-1.5 rounded-lg text-[10px] flex items-center justify-center gap-1 transition-all">
+                                             <button 
+                                                onClick={(e) => { 
+                                                   e.stopPropagation();
+                                                   setItemToDelete(item);
+                                                }} 
+                                                className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold py-1.5 rounded-lg text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer"
+                                             >
                                                 <X size={12}/> Xóa
                                              </button>
                                           </div>
@@ -1630,7 +1640,44 @@ const VideoCreatorModal = (props?: any) => {
                   </div>
                  {/* BÊN PHẢI: BẢNG PREVIEW / RENDER VIDEO */}
                  <div className={`w-full bg-black border border-white/10 overflow-hidden relative shadow-inner flex items-center justify-center flex-col shrink-0 transition-all duration-300 ${isPreviewFullscreen ? 'fixed inset-0 z-[250] rounded-none' : 'md:w-7/12 rounded-xl aspect-[16/9] md:aspect-auto md:h-full'}`}>
-                    {renderedVideoUrl ? (
+                    {(isExportingVideo || isPreparingVideoData) ? (
+                       <div className="w-full h-full bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-in fade-in">
+                           <div className="bg-slate-900 border border-orange-500/40 rounded-3xl w-full max-w-md shadow-2xl p-6 flex flex-col items-center gap-5">
+                               <div className="relative flex items-center justify-center">
+                                   <div className="w-20 h-20 bg-orange-500/20 border border-orange-500/40 rounded-full flex items-center justify-center text-orange-400 shadow-[0_0_30px_rgba(249,115,22,0.3)] animate-pulse">
+                                       <Loader2 size={40} className="animate-spin" />
+                                   </div>
+                                   <span className="absolute text-sm font-black text-amber-300 font-mono">
+                                       {exportProgressPercent || 0}%
+                                   </span>
+                               </div>
+                               <div className="space-y-2 w-full">
+                                   <h3 className="text-base font-extrabold text-white tracking-wide uppercase flex items-center justify-center gap-2">
+                                       <span>🎬</span> Đang Thu Hình & Render Video...
+                                   </h3>
+                                   
+                                   {/* THANH PROCESS PROGRESS BAR BẰNG VỚI % THỰC TẾ */}
+                                   <div className="w-full bg-slate-950 rounded-full border border-orange-500/30 h-4 p-0.5 overflow-hidden shadow-inner relative">
+                                       <div 
+                                           className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 h-full rounded-full transition-all duration-300 ease-out flex items-center justify-end pr-1 text-[9px] font-black text-white"
+                                           style={{ width: `${Math.max(5, Math.min(100, exportProgressPercent || 0))}%` }}
+                                       >
+                                       </div>
+                                   </div>
+
+                                   <p className="text-xs text-amber-300 font-semibold leading-relaxed min-h-[20px]">
+                                       {exportProgressStatus || 'Hệ thống đang ghép nối các phân cảnh, phụ đề và âm thanh...'}
+                                   </p>
+                               </div>
+                               <button
+                                   onClick={cancelVideoExport}
+                                   className="w-full py-3 bg-rose-600/90 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2"
+                               >
+                                   <XCircle size={16} /> Dừng & Hủy Bỏ Render
+                               </button>
+                           </div>
+                       </div>
+                    ) : renderedVideoUrl ? (
                        <div className="relative w-full h-full bg-slate-950 flex flex-col items-center justify-center">
                           {/* Thanh điều khiển trên cùng màn hình preview */}
                           <div className="absolute top-3 left-3 right-3 z-50 flex items-center justify-end bg-black/80 backdrop-blur-md p-2 rounded-xl border border-white/10 shadow-2xl">
@@ -1810,6 +1857,49 @@ const VideoCreatorModal = (props?: any) => {
                   </div>
                </div>
            )}
+           {/* MODAL XÁC NHẬN XÓA VIDEO HISTORY */}
+           {itemToDelete && (
+               <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4 animate-in fade-in" onClick={() => setItemToDelete(null)}>
+                  <div className="bg-slate-900 border border-rose-500/40 rounded-2xl w-full max-w-md shadow-2xl p-6 flex flex-col gap-5 animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center gap-3 text-rose-400 border-b border-white/10 pb-3">
+                          <div className="w-10 h-10 rounded-full bg-rose-500/20 flex items-center justify-center border border-rose-500/30 shrink-0">
+                              <Trash2 size={20} />
+                          </div>
+                          <div>
+                              <h3 className="font-extrabold text-white text-sm">Xác Nhận Xóa Video</h3>
+                              <p className="text-[11px] text-slate-400">Thao tác này không thể hoàn tác</p>
+                          </div>
+                      </div>
+
+                      <p className="text-xs text-slate-300 leading-relaxed">
+                          Bạn có chắc chắn muốn xóa video <span className="font-bold text-amber-300">"{itemToDelete.name || 'Video Pháp Bảo'}"</span> khỏi lịch sử CSDL và ổ cứng không?
+                      </p>
+
+                      <div className="flex justify-end gap-3 pt-2 border-t border-white/5">
+                          <button 
+                              onClick={() => setItemToDelete(null)} 
+                              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                          >
+                              Hủy Bỏ
+                          </button>
+                          <button 
+                              onClick={() => {
+                                  const targetId = itemToDelete.id;
+                                  const targetUrl = itemToDelete.videoUrl || itemToDelete.url;
+                                  setItemToDelete(null);
+                                  if (deleteRenderHistoryItem) deleteRenderHistoryItem(targetId);
+                                  if (renderedVideoUrl === targetUrl) {
+                                     setRenderedVideoUrl(null);
+                                  }
+                              }} 
+                              className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-lg transition-all flex items-center gap-1.5 cursor-pointer"
+                          >
+                              <Trash2 size={14} /> Xóa Vĩnh Viễn
+                          </button>
+                      </div>
+                  </div>
+               </div>
+           )}
            {/* MODAL LƯU NHÂN VẬT VÀO KHO MÁY */}
            {showSaveCharModal && (
                <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" >
@@ -1966,45 +2056,7 @@ const VideoCreatorModal = (props?: any) => {
 
             
 
-            {/* MODAL TIẾN TRÌNH RENDER VIDEO PHÁP BẢO */}
-            {(isExportingVideo || isPreparingVideoData) && (
-                <div className="fixed inset-0 z-[450] bg-black/85 backdrop-blur-xl flex justify-center items-center p-4 animate-in fade-in">
-                    <div className="bg-slate-900 border border-orange-500/40 rounded-3xl w-full max-w-md shadow-2xl p-6 flex flex-col items-center gap-5 text-center animate-in zoom-in-95">
-                        <div className="relative flex items-center justify-center">
-                            <div className="w-20 h-20 bg-orange-500/20 border border-orange-500/40 rounded-full flex items-center justify-center text-orange-400 shadow-[0_0_30px_rgba(249,115,22,0.3)] animate-pulse">
-                                <Loader2 size={40} className="animate-spin" />
-                            </div>
-                            <span className="absolute text-sm font-black text-amber-300 font-mono">
-                                {exportProgressPercent || 0}%
-                            </span>
-                        </div>
-                        <div className="space-y-2 w-full">
-                            <h3 className="text-base font-extrabold text-white tracking-wide uppercase flex items-center justify-center gap-2">
-                                <span>🎬</span> Đang Thu Hình & Render Video...
-                            </h3>
-                            
-                            {/* THANH PROCESS PROGRESS BAR BẰNG VỚI % THỰC TẾ */}
-                            <div className="w-full bg-slate-950 rounded-full border border-orange-500/30 h-4 p-0.5 overflow-hidden shadow-inner relative">
-                                <div 
-                                    className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 h-full rounded-full transition-all duration-300 ease-out flex items-center justify-end pr-1 text-[9px] font-black text-white"
-                                    style={{ width: `${Math.max(5, Math.min(100, exportProgressPercent || 0))}%` }}
-                                >
-                                </div>
-                            </div>
 
-                            <p className="text-xs text-amber-300 font-semibold leading-relaxed min-h-[20px]">
-                                {exportProgressStatus || 'Hệ thống đang ghép nối các phân cảnh, phụ đề và âm thanh 60FPS...'}
-                            </p>
-                        </div>
-                        <button
-                            onClick={cancelVideoExport}
-                            className="w-full py-3 bg-rose-600/90 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2"
-                        >
-                            <XCircle size={16} /> Dừng & Hủy Bỏ Render
-                        </button>
-                    </div>
-                </div>
-            )}
 
             {/* PREVIEW VIDEO PLAYER MODAL */}
             {previewVideoUrl && (

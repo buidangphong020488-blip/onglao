@@ -17,7 +17,6 @@ import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
-const DEFAULT_VOICE = 'Algieba';
 const DEFAULT_MODEL = 'gemini-2.5-flash-preview-tts';
 const GEMINI_BASE   = 'https://generativelanguage.googleapis.com/v1beta/models';
 
@@ -40,7 +39,14 @@ export async function POST(req: NextRequest) {
     }
 
     const ttsModel = model || systemSettings.ttsModel || DEFAULT_MODEL;
-    const voice    = voiceName || systemSettings.laoVoiceName || DEFAULT_VOICE;
+    const voice    = voiceName || systemSettings.laoVoiceName;
+
+    if (!voice || !voice.trim()) {
+      return NextResponse.json(
+        { message: 'Chưa chọn Giọng đọc (voiceName). Vui lòng chọn giọng đọc trong Cấu Hình Kịch Bản.' },
+        { status: 400 }
+      );
+    }
 
     const geminiUrl = `${GEMINI_BASE}/${ttsModel}:generateContent?key=${apiKey}`;
 

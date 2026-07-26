@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   db, 
   appId, 
@@ -234,17 +234,25 @@ export const useVideoExport = ({
   // --- TÂM AN THÊM: QUẢN LÝ LỊCH SỬ VIDEO ĐÃ RENDER (100% POSTGRESQL DB) ---
   const [renderHistory, setRenderHistory] = useState<any[]>([]);
 
-  // Nạp dữ liệu lịch sử trực tiếp từ CSDL PostgreSQL
-  useEffect(() => {
+  const fetchRenderHistory = useCallback(() => {
     fetch('/api/render-history')
       .then(res => res.json())
       .then(resData => {
         if (resData.success && Array.isArray(resData.data)) {
-          setRenderHistory(resData.data);
+          const mapped = resData.data.map((item: any) => ({
+            ...item,
+            name: item.title || item.name,
+            url: item.videoUrl || item.url
+          }));
+          setRenderHistory(mapped);
         }
       })
       .catch(err => console.warn('Lỗi nạp lịch sử từ PostgreSQL:', err));
   }, []);
+
+  useEffect(() => {
+    fetchRenderHistory();
+  }, [fetchRenderHistory, showVideoExportModal, exportTab]);
 
   const saveRenderHistoryItem = (blob: Blob, url: string, customName?: string) => {
     try {
@@ -270,8 +278,8 @@ export const useVideoExport = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: newItem.id,
-          name: newItem.name,
-          url: newItem.url,
+          title: newItem.name,
+          videoUrl: newItem.url,
           createdAt: newItem.createdAt,
           resolution: newItem.resolution,
           aspectRatio: newItem.aspectRatio,
@@ -282,7 +290,12 @@ export const useVideoExport = ({
       .then(res => res.json())
       .then(resData => {
         if (resData.success && Array.isArray(resData.data)) {
-          setRenderHistory(resData.data);
+          const mapped = resData.data.map((item: any) => ({
+            ...item,
+            name: item.title || item.name,
+            url: item.videoUrl || item.url
+          }));
+          setRenderHistory(mapped);
         }
       })
       .catch(err => console.warn('Lỗi lưu PostgreSQL:', err));
@@ -294,22 +307,30 @@ export const useVideoExport = ({
     }
   };
 
-  const deleteRenderHistoryItem = (id: string) => {
+  const deleteRenderHistoryItem = async (id: string) => {
+    if (!id) return;
     try {
-      idb.del('rendered_vid_' + id).catch(() => {});
+      showToastMsg?.('Đang xóa video khỏi lịch sử...', 'info', 2000);
+      idb.remove('rendered_vid_' + id).catch(() => {});
       
-      // Xóa trong CSDL PostgreSQL
-      fetch(`/api/render-history?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
-        .then(res => res.json())
-        .then(resData => {
-          if (resData.success && Array.isArray(resData.data)) {
-            setRenderHistory(resData.data);
-          }
-        })
-        .catch(() => {});
-
       setRenderHistory(prev => prev.filter(item => item.id !== id));
-    } catch (e) {}
+
+      const res = await fetch(`/api/render-history?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      const resData = await res.json().catch(() => ({}));
+      
+      if (resData.success && Array.isArray(resData.data)) {
+        const mapped = resData.data.map((item: any) => ({
+          ...item,
+          name: item.title || item.name,
+          url: item.videoUrl || item.url
+        }));
+        setRenderHistory(mapped);
+      }
+      showToastMsg?.('Đã xóa video khỏi lịch sử thành công!', 'success', 3000);
+    } catch (e: any) {
+      console.error('Lỗi xóa lịch sử video:', e);
+      showToastMsg?.('Có lỗi khi xóa video.', 'error', 3000);
+    }
   };
 
   // --- TÂM AN THÊM: STATE CHO INTRO & OUTRO ---
@@ -2348,7 +2369,7 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
                      role: isAi ? 'ai' : 'user',
                      text: cleanText,
                      emotion: currentEmotion,
-                     voice: isAi ? (laoVoice || 'Algieba') : (userVoice || 'Aoede'),
+                     voice: isAi ? (laoVoice || '') : (userVoice || ''),
                      voiceStyle: defaultStyle,
                      audioUrl: null,
                      reactions: {}
@@ -3049,37 +3070,50 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
       }
   };
 
-  // --- TÍNH NĂNG LƯU CẤU HÌNH CÀI ĐẶT VIDEO ---
+  // --- TÍNH NĂNG LƯU CẤU HÌNH CÀI ĐẶT VIDEO VÀO CSDL POSTGRESQL ---
   const handleSaveVideoConfig = () => {
     try {
       if (typeof window !== 'undefined') (window as any).__lastSaveError = null;
+      const currentScenes = (ffScenesRef.current && ffScenesRef.current.length > 0) ? ffScenesRef.current : ffScenes;
       const config = {
         videoAspectRatio,
         videoResolution,
         videoTransition,
         videoTransitionDuration,
+        videoExt,
         subtitleYPos,
         subtitleScale,
         subtitleColor,
         subtitleSentenceCount,
         logoData,
         logoSettings,
+        bgmAudioData,
         bgmVolume,
+        aiBgmPrompt,
         enableIntro,
         introTitle,
         introSubtitle,
         enableOutroText,
         outroText,
+        chatLaoTransform,
         charOffsets,
         customBgs,
+        activeBgId,
+        isFullFrameMode,
+        ffScenes: currentScenes,
         savedAt: Date.now()
       };
+
+      // Lưu vĩnh viễn 100% cấu hình vào CSDL PostgreSQL
+      if (currentSessionId) {
+        fetch('/api/sessions/video-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: currentSessionId, videoConfig: config })
+        }).catch(err => console.warn('Lỗi lưu CSDL PostgreSQL videoConfig:', err));
+      }
       
-      const key = currentSessionId ? `onglao_video_config_${currentSessionId}` : 'onglao_video_config_global';
-      localStorage.setItem(key, JSON.stringify(config));
-      localStorage.setItem('onglao_video_config_latest', JSON.stringify(config));
-      
-      showToastMsg('Đã lưu thành công tất cả cài đặt tạo video!', 'success', 3500);
+      showToastMsg('Đã lưu thành công tất cả cài đặt & phân cảnh video vào CSDL!', 'success', 3500);
       return true;
     } catch (e: any) {
       if (typeof window !== 'undefined') (window as any).__lastSaveError = e.message;
@@ -3089,33 +3123,48 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
   };
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const key = currentSessionId ? `onglao_video_config_${currentSessionId}` : 'onglao_video_config_global';
-      const saved = localStorage.getItem(key) || localStorage.getItem('onglao_video_config_latest');
-      if (saved) {
-        try {
-          const cfg = JSON.parse(saved);
-          if (cfg.videoAspectRatio) setVideoAspectRatio(cfg.videoAspectRatio);
-          if (cfg.videoResolution) setVideoResolution(cfg.videoResolution);
-          if (cfg.videoTransition) setVideoTransition(cfg.videoTransition);
-          if (cfg.videoTransitionDuration) setVideoTransitionDuration(cfg.videoTransitionDuration);
-          if (cfg.subtitleYPos !== undefined) setSubtitleYPos(cfg.subtitleYPos);
-          if (cfg.subtitleScale !== undefined) setSubtitleScale(cfg.subtitleScale);
-          if (cfg.subtitleColor) setSubtitleColor(cfg.subtitleColor);
-          if (cfg.subtitleSentenceCount !== undefined) setSubtitleSentenceCount(cfg.subtitleSentenceCount);
-          if (cfg.logoData && !logoData) setLogoData(cfg.logoData);
-          if (cfg.logoSettings) setLogoSettings(cfg.logoSettings);
-          if (cfg.bgmVolume !== undefined) setBgmVolume(cfg.bgmVolume);
-          if (cfg.enableIntro !== undefined) setEnableIntro(cfg.enableIntro);
-          if (cfg.introTitle !== undefined) setIntroTitle(cfg.introTitle);
-          if (cfg.introSubtitle !== undefined) setIntroSubtitle(cfg.introSubtitle);
-          if (cfg.enableOutroText !== undefined) setEnableOutroText(cfg.enableOutroText);
-          if (cfg.outroText !== undefined) setOutroText(cfg.outroText);
-          if (cfg.charOffsets) setCharOffsets(cfg.charOffsets);
-          if (cfg.customBgs) setCustomBgs(cfg.customBgs);
-        } catch (e) {}
+    if (!currentSessionId) return;
+
+    const applyConfig = (cfg: any) => {
+      if (!cfg) return;
+      if (cfg.videoAspectRatio) setVideoAspectRatio(cfg.videoAspectRatio);
+      if (cfg.videoResolution) setVideoResolution(cfg.videoResolution);
+      if (cfg.videoTransition) setVideoTransition(cfg.videoTransition);
+      if (cfg.videoTransitionDuration) setVideoTransitionDuration(cfg.videoTransitionDuration);
+      if (cfg.videoExt) setVideoExt(cfg.videoExt);
+      if (cfg.subtitleYPos !== undefined) setSubtitleYPos(cfg.subtitleYPos);
+      if (cfg.subtitleScale !== undefined) setSubtitleScale(cfg.subtitleScale);
+      if (cfg.subtitleColor) setSubtitleColor(cfg.subtitleColor);
+      if (cfg.subtitleSentenceCount !== undefined) setSubtitleSentenceCount(cfg.subtitleSentenceCount);
+      if (cfg.logoData && !logoData) setLogoData(cfg.logoData);
+      if (cfg.logoSettings) setLogoSettings(cfg.logoSettings);
+      if (cfg.bgmAudioData) setBgmAudioData(cfg.bgmAudioData);
+      if (cfg.bgmVolume !== undefined) setBgmVolume(cfg.bgmVolume);
+      if (cfg.aiBgmPrompt) setAiBgmPrompt(cfg.aiBgmPrompt);
+      if (cfg.enableIntro !== undefined) setEnableIntro(cfg.enableIntro);
+      if (cfg.introTitle !== undefined) setIntroTitle(cfg.introTitle);
+      if (cfg.introSubtitle !== undefined) setIntroSubtitle(cfg.introSubtitle);
+      if (cfg.enableOutroText !== undefined) setEnableOutroText(cfg.enableOutroText);
+      if (cfg.outroText !== undefined) setOutroText(cfg.outroText);
+      if (cfg.chatLaoTransform) setChatLaoTransform(cfg.chatLaoTransform);
+      if (cfg.charOffsets) setCharOffsets(cfg.charOffsets);
+      if (cfg.customBgs) setCustomBgs(cfg.customBgs);
+      if (cfg.activeBgId) setActiveBgId(cfg.activeBgId);
+      if (cfg.isFullFrameMode !== undefined) setIsFullFrameMode(cfg.isFullFrameMode);
+      if (cfg.ffScenes && Array.isArray(cfg.ffScenes) && cfg.ffScenes.length > 0) {
+        setFfScenes(cfg.ffScenes);
       }
-    }
+    };
+
+    // Nạp cấu hình & phân cảnh video trực tiếp từ CSDL PostgreSQL
+    fetch(`/api/sessions/video-config?sessionId=${encodeURIComponent(currentSessionId)}`)
+      .then(res => res.json())
+      .then(resData => {
+        if (resData.success && resData.data) {
+          applyConfig(resData.data);
+        }
+      })
+      .catch(err => console.warn('Lỗi nạp videoConfig từ PostgreSQL DB:', err));
   }, [currentSessionId]);
 
   const getLogoBounds = (canvasW: number, canvasH: number, logoImg: any, settings: any) => {

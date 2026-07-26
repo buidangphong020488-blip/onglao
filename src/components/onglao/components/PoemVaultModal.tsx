@@ -1579,13 +1579,13 @@ const PoemVaultModal = ({ isAdminMode = false, inline = false, p: propP }: { isA
                       <p className="text-xs text-slate-400">Xem kệ pháp, mào đầu tiếp đón, và nạp nội dung huấn luyện cho Lão</p>
                   </div>
               </div>
-              <button 
-                  onClick={handleClosePoemModal} 
+              <a 
+                  href="/" 
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-md cursor-pointer"
                   title="Quay lại Thiền đường"
               >
                   <ChevronLeft size={16} /> Quay lại Thiền đường
-              </button>
+              </a>
           </div>
 
           {/* Body Content - Trang Full-screen */}

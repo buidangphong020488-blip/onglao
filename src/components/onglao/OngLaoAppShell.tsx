@@ -358,13 +358,15 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
     forceRegenerate: boolean = false,
     _arg5?: any,
     _arg6?: any,
-    autoPlay: boolean = true
+    autoPlay: boolean = true,
+    customVoiceName?: string,
+    customVoiceStyle?: string
   ) => {
     if (!text || !text.trim()) return false;
     const cleanText = text.replace(/\[.*?\]|\(.*?\)/g, '').trim();
     if (!cleanText) return false;
 
-    const cacheKey = cleanText.toLowerCase().trim();
+    const cacheKey = `${cleanText}_${customVoiceName || role}`.toLowerCase().trim();
     if (!forceRegenerate && audioTextCacheRef.current.has(cacheKey)) {
       const cachedUrl = audioTextCacheRef.current.get(cacheKey)!;
       if (autoPlay) enqueueAudio(cachedUrl, msgId);
@@ -377,13 +379,15 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
       const token = typeof window !== 'undefined' ? localStorage.getItem('onglao_token') : null;
       const currentAiId = authState.selectedAiConfigId || 7;
 
-      let voiceStylePrefix = role === 'user' 
+      let voiceStylePrefix = customVoiceStyle || (role === 'user' 
         ? (authState.userVoiceStyle || '').trim() 
-        : (authState.laoVoiceStyle || '').trim();
+        : (authState.laoVoiceStyle || '').trim());
         
       if (authState.appLanguage === 'Tiếng Việt' && voiceStylePrefix && !voiceStylePrefix.endsWith(':')) {
         voiceStylePrefix += ':';
       }
+
+      const effectiveVoiceName = customVoiceName || (role === 'user' ? authState.userVoice : authState.laoVoice);
 
       const res = await fetch('/api/tts', {
         method: 'POST',
@@ -393,17 +397,21 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
         },
         body: JSON.stringify({
           text: voiceStylePrefix ? `${voiceStylePrefix} ${cleanText}` : cleanText,
+          voiceName: effectiveVoiceName,
           aiConfigId: currentAiId,
-          userId: authState?.user?.id || null
+          userId: authState?.currentUser?.id || authState?.user?.uid || null
         })
       });
 
       const data = await res.json();
       const audioBase64 = data?.audioContent || data?.audio;
+      // ✅ Ưu tiên audioUrl (đường dẫn file /uploads/...) để lưu DB
+      // data: URL base64 chỉ dùng để phát tức thì trên browser — KHÔNG lưu vào DB
+      const fileAudioUrl: string | null = data?.audioUrl || null;
 
       if (audioBase64) {
         const mimeType = data.mimeType || 'audio/wav';
-        const audioUrl = `data:${mimeType};base64,${audioBase64}`;
+        const dataUrl = `data:${mimeType};base64,${audioBase64}`; // chỉ dùng để phát browser
 
         const targetSessionId = sessionId || currentSessionId;
         setSessions((prev: any[]) => prev.map((s: any) => {
@@ -411,25 +419,28 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
             return {
               ...s,
               messages: (s.messages || []).map((m: any) => 
-                m.id === msgId ? { ...m, audioUrl } : m
+                m.id === msgId ? { ...m, audioUrl: fileAudioUrl || dataUrl } : m
               )
             };
           }
           return s;
         }));
 
+        // Lưu DB: dùng fileAudioUrl (/uploads/audio/xxx.wav) nếu có, fallback dataUrl
         saveChatMessageAction(
           targetSessionId,
           role === 'user' ? 'USER' : 'ASSISTANT',
           text.trim(),
-          audioUrl,
+          fileAudioUrl || dataUrl,  // ← fileAudioUrl ưu tiên, tránh lưu base64 khổng lồ
           null,
           msgId,
           'calm'
         ).catch(() => {});
 
-        audioTextCacheRef.current.set(cacheKey, audioUrl);
-        if (autoPlay) enqueueAudio(audioUrl, msgId);
+        // Phát audio tức thì: dùng dataUrl (nhanh, không cần fetch lại)
+        const playUrl = dataUrl;
+        audioTextCacheRef.current.set(cacheKey, fileAudioUrl || playUrl);
+        if (autoPlay) enqueueAudio(playUrl, msgId);
         return true;
       } else {
         console.warn('TTS response:', data);

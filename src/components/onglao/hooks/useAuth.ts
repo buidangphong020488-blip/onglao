@@ -4,12 +4,7 @@ import {
   getChatSessionsAction 
 } from "@/actions/chat";
 import { updateUserProfileAction } from "@/actions/auth";
-import { 
-  auth, 
-  signInAnonymously, 
-  onAuthStateChanged,
-  VOICE_STYLES
-} from '../constants';
+import { VOICE_STYLES } from '../constants';
 
 interface UseAuthProps {
   setSessions?: (sessions: any) => void;
@@ -25,7 +20,6 @@ export const useAuth = (props: Partial<UseAuthProps> = {}) => {
     showToastMsg,
     activeAudioRef
   } = props;
-  const [user, setUser] = useState<any>(null);
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [publicAis, setPublicAis] = useState<any[]>([]);
   const [selectedAiConfigId, setSelectedAiConfigId] = useState<number | undefined>(undefined);
@@ -53,11 +47,11 @@ export const useAuth = (props: Partial<UseAuthProps> = {}) => {
   // --- STATE LƯU TRỮ TÊN FILE TẢI LÊN TỪ MÁY TÍNH ---
   const [localFileNames, setLocalFileNames] = useState({});
 
-  const [userVoice, setUserVoice] = useState('Aoede');
+  const [userVoice, setUserVoice] = useState('');
   const [userVoiceStyle, setUserVoiceStyle] = useState('giọng thanh niên, phong cách đọc tỏ vẻ rối rắm, thắc mắc, chuẩn giọng miền Nam Việt Nam, đúng chính tả');
   
   // State quản lý tên, giọng, phong cách và XƯNG HÔ của Lão
-  const [laoVoice, setLaoVoice] = useState('Algieba');
+  const [laoVoice, setLaoVoice] = useState('');
   const [laoVoiceStyle, setLaoVoiceStyle] = useState('Giọng ấm áp, mạnh mẽ, dứt khoát, miền nam việt nam, đúng chính tả, ngắt nhịp rõ ràng giữa các câu');
   
   const [customLaoName, setCustomLaoName] = useState('Lão'); // Tên hiển thị kịch bản
@@ -109,20 +103,7 @@ export const useAuth = (props: Partial<UseAuthProps> = {}) => {
     }
   }, []);
 
-  useEffect(() => {
-    if (!auth) return;
-    const initAuth = async () => {
-        try {
-            await signInAnonymously(auth);
-            console.log("Đã kết nối tài khoản ẩn danh thành công.");
-        } catch (e) {
-            console.error("Auth error", e);
-        }
-    };
-    initAuth();
-    const unsubscribe = onAuthStateChanged(auth, setUser);
-    return () => unsubscribe();
-  }, []);
+  // Firebase anonymous auth đã bị bỏ — dùng GiacNgo SSO (currentUser) làm duy nhất
 
   // --- LƯU TRỮ PROFILE NGƯỜI DÙNG ---
   const saveUserProfile = (userId?: string) => {
@@ -322,7 +303,7 @@ export const useAuth = (props: Partial<UseAuthProps> = {}) => {
   const isFetchingSessionsRef = useRef<string | null>(null);
   
   useEffect(() => {
-    const targetUserId = currentUser?.id || user?.uid || 'guest_user';
+    const targetUserId = currentUser?.id || 'guest_user';
     
     const loadUserSessions = async () => {
       try {
@@ -375,7 +356,7 @@ export const useAuth = (props: Partial<UseAuthProps> = {}) => {
       }
     };
     loadUserSessions();
-  }, [currentUser?.id, user?.uid]);
+  }, [currentUser?.id]);
 
   const handleLogin = (loginUser: any, _token: string) => {
     setCurrentUser(loginUser);
@@ -433,7 +414,9 @@ export const useAuth = (props: Partial<UseAuthProps> = {}) => {
   useEffect(() => {
       if (hasEntered || isProfileCompleted) return;
       
-      setUserVoice(userGender === 'Nam' ? 'Puck' : 'Aoede');
+      if (!userVoice) {
+        setUserVoice(userGender === 'Nam' ? 'Puck' : 'Kore');
+      }
 
       let ageDesc = "giọng thanh niên";
       if (userAge <= 16) ageDesc = "giọng trẻ em";
@@ -446,14 +429,15 @@ export const useAuth = (props: Partial<UseAuthProps> = {}) => {
   }, [userGender, userAge, hasEntered, isProfileCompleted]);
 
   const handleEnterApp = useCallback(() => {
-    const targetUserId = currentUser?.id || user?.id || null;
+    const targetUserId = currentUser?.id || null;
     saveUserProfile(targetUserId);
     setHasEntered(true);
     showToastMsg?.('Đã lưu thay đổi thông tin profile thành công!', 'success', 2000);
-  }, [currentUser, user, saveUserProfile, showToastMsg]);
+  }, [currentUser, saveUserProfile, showToastMsg]);
 
+  // Alias user = currentUser để tương thích với code cũ dùng authState.user
   return {
-    user, setUser,
+    user: currentUser, setUser: setCurrentUser,
     isCloudSyncing, setIsCloudSyncing,
     hasEntered, setHasEntered,
     isProfileCompleted, setIsProfileCompleted,

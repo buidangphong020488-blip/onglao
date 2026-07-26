@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import ffmpegPath from 'ffmpeg-static';
+
+const execAsync = promisify(exec);
 
 export const dynamic = 'force-dynamic';
 
@@ -11,12 +16,10 @@ function getUploadDir() {
     '/www/wwwroot/onglao.giac.ngo/uploads/canhquay',
   ];
 
-  // Ưu tiên thư mục đã tồn tại, nếu chưa có thư mục nào thì tạo ở candidate 0 hoặc candidate 1 nếu đang trên VPS
   for (const dir of candidateDirs) {
     if (fs.existsSync(dir)) return dir;
   }
 
-  // Nếu là môi trường Linux/aaPanel
   if (fs.existsSync('/www/wwwroot/onglao.giac.ngo')) {
     const vpsDir = '/www/wwwroot/onglao.giac.ngo/public/uploads/canhquay';
     fs.mkdirSync(vpsDir, { recursive: true });
@@ -42,15 +45,56 @@ export async function POST(req: NextRequest) {
 
     const uploadDir = getUploadDir();
 
-    const ext = path.extname(file.name) || (file.type.includes('image') ? '.jpg' : '.mp4');
-    const filename = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}${ext}`;
+    const isVideo = file.type.includes('video') || /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name);
+    const ext = path.extname(file.name) || (isVideo ? '.mp4' : '.jpg');
+    const baseName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const filename = `${baseName}${ext}`;
     const filePath = path.join(uploadDir, filename);
 
-    // Ghi file ra ổ cứng
+    // 1. Ghi file gốc ra ổ cứng
     fs.writeFileSync(filePath, buffer);
 
     const publicUrl = `/api/files/canhquay/${filename}`;
-    return NextResponse.json({ success: true, url: publicUrl });
+    let publicThumbUrl = publicUrl;
+
+    // 2. Nếu là video, tự động chạy FFmpeg trích xuất Thumbnail .jpg ngầm
+    if (isVideo) {
+      let ffmpegBin = ffmpegPath;
+      try {
+        const { stdout } = await execAsync('ffmpeg -version');
+        if (stdout && stdout.includes('ffmpeg version')) {
+          ffmpegBin = 'ffmpeg';
+        }
+      } catch (e) {}
+
+      if (ffmpegBin !== 'ffmpeg') {
+        if (!ffmpegBin || !fs.existsSync(ffmpegBin)) {
+          const isWin = process.platform === 'win32';
+          const candidate = path.join(process.cwd(), 'node_modules', 'ffmpeg-static', isWin ? 'ffmpeg.exe' : 'ffmpeg');
+          if (fs.existsSync(candidate)) ffmpegBin = candidate;
+        }
+      }
+
+      const thumbFilename = `thumb_${baseName}.jpg`;
+      const thumbFilePath = path.join(uploadDir, thumbFilename);
+
+      if (ffmpegBin) {
+        try {
+          await execAsync(`"${ffmpegBin}" -ss 00:00:01 -i "${filePath}" -vframes 1 -q:v 2 -y "${thumbFilePath}"`);
+          if (fs.existsSync(thumbFilePath)) {
+            publicThumbUrl = `/api/files/canhquay/${thumbFilename}`;
+          }
+        } catch (ffmpegErr) {
+          console.error('[/api/upload/canh-quay] Lỗi trích xuất thumbnail FFmpeg:', ffmpegErr);
+        }
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      url: publicUrl,
+      thumbnailUrl: publicThumbUrl
+    });
   } catch (err: any) {
     console.error('[/api/upload/canh-quay] error:', err);
     return NextResponse.json({ success: false, message: `Lỗi upload: ${err.message}` }, { status: 500 });

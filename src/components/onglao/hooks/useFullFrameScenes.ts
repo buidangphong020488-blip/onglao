@@ -30,9 +30,9 @@ export const useFullFrameScenes = ({
   currentSessionId = null
 }: any) => {
   const [ffScenes, setFfScenes] = useState<any[]>(() => {
-    if (typeof window !== 'undefined') {
-      const savedKey = currentSessionId ? `onglao_ff_scenes_${currentSessionId}` : 'onglao_ff_scenes';
-      const saved = localStorage.getItem(savedKey) || localStorage.getItem('onglao_ff_scenes');
+    if (typeof window !== 'undefined' && currentSessionId) {
+      const savedKey = `onglao_ff_scenes_${currentSessionId}`;
+      const saved = localStorage.getItem(savedKey);
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
@@ -45,6 +45,57 @@ export const useFullFrameScenes = ({
     }
     return [];
   });
+
+  const prevSessionIdRef = useRef(currentSessionId);
+
+  // Tự động nạp bộ cảnh lưu riêng của kịch bản/session từ PostgreSQL DB (fallback localStorage)
+  useEffect(() => {
+    if (!currentSessionId) return;
+    if (prevSessionIdRef.current === currentSessionId) return;
+    prevSessionIdRef.current = currentSessionId;
+
+    let isMounted = true;
+    const dbPackName = `script_scenes_${currentSessionId}`;
+
+    // 1. Thử nạp từ CSDL PostgreSQL trước
+    fetch(`/api/goi-canh-quay?name=${encodeURIComponent(dbPackName)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (!isMounted) return;
+        if (data && data.success && data.pack && Array.isArray(data.pack.scenesData) && data.pack.scenesData.length > 0) {
+          const restored = data.pack.scenesData.map((s: any) => ({
+            ...s,
+            url: (s.url && s.url.startsWith('blob:')) ? null : s.url
+          }));
+          setFfScenes(restored);
+          return;
+        }
+
+        // 2. Fallback nạp từ localStorage
+        const savedKey = `onglao_ff_scenes_${currentSessionId}`;
+        const saved = localStorage.getItem(savedKey);
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            const restored = parsed.map((s: any) => ({
+              ...s,
+              url: (s.url && s.url.startsWith('blob:')) ? null : s.url
+            }));
+            setFfScenes(restored);
+            return;
+          } catch (e) {}
+        }
+
+        // 3. Nếu chưa có cảnh lưu riêng -> reset ffScenes về [] để tự động tạo theo tin nhắn kịch bản
+        setFfScenes([]);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setFfScenes([]);
+      });
+
+    return () => { isMounted = false; };
+  }, [currentSessionId]);
 
   // Tự động khôi phục Video Blobs mới từ IndexedDB cho các cảnh có idbKey khi load hoặc đổi kịch bản
   useEffect(() => {
@@ -72,16 +123,32 @@ export const useFullFrameScenes = ({
     return () => { isMounted = false; };
   }, [ffScenes, currentSessionId]);
 
+  // Tự động lưu bộ cảnh theo kịch bản vào localStorage & PostgreSQL DB
   useEffect(() => {
+    if (!ffScenes || ffScenes.length === 0) return;
     const cleanForStorage = ffScenes.map((s: any) => ({
       ...s,
       url: (s.url && s.url.startsWith('blob:')) ? null : s.url
     }));
-    localStorage.setItem('onglao_ff_scenes', JSON.stringify(cleanForStorage));
+
     if (currentSessionId) {
       localStorage.setItem(`onglao_ff_scenes_${currentSessionId}`, JSON.stringify(cleanForStorage));
+
+      // Đẩy bộ cảnh lên CSDL PostgreSQL ngầm
+      const dbPackName = `script_scenes_${currentSessionId}`;
+      fetch('/api/goi-canh-quay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: dbPackName,
+          aspect: videoAspectRatio === '9x16' ? 'doc' : 'ngang',
+          scenes: cleanForStorage
+        })
+      }).catch(err => console.warn("Lỗi lưu bộ cảnh lên PostgreSQL DB:", err));
+    } else {
+      localStorage.setItem('onglao_ff_scenes', JSON.stringify(cleanForStorage));
     }
-  }, [ffScenes, currentSessionId]);
+  }, [ffScenes, currentSessionId, videoAspectRatio]);
   const [localFfClips, setLocalFfClips] = useState<any[]>([]);
   const [showFfSaveModal, setShowFfSaveModal] = useState(false);
   const [ffSaveData, setFfSaveData] = useState({ sceneId: '', name: '' });
@@ -431,51 +498,56 @@ export const useFullFrameScenes = ({
       }
   };
 
-  const handleUploadFolder = (e: any) => {
+  const handleUploadFolder = async (e: any) => {
       const files: any[] = Array.from(e.target.files || []);
       if (files.length === 0) return;
 
-      showToastMsg(`Đang phân tích ${files.length} video...`, 'loading', 2000);
+      showToastMsg(`Đang tải lên và trích xuất Thumbnail ngầm cho ${files.length} video...`, 'loading', 0);
 
       const newScenesTemplate: any[] = [
-          { id: `scene_lao_calm_${Date.now()}`, role: 'lao', emotion: 'calm', url: null, idbKey: null },
-          { id: `scene_lao_sad_${Date.now()}`, role: 'lao', emotion: 'sad', url: null, idbKey: null },
-          { id: `scene_lao_joy_${Date.now()}`, role: 'lao', emotion: 'joy', url: null, idbKey: null },
-          { id: `scene_user_calm_${Date.now()}`, role: 'user', emotion: 'calm', url: null, idbKey: null },
-          { id: `scene_user_sad_${Date.now()}`, role: 'user', emotion: 'sad', url: null, idbKey: null },
-          { id: `scene_user_joy_${Date.now()}`, role: 'user', emotion: 'joy', url: null, idbKey: null },
-          { id: `scene_outro_calm_${Date.now()}`, role: 'outro', emotion: 'calm', url: null, idbKey: null }
+          { id: `scene_lao_calm_${Date.now()}`, role: 'lao', emotion: 'calm', url: null, thumbnailUrl: null, idbKey: null },
+          { id: `scene_lao_sad_${Date.now()}`, role: 'lao', emotion: 'sad', url: null, thumbnailUrl: null, idbKey: null },
+          { id: `scene_lao_joy_${Date.now()}`, role: 'lao', emotion: 'joy', url: null, thumbnailUrl: null, idbKey: null },
+          { id: `scene_user_calm_${Date.now()}`, role: 'user', emotion: 'calm', url: null, thumbnailUrl: null, idbKey: null },
+          { id: `scene_user_sad_${Date.now()}`, role: 'user', emotion: 'sad', url: null, thumbnailUrl: null, idbKey: null },
+          { id: `scene_user_joy_${Date.now()}`, role: 'user', emotion: 'joy', url: null, thumbnailUrl: null, idbKey: null },
+          { id: `scene_outro_calm_${Date.now()}`, role: 'outro', emotion: 'calm', url: null, thumbnailUrl: null, idbKey: null }
       ];
 
       let matchedCount = 0;
 
-      files.forEach((file: any) => {
+      for (const file of files) {
           const fileName = file.name.toLowerCase();
-          const url = URL.createObjectURL(file as any);
+          let targetIdx = -1;
 
-          if (fileName.includes('lao_calm') || fileName.includes('lao_binhthuong')) {
-              newScenesTemplate[0].url = url; matchedCount++;
-          } else if (fileName.includes('lao_sad') || fileName.includes('lao_buon')) {
-              newScenesTemplate[1].url = url; matchedCount++;
-          } else if (fileName.includes('lao_joy') || fileName.includes('lao_vui')) {
-              newScenesTemplate[2].url = url; matchedCount++;
-          } else if (fileName.includes('user_calm') || fileName.includes('con_binhthuong')) {
-              newScenesTemplate[3].url = url; matchedCount++;
-          } else if (fileName.includes('user_sad') || fileName.includes('con_buon') || fileName.includes('con_khoc')) {
-              newScenesTemplate[4].url = url; matchedCount++;
-          } else if (fileName.includes('user_joy') || fileName.includes('con_vui') || fileName.includes('con_cuoi')) {
-              newScenesTemplate[5].url = url; matchedCount++;
-          } else if (fileName.includes('outro') || fileName.includes('vailay') || fileName.includes('kethuc')) {
-              newScenesTemplate[6].url = url; matchedCount++;
-          } else {
-              URL.revokeObjectURL(url);
+          if (fileName.includes('lao_calm') || fileName.includes('lao_binhthuong')) targetIdx = 0;
+          else if (fileName.includes('lao_sad') || fileName.includes('lao_buon')) targetIdx = 1;
+          else if (fileName.includes('lao_joy') || fileName.includes('lao_vui')) targetIdx = 2;
+          else if (fileName.includes('user_calm') || fileName.includes('con_binhthuong')) targetIdx = 3;
+          else if (fileName.includes('user_sad') || fileName.includes('con_buon') || fileName.includes('con_khoc')) targetIdx = 4;
+          else if (fileName.includes('user_joy') || fileName.includes('con_vui') || fileName.includes('con_cuoi')) targetIdx = 5;
+          else if (fileName.includes('outro') || fileName.includes('vailay') || fileName.includes('kethuc')) targetIdx = 6;
+
+          if (targetIdx !== -1) {
+              try {
+                  const fd = new FormData();
+                  fd.append('file', file);
+                  const res = await fetch('/api/upload/canh-quay', { method: 'POST', body: fd });
+                  const data = await res.json();
+                  if (data.success && data.url) {
+                      newScenesTemplate[targetIdx].url = data.url;
+                      newScenesTemplate[targetIdx].thumbnailUrl = data.thumbnailUrl || data.url;
+                      matchedCount++;
+                  }
+              } catch (err) {
+                  console.error('Lỗi upload clip:', err);
+              }
           }
-      });
+      }
 
       if (matchedCount > 0) {
-          ffScenes.forEach((s: any) => { if (s.url && s.url.startsWith('blob:')) URL.revokeObjectURL(s.url); });
           setFfScenes(newScenesTemplate);
-          showToastMsg(`Đã tự động phân loại và ghép thành công ${matchedCount} cảnh quay! Bạn hãy bấm "Lưu thành Bộ Cảnh" nhé.`, 'success', 6000);
+          showToastMsg(`Đã tải lên và tạo xong ${matchedCount} Thumbnail ngầm! Hãy bấm "Lưu Bộ Cảnh".`, 'success', 6000);
       } else {
           showToastMsg(`Tải lên ${files.length} file nhưng không có file nào đúng định dạng tên. Bấm vào icon (i) để xem hướng dẫn đặt tên.`, 'error', 8000);
       }

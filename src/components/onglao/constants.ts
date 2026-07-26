@@ -97,6 +97,9 @@ export const idb = {
             tx.oncomplete = () => resolve();
             tx.onerror = (e: any) => reject(e);
         });
+    },
+    async del(key: string): Promise<void> {
+        return this.remove(key);
     }
 };
 
