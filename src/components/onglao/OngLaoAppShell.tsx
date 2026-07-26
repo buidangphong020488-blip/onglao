@@ -248,8 +248,13 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
         await ctx.resume();
       }
       const response = await fetch(audioUrl);
+      if (!response.ok) return onFinish();
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('json') || contentType.includes('html')) return onFinish();
       const arrayBuffer = await response.arrayBuffer();
-      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+      if (!arrayBuffer || arrayBuffer.byteLength < 100) return onFinish();
+      const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0)).catch(() => null);
+      if (!audioBuffer) return onFinish();
       const source = ctx.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(ctx.destination);

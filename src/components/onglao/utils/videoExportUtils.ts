@@ -130,7 +130,9 @@ export const combineWavs = async (items: any[]) => {
         buf = await r.arrayBuffer();
       }
 
-      const decoded = await tempCtx.decodeAudioData(buf);
+      if (!buf || buf.byteLength < 100) continue;
+      const decoded = await tempCtx.decodeAudioData(buf.slice(0)).catch(() => null);
+      if (!decoded) continue;
       decodedBuffers.push(decoded);
       metadata.push(items[i]);
     } catch (e) {

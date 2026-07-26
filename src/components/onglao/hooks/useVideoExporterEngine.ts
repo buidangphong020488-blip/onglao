@@ -675,8 +675,13 @@ export const useVideoExporterEngine = ({
       // Nạp audio gộp vào AudioContext
 
       const combinedAudioBuffer = await combinedAudioBlob.arrayBuffer();
-
-      const decodedAudioBuffer = await exportAudioCtxRef.current.decodeAudioData(combinedAudioBuffer);
+      const decodedAudioBuffer = await exportAudioCtxRef.current.decodeAudioData(combinedAudioBuffer.slice(0)).catch(() => null);
+      if (!decodedAudioBuffer) {
+        showToastMsg('Dữ liệu âm thanh không hợp lệ hoặc bị lỗi giải mã. Vui lòng tạo lại audio!', 'error');
+        setIsPreparingVideoData(false);
+        setIsExportingVideo(false);
+        return;
+      }
 
       // --- FFMEG ENGINE EXPORT (SIÊU TỐC - 0% GIẬT LAG VIA FORMDATA MULTIPART) ---
 
@@ -1083,24 +1088,19 @@ export const useVideoExporterEngine = ({
               if (bgmRes.ok) {
 
                   const bgmArrayBuf = await bgmRes.arrayBuffer();
-
-                  const bgmDecodedBuffer = await exportAudioCtxRef.current.decodeAudioData(bgmArrayBuf);
-
-                  bgmSourceNode = exportAudioCtxRef.current.createBufferSource();
-
-                  bgmSourceNode.buffer = bgmDecodedBuffer;
-
-                  bgmSourceNode.loop = true;
-
-                  const bgmGainNode = exportAudioCtxRef.current.createGain();
-
-                  bgmGainNode.gain.setValueAtTime(bgmVolume !== undefined ? bgmVolume : 0.15, exportAudioCtxRef.current.currentTime);
-
-                  bgmSourceNode.connect(bgmGainNode);
-
-                  bgmGainNode.connect(audioDestinationNode);
-
-                  bgmGainNode.connect(exportAudioCtxRef.current.destination);
+                  if (bgmArrayBuf && bgmArrayBuf.byteLength >= 100) {
+                      const bgmDecodedBuffer = await exportAudioCtxRef.current.decodeAudioData(bgmArrayBuf.slice(0)).catch(() => null);
+                      if (bgmDecodedBuffer) {
+                          bgmSourceNode = exportAudioCtxRef.current.createBufferSource();
+                          bgmSourceNode.buffer = bgmDecodedBuffer;
+                          bgmSourceNode.loop = true;
+                          const bgmGainNode = exportAudioCtxRef.current.createGain();
+                          bgmGainNode.gain.setValueAtTime(bgmVolume !== undefined ? bgmVolume : 0.15, exportAudioCtxRef.current.currentTime);
+                          bgmSourceNode.connect(bgmGainNode);
+                          bgmGainNode.connect(audioDestinationNode);
+                          bgmGainNode.connect(exportAudioCtxRef.current.destination);
+                      }
+                  }
 
               }
 
