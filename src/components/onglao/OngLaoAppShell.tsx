@@ -238,20 +238,20 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
 
   const tryWebAudio = React.useCallback(async (audioUrl: string, onFinish: () => void) => {
     try {
-      if (typeof window === 'undefined') return onFinish();
+      if (typeof window === 'undefined' || !audioUrl) return onFinish();
       if (!audioCtxRef.current) {
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
         audioCtxRef.current = new AudioCtx();
       }
       const ctx = audioCtxRef.current;
       if (ctx.state === 'suspended') {
-        await ctx.resume();
+        await ctx.resume().catch(() => {});
       }
-      const response = await fetch(audioUrl);
-      if (!response.ok) return onFinish();
+      const response = await fetch(audioUrl).catch(() => null);
+      if (!response || !response.ok) return onFinish();
       const contentType = response.headers.get('content-type') || '';
       if (contentType.includes('json') || contentType.includes('html')) return onFinish();
-      const arrayBuffer = await response.arrayBuffer();
+      const arrayBuffer = await response.arrayBuffer().catch(() => null);
       if (!arrayBuffer || arrayBuffer.byteLength < 100) return onFinish();
       const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0)).catch(() => null);
       if (!audioBuffer) return onFinish();
@@ -261,12 +261,16 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
       source.onended = onFinish;
       source.start(0);
     } catch (e) {
-      console.error('WebAudio API fallback failed:', e);
+      console.log('WebAudio API fallback handled gracefully:', e);
       onFinish();
     }
   }, []);
 
   const playAudioWithWebAudioFallback = React.useCallback(async (audioUrl: string, msgId: string, onFinish: () => void) => {
+    if (!audioUrl || typeof audioUrl !== 'string' || !audioUrl.trim()) {
+      onFinish();
+      return;
+    }
     setCurrentlyPlayingId(msgId);
     let hasFinished = false;
 
@@ -292,14 +296,19 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
       audio.load();
       activeAudioRef.current = audio;
       audio.onended = finishOnce;
-      audio.onerror = () => tryWebAudio(audioUrl, finishOnce);
+      audio.onerror = () => {
+        tryWebAudio(audioUrl, finishOnce);
+      };
 
       const p = audio.play();
       if (p !== undefined) {
-        await p;
+        await p.catch((err) => {
+          console.log('HTML5 Audio play handled with WebAudio API fallback:', err?.message || err);
+          tryWebAudio(audioUrl, finishOnce);
+        });
       }
     } catch (err) {
-      console.warn('HTML5 Audio play failed, switching to WebAudio API:', err);
+      console.log('HTML5 Audio play handled with WebAudio API fallback:', err);
       tryWebAudio(audioUrl, finishOnce);
     }
   }, [tryWebAudio]);
