@@ -39,14 +39,7 @@ export async function POST(req: NextRequest) {
     }
 
     const ttsModel = model || systemSettings.ttsModel || DEFAULT_MODEL;
-    const voice    = voiceName || systemSettings.laoVoiceName;
-
-    if (!voice || !voice.trim()) {
-      return NextResponse.json(
-        { message: 'Chưa chọn Giọng đọc (voiceName). Vui lòng chọn giọng đọc trong Cấu Hình Kịch Bản.' },
-        { status: 400 }
-      );
-    }
+    const voice = (voiceName && String(voiceName).trim()) ? voiceName : (systemSettings.laoVoiceName || 'Algieba');
 
     const geminiUrl = `${GEMINI_BASE}/${ttsModel}:generateContent?key=${apiKey}`;
 
@@ -92,15 +85,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Gemini TTS không trả về dữ liệu âm thanh.' }, { status: 500 });
     }
 
-    // Convert raw PCM (L16) sang WAV với 44-byte header
+    // Convert raw PCM sang WAV với 44-byte header nếu chưa có header RIFF
     let wavBuffer: Buffer;
+    const rawBuffer = Buffer.from(rawAudioBase64, 'base64');
+    const isAlreadyRiffWav = rawBuffer.length >= 12 && rawBuffer.toString('utf8', 0, 4) === 'RIFF';
 
-    if (originalMimeType.includes('L16') || originalMimeType.includes('pcm')) {
-      const pcmBuffer = Buffer.from(rawAudioBase64, 'base64');
+    if (!isAlreadyRiffWav) {
       const sampleRate = 24000;
       const wavHeader = Buffer.alloc(44);
       wavHeader.write('RIFF', 0);
-      wavHeader.writeUInt32LE(36 + pcmBuffer.length, 4);
+      wavHeader.writeUInt32LE(36 + rawBuffer.length, 4);
       wavHeader.write('WAVE', 8);
       wavHeader.write('fmt ', 12);
       wavHeader.writeUInt32LE(16, 16);
@@ -111,10 +105,10 @@ export async function POST(req: NextRequest) {
       wavHeader.writeUInt16LE(2, 32);
       wavHeader.writeUInt16LE(16, 34);
       wavHeader.write('data', 36);
-      wavHeader.writeUInt32LE(pcmBuffer.length, 40);
-      wavBuffer = Buffer.concat([wavHeader, pcmBuffer]);
+      wavHeader.writeUInt32LE(rawBuffer.length, 40);
+      wavBuffer = Buffer.concat([wavHeader, rawBuffer]);
     } else {
-      wavBuffer = Buffer.from(rawAudioBase64, 'base64');
+      wavBuffer = rawBuffer;
     }
 
     // ✅ Lưu file WAV theo từng user: /uploads/audio/{userId}/
@@ -128,9 +122,10 @@ export async function POST(req: NextRequest) {
     fs.writeFileSync(filePath, wavBuffer);
 
     const audioUrl = `/uploads/audio/${userFolder}/${filename}`;
+    const finalAudioBase64 = wavBuffer.toString('base64');
 
-    // Trả audioUrl (đường dẫn file) + audioContent (base64 cho backward compat)
-    return NextResponse.json({ audioUrl, audioContent: rawAudioBase64, mimeType: 'audio/wav' });
+    // Trả audioUrl (đường dẫn file) + audioContent (base64 chuẩn RIFF WAV)
+    return NextResponse.json({ audioUrl, audioContent: finalAudioBase64, mimeType: 'audio/wav' });
   } catch (err: any) {
     console.error('[/api/tts]', err);
     return NextResponse.json({ message: `Lỗi TTS: ${err.message}` }, { status: 500 });

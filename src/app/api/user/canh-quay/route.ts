@@ -10,7 +10,6 @@ export async function GET(request: NextRequest) {
 
   try {
     const list = await prisma.canhQuay.findMany({
-      where: userId ? { OR: [{ userId }, { userId: null }] } : {},
       orderBy: { createdAt: 'desc' },
     });
     return NextResponse.json(list);
@@ -99,30 +98,42 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE — Delete single clip, array of clip IDs, or entire category in PostgreSQL DB
+// DELETE — Delete single clip, array of clip IDs, or entire category in PostgreSQL DB (Phân quyền chính chủ)
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     const category = searchParams.get('category');
+    const userId = searchParams.get('userId');
     
     // Đọc body nếu có batch IDs
     let bodyIds: string[] = [];
+    let bodyUserId = userId;
     try {
       const body = await req.json();
       if (Array.isArray(body?.ids)) bodyIds = body.ids;
+      if (body?.userId) bodyUserId = body.userId;
     } catch {
       // no body
     }
 
     if (id) {
-      await prisma.canhQuay.deleteMany({ where: { id } });
-      return NextResponse.json({ success: true, message: `Đã xóa clip ${id}` });
+      // Nếu có userId -> chỉ cho xóa bài của chính mình hoặc bài chưa gán userId
+      const whereCondition: any = { id };
+      if (bodyUserId) {
+        whereCondition.OR = [{ userId: bodyUserId }, { userId: null }];
+      }
+      const res = await prisma.canhQuay.deleteMany({ where: whereCondition });
+      return NextResponse.json({ success: true, count: res.count, message: `Đã xóa clip ${id}` });
     }
 
     if (bodyIds.length > 0) {
-      await prisma.canhQuay.deleteMany({ where: { id: { in: bodyIds } } });
-      return NextResponse.json({ success: true, message: `Đã xóa ${bodyIds.length} clip` });
+      const whereCondition: any = { id: { in: bodyIds } };
+      if (bodyUserId) {
+        whereCondition.OR = [{ userId: bodyUserId }, { userId: null }];
+      }
+      const res = await prisma.canhQuay.deleteMany({ where: whereCondition });
+      return NextResponse.json({ success: true, count: res.count, message: `Đã xóa ${res.count} clip` });
     }
 
     if (category) {

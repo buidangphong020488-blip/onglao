@@ -2,6 +2,7 @@
 import React from "react";
 import { X, BookOpen, FileText, Tag, Search, Loader2, Download, XCircle, Check, Info, Plus, Trash2, Play, Pause, Upload, RefreshCw, Wand2, Music4, Bot, Cloud, Copy, Archive, Save, Mic, VolumeX, Sparkles, Edit3, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Home } from "lucide-react";
 import { RagSection } from "../ui/RagSection";
+import { useOngLaoContext } from "../context/OngLaoContext";
 
 // PoemVaultModal: Nhận toàn bộ state/handlers qua context
 // Để thêm/sửa tính năng trong modal này, chỉ cần mở file này - không cần đụng vào onglao-platform.tsx
@@ -19,7 +20,8 @@ const CATEGORY_MAP: Record<string, string> = {
 };
 
 const PoemVaultModal = ({ isAdminMode = false, inline = false, p: propP }: { isAdminMode?: boolean; inline?: boolean; p?: any }) => {
-  const p = propP || {};
+  const ctx = typeof useOngLaoContext === 'function' ? useOngLaoContext() : null;
+  const p = (propP && Object.keys(propP).length > 0) ? propP : (ctx || {});
   const {
     showPoemModal, setShowPoemModal, poemModalTab, setPoemModalTab,
     poemDatabase = [], poemSearch = '', setPoemSearch, savePoemDatabase,

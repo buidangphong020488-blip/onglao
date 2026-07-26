@@ -649,59 +649,30 @@ export default function AdminPage() {
                 </div>
               </section>
 
-              {/* CẤU HÌNH GIỌNG ĐỌC & PHONG CÁCH ĐỒNG NHẤT */}
+              {/* LOGO MẶC ĐỊNH & THIẾT LẬP GIỌNG ĐỌC */}
               <section className="bg-slate-900 border border-white/5 rounded-2xl p-6 flex flex-col gap-5">
                 <h2 className="text-xs font-bold text-cyan-400 tracking-widest uppercase flex items-center gap-2">
-                  <Mic size={14} /> Cấu hình Giọng đọc & Phong cách TTS (Đồng nhất hệ thống)
+                  <ImageIcon size={14} /> Logo Mặc Định & Giọng Đọc
                 </h2>
                 
-                {/* KHUNG CẤU HÌNH DUY NHẤT CHO GIỌNG LÃO */}
-                <div className="p-5 bg-slate-950/60 rounded-xl border border-amber-500/20 flex flex-col gap-4">
-                  <div className="flex justify-between items-center border-b border-white/10 pb-3">
-                    <span className="text-xs font-bold text-amber-400 flex items-center gap-2">
-                      👴 Giọng Đọc Khai Thị Của Lão (Mẫu Giọng Gemini Nam & Nữ)
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-mono">Dùng cho Bài Kệ, Mào Đầu, Khai Thị & Video Studio</span>
+                <div className="flex flex-col gap-2">
+                  <label className="text-[11px] text-slate-400 font-bold">Logo Mặc Định Hệ Thống (URL ảnh / png)</label>
+                  <div className="flex gap-3 items-center">
+                    <input 
+                      type="text" 
+                      value={settings.defaultLogoUrl || ''} 
+                      onChange={e => setSettings((p: any) => ({ ...p, defaultLogoUrl: e.target.value }))}
+                      placeholder="https://... hoặc /uploads/logo.png" 
+                      className="flex-1 bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-cyan-500" 
+                    />
+                    {settings.defaultLogoUrl && (
+                      <img src={settings.defaultLogoUrl} alt="Default Logo" className="w-10 h-10 object-contain bg-slate-950 p-1 rounded-lg border border-white/10" />
+                    )}
                   </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Cấu hình Giọng Lão */}
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[11px] text-amber-400 font-bold flex items-center gap-1">👴 Mẫu Giọng Gemini (Nam & Nữ)</label>
-                      <select
-                        value={settings.laoVoiceName || 'Puck'}
-                        onChange={e => setSettings((p: any) => ({ ...p, laoVoiceName: e.target.value }))}
-                        className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-amber-500 font-medium"
-                      >
-                        <optgroup label="👨 Giọng Nam">
-                          <option value="Puck">Puck (Trầm ấm, minh triết - Mặc định)</option>
-                          <option value="Charon">Charon (Uy nghiêm, sâu lắng)</option>
-                          <option value="Fenrir">Fenrir (Thong dong, tự tại)</option>
-                          <option value="Orpheus">Orpheus (Nhẹ nhàng, truyền cảm)</option>
-                          <option value="Enceladus">Enceladus (Hùng hồn, dứt khoát)</option>
-                          <option value="Algieba">Algieba (Ấm áp, mạnh mẽ)</option>
-                        </optgroup>
-                        <optgroup label="👩 Giọng Nữ">
-                          <option value="Kore">Kore (Nhẹ nhàng, trong trẻo)</option>
-                          <option value="Zephyr">Zephyr (Lắng đọng, tha thiết)</option>
-                          <option value="Aoede">Aoede (Chân thành, ấm áp)</option>
-                          <option value="Leda">Leda (Kính cẩn, dịu dàng)</option>
-                          <option value="Callisto">Callisto (Tự nhiên, mộc mạc)</option>
-                        </optgroup>
-                      </select>
-                    </div>
+                </div>
 
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[11px] text-amber-400 font-bold">✨ Văn phong & Phong cách Giọng Lão</label>
-                      <input
-                        type="text"
-                        value={settings.laoVoiceStyle ?? 'Trầm ấm, từ hòa, thong dong, minh triết, từ tốn, ngắt nhịp rõ ràng'}
-                        onChange={e => setSettings((p: any) => ({ ...p, laoVoiceStyle: e.target.value }))}
-                        placeholder="VD: Trầm ấm, từ hòa, thong dong..."
-                        className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-amber-500 font-medium"
-                      />
-                    </div>
-                  </div>
+                <div className="p-4 bg-slate-950/60 rounded-xl border border-white/10 text-xs text-slate-400 leading-relaxed">
+                  📌 <strong>Lưu ý Giọng Đọc:</strong> Giọng đọc của Lão và Con được cấu hình trực tiếp trong phần <strong>Hội thoại (Conversation / Profile nhân vật)</strong> ban đầu. Cấu hình giọng đọc trong Admin đã được bỏ để đảm bảo tính nhất quàn với Profile người dùng.
                 </div>
               </section>
               {/* Freemium */}
@@ -1405,7 +1376,7 @@ export default function AdminPage() {
               {/* CONTENTS */}
               <div className="flex-1 min-h-0 bg-slate-900/50 rounded-2xl border border-white/5 overflow-hidden p-2">
                 <OngLaoProvider value={poemContextValue}>
-                  <PoemVaultModal isAdminMode={true} inline={true} />
+                  <PoemVaultModal p={poemContextValue} isAdminMode={true} inline={true} />
                 </OngLaoProvider>
               </div>
             </div>
@@ -1423,10 +1394,26 @@ export default function AdminPage() {
 
               {isAddingState && (
                 <div className="flex gap-2 p-3 bg-slate-900 border border-pink-500/30 rounded-xl mb-4">
-                  <input type="text" value={editingStateId} onChange={e => setEditingStateId(e.target.value)} placeholder="Mã ID (vd: khoc, con_vui)" className="flex-1 bg-slate-950 border border-white/10 text-white p-2 rounded-lg text-xs outline-none" />
+                  <input type="text" value={editingStateId} onChange={e => setEditingStateId(e.target.value)} placeholder="Mã ID (vd: khoc, con_vui)" disabled={editingStateId && characterStatesMap.some((s: any) => s.id === editingStateId)} className="flex-1 bg-slate-950 border border-white/10 text-white p-2 rounded-lg text-xs outline-none disabled:opacity-50" />
                   <input type="text" value={editingStateName} onChange={e => setEditingStateName(e.target.value)} placeholder="Tên tiếng Việt (vd: Khóc, Vui vẻ)" className="flex-1 bg-slate-950 border border-white/10 text-white p-2 rounded-lg text-xs outline-none" />
-                  <button onClick={handleAddState} className="bg-pink-600 hover:bg-pink-500 text-white font-bold py-2 px-4 rounded-lg text-xs">Lưu</button>
-                  <button onClick={() => setIsAddingState(false)} className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg text-xs">Hủy</button>
+                  <button 
+                    onClick={() => {
+                      if (!editingStateId || !editingStateName) return alert('Vui lòng nhập Mã và Tên');
+                      const existIndex = characterStatesMap.findIndex((s: any) => s.id === editingStateId);
+                      let newStates = [...characterStatesMap];
+                      if (existIndex >= 0) {
+                        newStates[existIndex] = { id: editingStateId, name: editingStateName };
+                      } else {
+                        newStates.push({ id: editingStateId, name: editingStateName });
+                      }
+                      saveCharacterStates(newStates);
+                      setIsAddingState(false); setEditingStateId(''); setEditingStateName('');
+                    }} 
+                    className="bg-pink-600 hover:bg-pink-500 text-white font-bold py-2 px-4 rounded-lg text-xs"
+                  >
+                    Lưu
+                  </button>
+                  <button onClick={() => { setIsAddingState(false); setEditingStateId(''); setEditingStateName(''); }} className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg text-xs">Hủy</button>
                 </div>
               )}
 
@@ -1437,9 +1424,22 @@ export default function AdminPage() {
                       <span className="text-sm font-bold text-pink-100">{st.name}</span>
                       <span className="text-[10px] text-slate-500 font-mono mt-1">ID: {st.id}</span>
                     </div>
-                    <button onClick={() => handleDeleteState(st.id)} className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors">
-                      <Trash2 size={16} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => {
+                          setEditingStateId(st.id);
+                          setEditingStateName(st.name);
+                          setIsAddingState(true);
+                        }} 
+                        className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                        title="Sửa tên trạng thái"
+                      >
+                        <Edit3 size={15} />
+                      </button>
+                      <button onClick={() => handleDeleteState(st.id)} className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors" title="Xóa trạng thái">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {characterStatesMap.length === 0 && (

@@ -64,6 +64,29 @@ export const useAutopilot = ({
   useEffect(() => { latestMessagesRef.current = messages; }, [messages]);
   useEffect(() => { latestSessionsRef.current = sessions; }, [sessions]);
 
+  // Tải & Lưu cấu hình Xưởng Phim Tự Động theo từng User vào LocalStorage & DB
+  useEffect(() => {
+      const uid = (currentUser || user)?.id || 'guest';
+      const key = `onglao_autopilot_config_${uid}`;
+      try {
+          const saved = localStorage.getItem(key);
+          if (saved) {
+              const parsed = JSON.parse(saved);
+              if (parsed.apTopics) setApTopics(parsed.apTopics);
+              if (parsed.apSettings) setApSettings(prev => ({ ...prev, ...parsed.apSettings }));
+          }
+      } catch (e) {}
+  }, [currentUser?.id, user?.id]);
+
+  useEffect(() => {
+      if (!apTopics && !apSettings) return;
+      const uid = (currentUser || user)?.id || 'guest';
+      const key = `onglao_autopilot_config_${uid}`;
+      try {
+          localStorage.setItem(key, JSON.stringify({ apTopics, apSettings }));
+      } catch (e) {}
+  }, [apTopics, apSettings, currentUser?.id, user?.id]);
+
   const processAutoPilotLoopRef = useRef<any>(null);
 
   useEffect(() => {

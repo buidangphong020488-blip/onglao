@@ -14,7 +14,17 @@ import { usePoemDb } from "./hooks/usePoemDb";
 import { useVideoExport } from "./hooks/useVideoExport";
 import { useLiveStreaming } from "./hooks/useLiveStreaming";
 import { createChatSessionAction, saveChatMessageAction, getChatMessagesAction, deleteChatSessionAction, togglePinChatSessionAction } from "@/actions/chat";
+import { idb } from "./constants";
 import { CheckCircle2, AlertTriangle, Sparkles, Loader2, X } from "lucide-react";
+const normalizeAudioUrl = (url: string | null | undefined): string | null => {
+  if (!url) return null;
+  const trimmed = String(url).trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:') || trimmed.startsWith('/') || trimmed.startsWith('idb://') || trimmed.startsWith('blob:')) {
+    return trimmed;
+  }
+  return '/' + trimmed;
+};
 
 export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: any[] }) {
   // Global Sessions & Sidebar UI States
@@ -92,9 +102,28 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
       .catch(err => console.warn('Lỗi tải hình tướng:', err));
   }, []);
 
-  // Tự động tải danh sách tin nhắn từ PostgreSQL DB khi currentSessionId thay đổi
+  // Đọc querystring id từ URL khi vừa mở trang (nếu có ?id=xxx hoặc ?session_id=xxx)
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlSessionId = params.get('id') || params.get('session_id');
+      if (urlSessionId) {
+        setCurrentSessionId(urlSessionId);
+      }
+    }
+  }, [setCurrentSessionId]);
+
+  // Tự động tải danh sách tin nhắn từ PostgreSQL DB khi currentSessionId thay đổi & sync URL querystring
   React.useEffect(() => {
     if (!currentSessionId) return;
+
+    if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('id') !== currentSessionId && url.searchParams.get('session_id') !== currentSessionId) {
+        url.searchParams.set('id', currentSessionId);
+        window.history.pushState({}, '', url.toString());
+      }
+    }
 
     getChatMessagesAction(currentSessionId).then(res => {
       if (res.success && Array.isArray(res.data)) {
@@ -117,9 +146,19 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
           }
         }
 
-        setSessions((prev: any[]) => prev.map((s: any) => 
-          s.id === currentSessionId ? { ...s, messages: loadedMsgs, messagesLoaded: true } : s
-        ));
+        setSessions((prev: any[]) => {
+          const exists = prev?.some((s: any) => s.id === currentSessionId);
+          if (exists) {
+            return (prev || []).map((s: any) => 
+              s.id === currentSessionId ? { ...s, messages: loadedMsgs, messagesLoaded: true } : s
+            );
+          } else {
+            return [
+              ...(prev || []),
+              { id: currentSessionId, title: "Cuộc đàm đạo", type: "chat", messages: loadedMsgs, messagesLoaded: true }
+            ];
+          }
+        });
 
         if (poemDbState?.updateCurrentMessages) {
           poemDbState.updateCurrentMessages(loadedMsgs);
@@ -253,31 +292,65 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
     };
 
     try {
-      if (activeAudioRef.current) {
+      let playSrc = audioUrl;
+      if (audioUrl.startsWith('idb://')) {
         try {
-          activeAudioRef.current.pause();
-          activeAudioRef.current.removeAttribute('src');
-          activeAudioRef.current.load();
-        } catch (e) {}
-        activeAudioRef.current = null;
+          const key = audioUrl.replace('idb://', '');
+          const blob = await idb.get(key);
+          if (blob) {
+            playSrc = URL.createObjectURL(blob);
+          }
+        } catch (e) {
+          console.warn('Lỗi đọc audio idb:', e);
+        }
+      } else if (audioUrl.startsWith('data:')) {
+        try {
+          const parts = audioUrl.split(',');
+          const mime = parts[0].match(/:(.*?);/)?.[1] || 'audio/wav';
+          const bstr = atob(parts[1]);
+          let n = bstr.length;
+          const u8arr = new Uint8Array(n);
+          while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+          }
+          const blob = new Blob([u8arr], { type: mime });
+          playSrc = URL.createObjectURL(blob);
+        } catch (e) {
+          console.warn('Lỗi convert dataUrl sang Blob:', e);
+        }
       }
 
-      const audio = new Audio(audioUrl);
+      let audio = unlockedAudioRef.current;
+      if (!audio) {
+        audio = new Audio();
+        unlockedAudioRef.current = audio;
+      }
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch (e) {}
+
+      audio.onended = null;
+      audio.onerror = null;
+      audio.src = playSrc;
       audio.load();
       activeAudioRef.current = audio;
+
       audio.onended = finishOnce;
-      audio.onerror = () => {
-        // Chỉ phát audio có tệp thực tế trên ổ cứng — không fallback sang bất kỳ cơ chế nào khác
+      audio.onerror = (e) => {
+        console.warn('Lỗi phát audio:', playSrc, e);
         finishOnce();
       };
 
       const p = audio.play();
       if (p !== undefined) {
-        await p.catch(() => {
+        await p.catch((err) => {
+          console.warn('Autoplay catch:', err);
           finishOnce();
         });
       }
     } catch (err) {
+      console.warn('Lỗi playAudioWithWebAudioFallback:', err);
       finishOnce();
     }
   }, []);
@@ -317,17 +390,26 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
     processAudioQueue();
   }, [processAudioQueue]);
 
-  const playVoice = React.useCallback((audioUrl: string | null, msgId: string, role?: string, isForcePlay: boolean = false) => {
-    if (!audioUrl) return;
+  const parseMessageParts = React.useCallback((fullText: string) => {
+    if (!fullText) return { greetingText: '', stanzaText: '', aiReply: '' };
 
-    if (!isForcePlay && currentlyPlayingId === msgId) {
-      clearAudioQueue();
-      return;
+    const transitionIndex = fullText.indexOf('Hãy nghe kệ đây:');
+    if (transitionIndex !== -1) {
+      const greetingText = fullText.substring(0, transitionIndex).trim();
+      const rest = fullText.substring(transitionIndex + 'Hãy nghe kệ đây:'.length).trim();
+
+      const parts = rest.split(/\n\s*\n/);
+      if (parts.length >= 2) {
+        const stanzaText = parts[0].trim();
+        const aiReply = parts.slice(1).join('\n\n').trim();
+        return { greetingText, stanzaText, aiReply };
+      } else {
+        return { greetingText, stanzaText: rest, aiReply: '' };
+      }
     }
 
-    clearAudioQueue();
-    enqueueAudio(audioUrl, msgId);
-  }, [currentlyPlayingId, clearAudioQueue, enqueueAudio]);
+    return { greetingText: '', stanzaText: '', aiReply: fullText.trim() };
+  }, []);
 
   const audioTextCacheRef = React.useRef<Map<string, string>>(new Map());
 
@@ -381,7 +463,7 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
         voiceStylePrefix += ':';
       }
 
-      const effectiveVoiceName = customVoiceName || (role === 'user' ? authState.userVoice : authState.laoVoice);
+      const effectiveVoiceName = customVoiceName || (role === 'user' ? (authState.userVoice || publicSettings?.userVoiceName || 'Kore') : (authState.laoVoice || publicSettings?.laoVoiceName || 'Algieba'));
 
       const res = await fetch('/api/tts', {
         method: 'POST',
@@ -399,13 +481,11 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
 
       const data = await res.json();
       const audioBase64 = data?.audioContent || data?.audio;
-      // ✅ Ưu tiên audioUrl (đường dẫn file /uploads/...) để lưu DB
-      // data: URL base64 chỉ dùng để phát tức thì trên browser — KHÔNG lưu vào DB
       const fileAudioUrl: string | null = data?.audioUrl || null;
 
       if (audioBase64) {
         const mimeType = data.mimeType || 'audio/wav';
-        const dataUrl = `data:${mimeType};base64,${audioBase64}`; // chỉ dùng để phát browser
+        const dataUrl = `data:${mimeType};base64,${audioBase64}`; 
 
         const targetSessionId = sessionId || currentSessionId;
         setSessions((prev: any[]) => prev.map((s: any) => {
@@ -420,18 +500,16 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
           return s;
         }));
 
-        // Lưu DB: dùng fileAudioUrl (/uploads/audio/xxx.wav) nếu có, fallback dataUrl
         saveChatMessageAction(
           targetSessionId,
           role === 'user' ? 'USER' : 'ASSISTANT',
           text.trim(),
-          fileAudioUrl || dataUrl,  // ← fileAudioUrl ưu tiên, tránh lưu base64 khổng lồ
+          fileAudioUrl || dataUrl,
           null,
           msgId,
           'calm'
         ).catch(() => {});
 
-        // Phát audio tức thì: dùng dataUrl (nhanh, không cần fetch lại)
         const playUrl = dataUrl;
         audioTextCacheRef.current.set(cacheKey, fileAudioUrl || playUrl);
         if (autoPlay) enqueueAudio(playUrl, msgId);
@@ -452,7 +530,59 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
     } finally {
       setCreatingVoices(prev => ({ ...prev, [msgId]: false }));
     }
-  }, [authState, currentSessionId, playVoice, showToastMsg]);
+  }, [authState, currentSessionId, showToastMsg, enqueueAudio]);
+
+  const playVoice = React.useCallback((audioUrl: string | null, msgId: string, role?: string, isForcePlay: boolean = false, msgObj?: any) => {
+    if (!isForcePlay && currentlyPlayingId === msgId) {
+      clearAudioQueue();
+      return;
+    }
+
+    clearAudioQueue();
+
+    if (role === 'ai' || role === 'ASSISTANT') {
+      const targetMsg = msgObj;
+      if (targetMsg && targetMsg.text) {
+        const { greetingText, stanzaText, aiReply } = parseMessageParts(targetMsg.text);
+
+        // 1. Mào Đầu (Tệp thu sẵn hoặc TTS)
+        const normGreeting = normalizeAudioUrl(targetMsg.greetingAudioUrl || audioUrl);
+        if (normGreeting) {
+          audioQueueRef.current.push({ audioUrl: normGreeting, msgId });
+        } else if (greetingText) {
+          generateVoice(msgId + '_greeting', greetingText, 'ai', currentSessionId, true);
+        }
+
+        // 2 & 3. "Hãy nghe kệ đây:" và Bài Kệ Thiền (Nối tiếp 0ms)
+        if (stanzaText) {
+          audioQueueRef.current.push({ audioUrl: '/uploads/audio/transition_hay_nghe_ke_day.wav', msgId });
+
+          const poemDb = poemDbState.poemDatabase || [];
+          const allStanzas = poemDb.flatMap((p: any) => p.stanzas || []);
+          const matchedStanza = allStanzas.find((st: any) => st.content && stanzaText.includes(st.content.trim()));
+
+          const normStanzaAudio = normalizeAudioUrl(targetMsg.stanzaAudioUrl || matchedStanza?.audioUrl);
+          if (normStanzaAudio) {
+            audioQueueRef.current.push({ audioUrl: normStanzaAudio, msgId });
+          } else {
+            generateVoice(msgId + '_stanza', stanzaText, 'ai', currentSessionId, true);
+          }
+        }
+
+        // 4. AI Đúc Kết
+        if (aiReply) {
+          generateVoice(msgId, aiReply, 'ai', currentSessionId, true);
+        }
+
+        processAudioQueue();
+        return;
+      }
+    }
+
+    if (audioUrl) {
+      enqueueAudio(audioUrl, msgId);
+    }
+  }, [currentlyPlayingId, clearAudioQueue, enqueueAudio, poemDbState, currentSessionId, generateVoice, parseMessageParts, processAudioQueue]);
 
   // Video Export state
   const videoExportState = useVideoExport({
@@ -644,21 +774,22 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
       }
     } catch (e) {}
 
-    // BƯỚC 2: TRÍCH XUẤT KỆ PHÁP KHỚP NỘI DUNG
+    // BƯỚC 2: TRÍCH XUẤT KỆ PHÁP KHỚP NỘI DUNG TỪ DB (ƯU TIÊN BÀI KỆ CÓ THU ÂM SẴN CÓ 0MS LATENCY)
     const poemDatabase = poemDbState.poemDatabase || [];
     let matchedStanza: any = null;
     if (poemDatabase.length > 0) {
-      for (const poem of poemDatabase) {
-        for (const stanza of (poem.stanzas || [])) {
-          if (stanza.tags && stanza.tags.some((t: string) => lower.includes(t.toLowerCase()))) {
-            matchedStanza = stanza;
-            break;
-          }
+      const allStanzas = poemDatabase.flatMap((p: any) => p.stanzas || []);
+      if (allStanzas.length > 0) {
+        // Ưu tiên tập hợp bài kệ ĐÃ CÓ tệp âm thanh thu âm sẵn trên ổ cứng (/uploads/audio/stanza_poem_...wav)
+        const stanzasWithAudio = allStanzas.filter((st: any) => st.audioUrl && String(st.audioUrl).trim().length > 0);
+        const pool = stanzasWithAudio.length > 0 ? stanzasWithAudio : allStanzas;
+
+        matchedStanza = pool.find((st: any) => 
+          st.tags && Array.isArray(st.tags) && st.tags.some((t: string) => lower.includes(String(t).toLowerCase()))
+        );
+        if (!matchedStanza) {
+          matchedStanza = pool[Math.floor(Math.random() * pool.length)];
         }
-        if (matchedStanza) break;
-      }
-      if (!matchedStanza && poemDatabase[0]?.stanzas?.[0]) {
-        matchedStanza = poemDatabase[Math.floor(Math.random() * poemDatabase.length)]?.stanzas?.[0];
       }
     }
 
@@ -677,25 +808,31 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
       text: `${initialText}\n\n...`,
       emotion: 'calm',
       timestamp: new Date(),
-      audioUrl: greetingAudioUrl || matchedStanza?.audioUrl || null,
+      audioUrl: normalizeAudioUrl(greetingAudioUrl) || normalizeAudioUrl(matchedStanza?.audioUrl) || null,
       sessionId: activeSessionId
     };
 
     updateCurrentMessages((prev: any[]) => [...prev, aiThinkingMsg], activeSessionId);
 
     // ⚡ BƯỚC 1: PHÁT ÂM THANH MÀO ĐẦU (Ưu tiên tệp thu âm sẵn -> Nếu chưa có gọi Gemini TTS)
-    if (greetingAudioUrl) {
-      enqueueAudio(greetingAudioUrl, aiMsgId);
+    const normGreetingAudio = normalizeAudioUrl(greetingAudioUrl);
+    if (normGreetingAudio) {
+      enqueueAudio(normGreetingAudio, aiMsgId);
     } else {
-      generateVoice(aiMsgId + '_greeting', greetingText, 'ai', activeSessionId, false);
+      generateVoice(aiMsgId + '_greeting', greetingText, 'ai', activeSessionId, true);
     }
 
-    // ⚡ BƯỚC 2: PHÁT ÂM THANH BÀI KỆ (Ưu tiên tệp thu âm sẵn -> Nếu chưa có gọi Gemini TTS)
+    // ⚡ BƯỚC 2 & 3: PHÁT ÂM THANH "HÃY NGHE KỆ ĐÂY:" VÀ BÀI KỆ THIỀN (NỐI TIẾP)
     if (stanzaText) {
-      if (matchedStanza?.audioUrl) {
-        enqueueAudio(matchedStanza.audioUrl, aiMsgId);
+      // 2. Phát câu chuyển "Hãy nghe kệ đây:" từ tệp thu sẵn trên ổ cứng (/uploads/audio/transition_hay_nghe_ke_day.wav)
+      enqueueAudio('/uploads/audio/transition_hay_nghe_ke_day.wav', aiMsgId);
+
+      // 3. Phát Bài Kệ (Ưu tiên tệp thu âm sẵn trên đĩa -> Nếu chưa có gọi Gemini TTS)
+      const normStanzaAudio = normalizeAudioUrl(matchedStanza?.audioUrl);
+      if (normStanzaAudio) {
+        enqueueAudio(normStanzaAudio, aiMsgId);
       } else {
-        generateVoice(aiMsgId + '_stanza', `Hãy nghe kệ đây:\n${stanzaText}`, 'ai', activeSessionId, false);
+        generateVoice(aiMsgId + '_stanza', stanzaText, 'ai', activeSessionId, true);
       }
     }
 
@@ -757,8 +894,8 @@ YÊU CẦU: Lão đã cất lời mào đầu và đọc bài kệ trên cho ng�
         'calm'
       ).catch(err => console.warn('Lỗi lưu tin nhắn Lão:', err));
 
-      // NẠP THÊM GIỌNG ĐỌC PHẦN ĐÚC KẾT CỦA AI VÀO HÀNG CHỜ PHÁT THỨ HẠI (NỐI TIẾP)
-      generateVoice(aiMsgId, aiReply, 'ai', activeSessionId, false);
+      // NẠP THÊM GIỌNG ĐỌC PHẦN ĐÚC KẾT CỦA AI VÀO HÀNG CHỜ PHÁT NỐI TIẾP
+      generateVoice(aiMsgId, aiReply, 'ai', activeSessionId, true);
 
     } catch (err) {
       console.error('Lỗi khi gửi tin nhắn chat:', err);
@@ -794,8 +931,9 @@ YÊU CẦU: Lão đã cất lời mào đầu và đọc bài kệ trên cho ng�
   const messages = currentSession?.messages || [];
 
   const updateCurrentMessages = (updater: any, targetSessionId?: string | null) => {
-    setSessions((prev: any[]) => prev.map((s: any) => {
-      const activeId = targetSessionId || currentSessionId;
+    const activeId = targetSessionId || currentSessionId;
+    
+    setSessions((prev: any[]) => (prev || []).map((s: any) => {
       if (s.id === activeId) {
         const current = s.messages || [];
         const nextMsgs = typeof updater === 'function' ? updater(current) : updater;
@@ -803,6 +941,10 @@ YÊU CẦU: Lão đã cất lời mào đầu và đọc bài kệ trên cho ng�
       }
       return s;
     }));
+
+    if (poemDbState?.updateCurrentMessages && (!activeId || activeId === currentSessionId)) {
+      poemDbState.updateCurrentMessages(updater);
+    }
   };
 
   const handleCreateSession = React.useCallback(async () => {
@@ -1002,6 +1144,13 @@ YÊU CẦU: Lão đã cất lời mào đầu và đọc bài kệ trên cho ng�
             <WelcomeScreen p={passProps} />
           ) : passProps.showVideoExportModal ? (
             <VideoCreatorModal p={passProps} />
+          ) : passProps.showAutoPilotModal ? (
+            <>
+              {showAiManager || passProps.showAITopicModal ? (
+                <AiDirectorManagerModal p={{ ...passProps, show: true, onClose: () => { setShowAiManager(false); if (passProps.setShowAITopicModal) passProps.setShowAITopicModal(false); } }} />
+              ) : null}
+              <NormalModePanel p={passProps} />
+            </>
           ) : showAiManager || passProps.showAITopicModal ? (
             <AiDirectorManagerModal p={{ ...passProps, show: true, onClose: () => { setShowAiManager(false); if (passProps.setShowAITopicModal) passProps.setShowAITopicModal(false); } }} />
           ) : passProps.showPoemModal ? (

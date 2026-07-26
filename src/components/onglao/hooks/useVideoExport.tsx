@@ -22,7 +22,8 @@ import {
   createChatSessionAction, 
   saveChatMessageAction, 
   updateChatSessionTitleAction, 
-  deleteChatSessionAction 
+  deleteChatSessionAction,
+  updateChatMessageContentAction
 } from '@/actions/chat';
 import {
   EMOTIONS,
@@ -102,7 +103,8 @@ export const useVideoExport = ({
   const [showVideoExportModal, setShowVideoExportModal] = useState(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('childmodal') === 'create-video' || urlParams.get('modal') === 'create-video') {
+      const m = urlParams.get('modal') || urlParams.get('childmodal') || urlParams.get('view');
+      if (m === 'create-video' || m === 'createvideo') {
         return true;
       }
       return localStorage.getItem('onglao_show_video_export_modal') === 'true';
@@ -114,7 +116,8 @@ export const useVideoExport = ({
     if (typeof window !== 'undefined') {
       const checkUrl = () => {
         const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('childmodal') === 'create-video' || urlParams.get('modal') === 'create-video') {
+        const m = urlParams.get('modal') || urlParams.get('childmodal') || urlParams.get('view');
+        if (m === 'create-video' || m === 'createvideo') {
           setShowVideoExportModal(true);
         }
       };
@@ -801,7 +804,9 @@ export const useVideoExport = ({
               if (laoExportVidRefs.current[type].src !== url && laoExportVidRefs.current[type].src !== `/api/proxy?url=${encodeURIComponent(url)}`) {
                   laoExportVidRefs.current[type].proxyAttempted = false;
                   laoExportVidRefs.current[type].src = url;
-                  laoExportVidRefs.current[type].play().catch((e: any) => console.log("Lao Export Vid:", e));
+                  laoExportVidRefs.current[type].play().catch((e: any) => {
+                    if (e?.name !== 'AbortError') console.log("Lao Export Vid:", e);
+                  });
               }
           } else if (laoExportVidRefs.current[type]) {
               laoExportVidRefs.current[type].pause();
@@ -2516,8 +2521,31 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
     }
   };
 
-  const handleSaveEdit = (id: any) => {
-    updateCurrentMessages((prev: any) => prev.map((m: any) => m.id === id ? { ...m, text: tempEditText, audioUrl: null } : m));
+  const handleSaveEdit = async (id: any) => {
+    const newText = tempEditText.trim();
+    if (!newText || !id) {
+      setEditingId(null); setTempEditText('');
+      return;
+    }
+    const sessId = currentSessionId;
+    const updater = (prev: any) => (prev || []).map((m: any) => String(m.id) === String(id) ? { ...m, text: newText, content: newText, audioUrl: null } : m);
+
+    if (typeof updateCurrentMessages === 'function') {
+      updateCurrentMessages(updater, sessId);
+    }
+    if (typeof setSessions === 'function') {
+      setSessions((prev: any[]) => (prev || []).map((s: any) => 
+        s.id === sessId ? {
+          ...s,
+          messages: updater(s.messages || [])
+        } : s
+      ));
+    }
+
+    const targetMsg = (messages || []).find((m: any) => String(m.id) === String(id));
+    await updateChatMessageContentAction(id, newText, sessId, targetMsg?.role);
+    if (showToastMsg) showToastMsg('Đã lưu nội dung tin nhắn thành công!', 'success');
+
     setEditingId(null); setTempEditText('');
   };
 

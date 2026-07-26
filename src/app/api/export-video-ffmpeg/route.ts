@@ -18,6 +18,7 @@ async function runFfmpegBackgroundProcess({
   scenes,
   audioFilePath,
   bgmFilePath,
+  logoFilePath,
   bgmVolume,
   resolution,
   aspectRatio,
@@ -172,27 +173,62 @@ async function runFfmpegBackgroundProcess({
     }
 
     const finalOutputPath = path.join(tmpDir, `output.${format === 'webm' ? 'webm' : 'mp4'}`);
-    let srtFilterExpr = '';
+    
+    // Tích hợp Video Filter Chain (Subtitles + Logo Overlay)
+    let videoFilters: string[] = [];
     if (assPath && fs.existsSync(assPath)) {
       const escapedAss = assPath.replace(/\\/g, '/').replace(/:/g, '\\:');
-      srtFilterExpr = `subtitles='${escapedAss}'`;
+      videoFilters.push(`subtitles='${escapedAss}'`);
     }
 
     let finalCmd = `"${ffmpegBin}" -y -i "${concatenatedVideoPath}" -i "${audioFilePath}"`;
+    let inputCount = 2;
+    let bgmIndex = -1;
+    let logoIndex = -1;
 
     if (bgmFilePath) {
+      bgmIndex = inputCount;
       finalCmd += ` -i "${bgmFilePath}"`;
-      if (srtFilterExpr) {
-        finalCmd += ` -filter_complex "[0:v]${srtFilterExpr}[vout];[1:a]volume=1.0[a1];[2:a]volume=${bgmVolume}[a2];[a1][a2]amix=inputs=2:duration=first[aout]" -map "[vout]" -map "[aout]"`;
+      inputCount++;
+    }
+
+    if (logoFilePath && fs.existsSync(logoFilePath)) {
+      logoIndex = inputCount;
+      finalCmd += ` -i "${logoFilePath}"`;
+      inputCount++;
+    }
+
+    // Xây dựng Filter Complex cho Video & Audio
+    let filterComplex = '';
+    let currentVideoLabel = '0:v';
+
+    // 1. Phủ Logo nếu có
+    if (logoIndex !== -1) {
+      filterComplex += `[${logoIndex}:v]scale=120:-1[scaled_logo];[${currentVideoLabel}][scaled_logo]overlay=main_w-overlay_w-30:30[vlogo];`;
+      currentVideoLabel = 'vlogo';
+    }
+
+    // 2. Chèn Phụ Đề ASS nếu có
+    if (videoFilters.length > 0) {
+      filterComplex += `[${currentVideoLabel}]${videoFilters.join(',')}[vout];`;
+      currentVideoLabel = 'vout';
+    }
+
+    // 3. Trộn Audio (Thuyết minh + Nhạc nền BGM)
+    if (bgmIndex !== -1) {
+      filterComplex += `[1:a]volume=1.0[a1];[${bgmIndex}:a]volume=${bgmVolume}[a2];[a1][a2]amix=inputs=2:duration=first[aout]`;
+    }
+
+    if (filterComplex) {
+      finalCmd += ` -filter_complex "${filterComplex}"`;
+      finalCmd += ` -map "[${currentVideoLabel}]"`;
+      if (bgmIndex !== -1) {
+        finalCmd += ` -map "[aout]"`;
       } else {
-        finalCmd += ` -filter_complex "[1:a]volume=1.0[a1];[2:a]volume=${bgmVolume}[a2];[a1][a2]amix=inputs=2:duration=first[aout]" -map 0:v:0 -map "[aout]"`;
+        finalCmd += ` -map 1:a:0`;
       }
     } else {
-      if (srtFilterExpr) {
-        finalCmd += ` -filter_complex "[0:v]${srtFilterExpr}[vout]" -map "[vout]" -map 1:a:0`;
-      } else {
-        finalCmd += ` -map 0:v:0 -map 1:a:0`;
-      }
+      finalCmd += ` -map 0:v:0 -map 1:a:0`;
     }
 
     if (format === 'webm') {
@@ -290,6 +326,21 @@ export async function POST(req: NextRequest) {
       fs.writeFileSync(bgmFilePath, Buffer.from(bgmArrayBuf));
     }
 
+    // 2b. Lưu file Logo đính kèm nếu có
+    const logoFile = formData.get('logo') as File | null;
+    const logoDataStr = formData.get('logoData') as string | null;
+    let logoFilePath: string | null = null;
+
+    if (logoFile && logoFile.size > 0) {
+      logoFilePath = path.join(tmpDir, 'logo.png');
+      const logoArrayBuf = await logoFile.arrayBuffer();
+      fs.writeFileSync(logoFilePath, Buffer.from(logoArrayBuf));
+    } else if (logoDataStr && logoDataStr.startsWith('data:image')) {
+      logoFilePath = path.join(tmpDir, 'logo.png');
+      const base64Data = logoDataStr.replace(/^data:image\/\w+;base64,/, '');
+      fs.writeFileSync(logoFilePath, Buffer.from(base64Data, 'base64'));
+    }
+
     // 3. Lưu các clip đính kèm dạng binary (nếu có)
     for (let i = 0; i < scenes.length; i++) {
       const attachedClip = formData.get(`clip_${i}`) as File | null;
@@ -331,6 +382,7 @@ export async function POST(req: NextRequest) {
       scenes,
       audioFilePath,
       bgmFilePath,
+      logoFilePath,
       bgmVolume,
       resolution,
       aspectRatio,

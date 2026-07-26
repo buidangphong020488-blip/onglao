@@ -6,9 +6,15 @@ import { MessageRole } from "@prisma/client";
 // 1. Tạo một phiên chat mới
 export async function createChatSessionAction(userId?: string, title: string = "Hội thoại mới", type: string = "chat", createdAt?: Date) {
   try {
+    let validUserId: string | null = null;
+    if (userId) {
+      const dbUser = await prisma.user.findUnique({ where: { id: userId } });
+      if (dbUser) validUserId = userId;
+    }
+
     const session = await prisma.chatSession.create({
       data: {
-        userId: userId || null,
+        userId: validUserId,
         title: title,
         type: type,
         ...(createdAt ? { createdAt, updatedAt: createdAt } : {}),
@@ -36,6 +42,18 @@ export async function saveChatMessageAction(
     if (role === "USER") prismaRole = MessageRole.USER;
     else if (role === "ASSISTANT") prismaRole = MessageRole.ASSISTANT;
     else prismaRole = MessageRole.SYSTEM;
+
+    // Đảm bảo ChatSession tồn tại trước khi upsert ChatMessage
+    const sessionExists = await prisma.chatSession.findUnique({ where: { id: sessionId } });
+    if (!sessionExists) {
+      await prisma.chatSession.create({
+        data: {
+          id: sessionId,
+          title: "Hội thoại mới",
+          type: "chat"
+        }
+      });
+    }
 
     // Sử dụng upsert để tạo mới hoặc cập nhật audioUrl/emotion nếu tin nhắn đã tồn tại
     const message = await prisma.chatMessage.upsert({
@@ -139,14 +157,45 @@ export async function deleteChatSessionAction(sessionId: string) {
   }
 }
 
-// 6b. Cập nhật nội dung 1 tin nhắn (khi user edit inline)
-export async function updateChatMessageContentAction(messageId: string, content: string) {
+// 6b. Cập nhật nội dung 1 tin nhắn (khi user edit inline - tự động upsert nếu tin nhắn chưa có trong DB)
+export async function updateChatMessageContentAction(messageId: string, content: string, sessionId?: string | null, role?: string | null) {
   try {
-    const msg = await prisma.chatMessage.update({
-      where: { id: messageId },
-      data: { content },
-    });
-    return { success: true, data: msg };
+    const existing = await prisma.chatMessage.findUnique({ where: { id: messageId } });
+    if (existing) {
+      const msg = await prisma.chatMessage.update({
+        where: { id: messageId },
+        data: { content },
+      });
+      return { success: true, data: msg };
+    }
+
+    if (sessionId) {
+      const sessionExists = await prisma.chatSession.findUnique({ where: { id: sessionId } });
+      if (!sessionExists) {
+        await prisma.chatSession.create({
+          data: {
+            id: sessionId,
+            title: "Hội thoại mới",
+            type: "chat"
+          }
+        });
+      }
+
+      let prismaRole: MessageRole = MessageRole.USER;
+      if (role === 'ai' || role === 'ASSISTANT') prismaRole = MessageRole.ASSISTANT;
+      else if (role === 'outro' || role === 'OUTRO') prismaRole = MessageRole.OUTRO;
+      
+      const msg = await prisma.chatMessage.create({
+        data: {
+          id: messageId && messageId.length > 5 ? messageId : undefined,
+          sessionId: sessionId,
+          role: prismaRole,
+          content: content,
+        }
+      });
+      return { success: true, data: msg };
+    }
+    return { success: false, error: "Không tìm thấy tin nhắn trong CSDL" };
   } catch (error: any) {
     console.error("Error updating chat message content:", error);
     return { success: false, error: error.message };

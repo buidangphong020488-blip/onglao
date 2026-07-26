@@ -99,15 +99,7 @@ export const SessionsSidebar = (props?: { p?: any }) => {
           <Plus size={18} /> Tạo cuộc trò chuyện mới
         </button>
 
-        {/* NÚT MỞ TÍNH NĂNG AUTO-PILOT */}
-        <button
-          onClick={() => {
-            if (typeof setShowAutoPilotModal === 'function') setShowAutoPilotModal(true);
-          }}
-          className="w-full py-3 rounded-xl bg-rose-700/90 hover:bg-rose-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(225,29,72,0.4)] border border-rose-500/50 mt-1 animate-pulse"
-        >
-          <Bot size={18} /> Xưởng Phim Tự Động (Auto-Pilot)
-        </button>
+
 
         {/* NÚT BẬT CHẾ ĐỘ LIVE OBS */}
         <button
@@ -272,6 +264,11 @@ export const SessionsSidebar = (props?: { p?: any }) => {
                   className="flex-1 cursor-pointer truncate mr-2"
                   onClick={() => {
                     if (typeof setCurrentSessionId === 'function') setCurrentSessionId(session.id);
+                    if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+                      const url = new URL(window.location.href);
+                      url.searchParams.set('id', session.id);
+                      window.history.pushState({}, '', url.toString());
+                    }
                   }}
                 >
                   {editingSessionId === session.id ? (

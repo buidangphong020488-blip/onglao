@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use client";
 import React from "react";
-import { Check, Loader2, XCircle, Info, Smile, Mic, Send, BookOpen, Film, Video, FileText, Sparkles, Sliders, Save, Maximize, Minimize, RefreshCw, X, ChevronDown, Archive, Volume2, Share as ShareIcon, Copy, Plus, Compass, Clock, SlidersHorizontal, Settings2, ShieldAlert, History, Edit, KeyRound, UserCheck, Play, Pause, Power, MessageSquare, Bot, HelpCircle, Activity, ArrowRight, Camera, Cloud, Download, FlipHorizontal, Image as ImageIcon, ListOrdered, Menu, MicOff, Music, Pencil, Pin, PlayCircle, RotateCcw, Smartphone, StopCircle, ThumbsDown, ThumbsUp, Trash2, Users, Volume1, VolumeX, Wand2 } from "lucide-react";
+import { Check, Loader2, XCircle, Info, Smile, Mic, Send, BookOpen, Film, Video, FileText, Sparkles, Sliders, Save, Maximize, Minimize, RefreshCw, X, ChevronDown, Archive, Volume2, Share as ShareIcon, Copy, Plus, Compass, Clock, SlidersHorizontal, Settings2, ShieldAlert, History, Edit, KeyRound, UserCheck, Play, Pause, Power, MessageSquare, Bot, HelpCircle, Activity, ArrowRight, Camera, Cloud, Download, FlipHorizontal, Image as ImageIcon, ListOrdered, Menu, MicOff, Music, Pencil, Pin, PlayCircle, RotateCcw, Smartphone, StopCircle, ThumbsDown, ThumbsUp, Trash2, Users, Volume1, VolumeX, Wand2, ChevronLeft, Home } from "lucide-react";
 import MiniLaoFace from "./MiniLaoFace";
 import AuthModal from "@/components/AuthModal";
 import CombinedScriptModal from "./CombinedScriptModal";
@@ -227,7 +227,7 @@ const NormalModePanel = (props?: { p?: any }) => {
       )}
 
       {/* MODAL KHO TÀNG KỆ PHÁP */}
-      <PoemVaultModal />
+      <PoemVaultModal p={p} />
 
       {/* MÀN HÌNH FULLSCREEN REVIEW VIDEO */}
       {isVideoFullscreen && (
@@ -507,48 +507,64 @@ const NormalModePanel = (props?: { p?: any }) => {
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; } 
         @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } 
         .animate-spin-slow { animation: spin-slow 50s linear infinite; }
-        @keyframes radiate { 0% { transform: scale(0.8); opacity: 0.8; } 100% { transform: scale(1.6); opacity: 0; } }
-        .animate-radiate { animation: radiate 3.5s ease-out infinite; }
-        .animate-radiate-delayed { animation: radiate 3.5s ease-out infinite 1.75s; }
-        .animate-radiate-slow { animation: radiate 5s ease-out infinite 1s; }
-        @keyframes blink { 0%, 46%, 54%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.1); } }
-        .animate-blink { animation: blink 4s infinite; transform-origin: 100px 92px; }
       `}</style>
       
-      {/* MODAL AUTO-PILOT (XƯ�?NG PHIM TỰ ĐỘNG) */}
+      {/* TRANG XƯỞNG PHIM TỰ ĐỘNG (FULL-SCREEN PAGE LAYOUT - KHÔNG DÙNG MODAL BOX) */}
       {showAutoPilotModal && (
-         <div className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-md flex justify-center items-center p-4" >
-            <div className="bg-slate-900 border border-rose-500/50 rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
-                
-                <div className="p-5 border-b border-white/5 flex justify-between items-center bg-slate-800 shrink-0 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-rose-600/20 to-transparent pointer-events-none"></div>
-                    <h2 className="font-black text-rose-400 tracking-widest flex items-center gap-2 relative z-10 text-lg">
-                        <Bot size={22}/> Xưởng Phim Tự Động (Auto-Pilot)
-                    </h2>
-                    {!apState.isRunning && <button onClick={() => setShowAutoPilotModal(false)} className="text-slate-400 hover:text-white relative z-10"><X size={24}/></button>}
+         <div className="fixed inset-0 z-[200] bg-slate-950 flex flex-col w-full h-full min-h-screen overflow-hidden animate-in fade-in duration-300">
+            {/* Header Trang Quản Lý Xưởng Phim (Fullscreen Page Header) */}
+            <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-slate-900/90 backdrop-blur-md shrink-0 shadow-lg z-20">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-400">
+                        <Bot size={22} />
+                    </div>
+                    <div>
+                        <h1 className="font-black text-rose-400 tracking-wide text-base sm:text-lg flex items-center gap-2">
+                            Xưởng Phim Tự Động (Auto-Pilot Batch Studio)
+                        </h1>
+                        <p className="text-xs text-slate-400">Sản xuất video đàm đạo hàng loạt tự động từ danh sách chủ đề qua AI Giác Ngộ</p>
+                    </div>
                 </div>
+                <div className="flex items-center gap-2">
+                    {!apState.isRunning && (
+                        <button
+                            onClick={() => setShowAutoPilotModal(false)}
+                            className="px-3.5 py-2 bg-indigo-900/60 hover:bg-indigo-800 border border-indigo-500/30 text-indigo-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                            title="Quay lại Quản lý kịch bản"
+                        >
+                            <ChevronLeft size={16} /> Quay lại Danh Sách Kịch Bản
+                        </button>
+                    )}
+                    {!apState.isRunning && (
+                        <button 
+                            onClick={() => {
+                                setShowAutoPilotModal(false);
+                                window.location.href = '/';
+                            }} 
+                            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                            title="Quay lại Thiền đường (Trang chủ)"
+                        >
+                            <Home size={15} /> Quay lại Thiền đường
+                        </button>
+                    )}
+                </div>
+            </div>
 
-                <div className="flex flex-col md:flex-row flex-1 overflow-hidden min-h-0">
+            {/* Main Body Page Workspace */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 flex flex-col max-w-7xl w-full mx-auto">
+                <div className="bg-slate-900/80 border border-rose-500/20 rounded-3xl p-5 md:p-8 shadow-2xl backdrop-blur-xl flex-1 flex flex-col md:flex-row gap-6 min-h-[600px]">
                     
                     {/* BÊN TRÁI: CẤU HÌNH & NHẬP LIỆU */}
-                    <div className={`w-full md:w-1/2 p-5 flex flex-col gap-4 overflow-y-auto border-r border-white/5 ${apState.isRunning ? 'opacity-50 pointer-events-none grayscale-[50%]' : ''}`}>
+                    <div className={`w-full md:w-1/2 p-2 flex flex-col gap-4 overflow-y-auto border-b md:border-b-0 md:border-r border-white/5 pr-0 md:pr-6 ${apState.isRunning ? 'opacity-50 pointer-events-none grayscale-[50%]' : ''}`}>
                         
                         <div className="bg-rose-900/20 border border-rose-500/30 p-4 rounded-xl flex flex-col gap-2">
                             <span className="text-xs font-bold text-rose-300 flex items-center gap-1.5"><ListOrdered size={16}/> Danh sách chủ đề cần sản xuất:</span>
                             <textarea 
                                 value={apTopics}
                                 onChange={e => setApTopics(e.target.value)}
-                                placeholder="Nhập mỗi chủ đề 1 dòng...&#10;Hoặc bấm nút bên dưới để nhờ AI tìm trend."
+                                placeholder="Nhập mỗi chủ đề 1 dòng..."
                                 className="w-full h-32 bg-slate-950 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-rose-500 outline-none resize-none font-mono"
                             />
-                            <button 
-                                onClick={handleFetchTrendingTopics}
-                                disabled={apState.step === 'fetching_trends'}
-                                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 mt-1"
-                            >
-                                {apState.step === 'fetching_trends' ? <Loader2 size={14} className="animate-spin"/> : <Sparkles size={14}/>}
-                                {apState.step === 'fetching_trends' ? 'Đang phân tích dữ liệu MXH...' : 'Giao phó AI tự tìm chủ đề Hot/Viral'}
-                            </button>
                         </div>
 
                         <div className="flex flex-col gap-3 mt-1">
@@ -578,6 +594,20 @@ const NormalModePanel = (props?: { p?: any }) => {
                                       <input type="text" value={customUserName} onChange={e=>setCustomUserName(e.target.value)} placeholder="Tên Con" className="flex-[1.5] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" title="Tên Người Hỏi" />
                                       <input type="text" value={userSelfCall} onChange={e=>setUserSelfCall(e.target.value)} placeholder="Con tự xưng" className="flex-[1] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" title="Người hỏi tự xưng là gì" />
                                       <input type="text" value={userCallLao} onChange={e=>setUserCallLao(e.target.value)} placeholder="Con gọi kia" className="flex-[1] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" title="Người hỏi gọi Lão là gì" />
+                                   </div>
+                                   <div className="flex gap-2">
+                                      <div className="flex-1 flex flex-col gap-0.5">
+                                          <span className="text-[9px] text-slate-400 font-bold">Giới tính:</span>
+                                          <select value={userGender || 'Khác'} onChange={e=>setUserGender?.(e.target.value)} className="bg-slate-950 border border-white/10 rounded-md px-2 py-1 text-[10px] text-white outline-none cursor-pointer">
+                                              <option value="Nam">Nam</option>
+                                              <option value="Nữ">Nữ</option>
+                                              <option value="Khác">Khác</option>
+                                          </select>
+                                      </div>
+                                      <div className="flex-1 flex flex-col gap-0.5">
+                                          <span className="text-[9px] text-slate-400 font-bold">Độ tuổi:</span>
+                                          <input type="number" min={1} max={120} value={userAge || 25} onChange={e=>setUserAge?.(Number(e.target.value))} placeholder="Độ tuổi" className="bg-slate-950 border border-white/10 rounded-md px-2 py-1 text-[10px] text-white outline-none" title="Độ tuổi của người hỏi" />
+                                      </div>
                                    </div>
                                    <div className="flex gap-2">
                                       <select value={userVoice} onChange={e=>setUserVoice(e.target.value)} disabled={apSettings.charMode === 'random'} className="flex-[1] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none disabled:opacity-50">
@@ -673,19 +703,19 @@ const NormalModePanel = (props?: { p?: any }) => {
 
                         <div className="mt-auto pt-4">
                             {!apState.isRunning ? (
-                                <button onClick={startAutoPilot} className="w-full bg-rose-600 hover:bg-rose-500 text-white font-black py-4 rounded-xl shadow-[0_0_20px_rgba(225,29,72,0.4)] transition-all hover:scale-[1.02] flex items-center justify-center gap-2 text-sm uppercase tracking-wider">
+                                <button onClick={startAutoPilot} className="w-full bg-rose-600 hover:bg-rose-500 text-white font-black py-4 rounded-xl shadow-[0_0_20px_rgba(225,29,72,0.4)] transition-all hover:scale-[1.02] flex items-center justify-center gap-2 text-sm uppercase tracking-wider cursor-pointer">
                                     <PlayCircle size={20}/> Khởi Động Xưởng Phim
                                 </button>
                             ) : (
-                                <button onClick={stopAutoPilot} className="w-full bg-slate-700 hover:bg-slate-600 text-white font-black py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wider">
+                                <button onClick={stopAutoPilot} className="w-full bg-slate-700 hover:bg-slate-600 text-white font-black py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wider cursor-pointer">
                                     <StopCircle size={20} className="text-rose-400"/> Dừng Khẩn Cấp
                                 </button>
                             )}
                         </div>
                     </div>
 
-                    {/* BÊN PHẢI: LOGS & STATUS */}
-                    <div className="w-full md:w-1/2 bg-black flex flex-col">
+                    {/* BÊN PHẢI: LOGS & STATUS MONITOR */}
+                    <div className="w-full md:w-1/2 bg-black rounded-2xl border border-white/5 flex flex-col overflow-hidden">
                         <div className="p-3 bg-slate-900 border-b border-white/5 flex items-center justify-between">
                             <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tiến trình hoạt động</span>
                             {apState.isRunning && (
@@ -700,7 +730,6 @@ const NormalModePanel = (props?: { p?: any }) => {
                                 <div className="text-slate-600 italic text-center mt-10">Hệ thống đang chờ lệnh...</div>
                             ) : (
                                 apState.logs.map((log: any, idx: any) => {
-                                    // Highlight màu tùy theo keyword để dễ đọc log
                                     let textColor = "text-slate-300";
                                     if (log.includes("--- BẮT ĐẦU")) textColor = "text-rose-400 font-bold";
                                     if (log.includes("✅")) textColor = "text-emerald-400 font-bold";
@@ -714,7 +743,6 @@ const NormalModePanel = (props?: { p?: any }) => {
                                     );
                                 })
                             )}
-                            {/* Auto scroll anchor */}
                             <div ref={(el) => { if(el) el.scrollIntoView({ behavior: "smooth" }) }}></div>
                         </div>
 

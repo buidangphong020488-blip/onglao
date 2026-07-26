@@ -47,11 +47,11 @@ export const useAuth = (props: Partial<UseAuthProps> = {}) => {
   // --- STATE LƯU TRỮ TÊN FILE TẢI LÊN TỪ MÁY TÍNH ---
   const [localFileNames, setLocalFileNames] = useState({});
 
-  const [userVoice, setUserVoice] = useState('');
+  const [userVoice, setUserVoice] = useState('Kore');
   const [userVoiceStyle, setUserVoiceStyle] = useState('giọng thanh niên, phong cách đọc tỏ vẻ rối rắm, thắc mắc, chuẩn giọng miền Nam Việt Nam, đúng chính tả');
   
   // State quản lý tên, giọng, phong cách và XƯNG HÔ của Lão
-  const [laoVoice, setLaoVoice] = useState('');
+  const [laoVoice, setLaoVoice] = useState('Algieba');
   const [laoVoiceStyle, setLaoVoiceStyle] = useState('Giọng ấm áp, mạnh mẽ, dứt khoát, miền nam việt nam, đúng chính tả, ngắt nhịp rõ ràng giữa các câu');
   
   const [customLaoName, setCustomLaoName] = useState('Lão'); // Tên hiển thị kịch bản
@@ -322,8 +322,25 @@ export const useAuth = (props: Partial<UseAuthProps> = {}) => {
             type: s.type || 'chat',
             createdAt: s.createdAt
           }));
-          setSessions?.(dbSessions);
-          setCurrentSessionId?.(dbSessions[0].id);
+          const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+          const urlSessionId = urlParams?.get('id') || urlParams?.get('session_id');
+
+          setSessions?.((prev: any[]) => {
+            const prevMap = new Map((prev || []).map((s: any) => [s.id, s]));
+            return dbSessions.map((s: any) => {
+              const existing = prevMap.get(s.id);
+              if (existing && existing.messagesLoaded) {
+                return { ...s, messages: existing.messages, messagesLoaded: true };
+              }
+              return s;
+            });
+          });
+
+          if (urlSessionId && dbSessions.some((s: any) => s.id === urlSessionId)) {
+            setCurrentSessionId?.(urlSessionId);
+          } else {
+            setCurrentSessionId?.((prev: any) => prev || dbSessions[0].id);
+          }
         } else {
           let defaultSession: any = null;
           try {

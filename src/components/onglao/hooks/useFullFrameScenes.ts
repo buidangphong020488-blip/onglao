@@ -205,6 +205,7 @@ export const useFullFrameScenes = ({
               role: item.role || 'lao',
               category: item.category || item.role || 'lao',
               emotion: item.emotion || 'calm',
+              userId: item.userId || null,
               idbKey: item.id,
               isDb: true
             }));
@@ -214,10 +215,10 @@ export const useFullFrameScenes = ({
         .catch(err => console.warn('Lỗi tải CanhQuay từ PostgreSQL DB:', err));
   }, []);
 
-  const handleAddCustomCategory = async (name: string) => {
+  const handleAddCustomCategory = async (name: string, isPublic: boolean = true) => {
     if (!name.trim()) return;
     const catId = `cat_${Date.now()}_${Math.floor(Math.random()*1000)}`;
-    const newCat = { id: catId, name: name.trim() };
+    const newCat = { id: catId, name: name.trim(), isPublic };
     const updated = [...customCategories.filter((c: any) => c.name !== newCat.name), newCat];
     setCustomCategories(updated);
 

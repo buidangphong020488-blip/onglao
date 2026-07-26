@@ -1,10 +1,27 @@
 // @ts-nocheck
 "use client";
 import React from "react";
-import { X, Film, Check, CheckCircle2, Save, Search, ChevronLeft, ChevronRight, Sliders, Maximize, Minimize, RefreshCw, Loader2, Play, Pause, ChevronDown, Sparkles, FileText, Volume2, Plus, Info, Upload, PlayCircle, Eye, EyeOff, Music, Video, Archive, Share as ShareIcon, Copy, ChevronUp, Trash2, Palette, Music4, Wand2, XCircle, Undo2, Redo2, LayoutTemplate, Image as ImageIcon, Pencil, Mic, Edit3, CheckSquare, Home } from "lucide-react";
+import { X, Film, Check, CheckCircle2, Save, Search, ChevronLeft, ChevronRight, Sliders, Maximize, Minimize, RefreshCw, Loader2, Play, Pause, ChevronDown, Sparkles, FileText, Volume2, Plus, Info, Upload, PlayCircle, Eye, EyeOff, Music, Video, Archive, Share as ShareIcon, Copy, ChevronUp, Trash2, Palette, Music4, Wand2, XCircle, Undo2, Redo2, LayoutTemplate, Image as ImageIcon, Pencil, Mic, Edit3, CheckSquare, Home, FolderPlus } from "lucide-react";
 import { useOngLaoContext } from "../context/OngLaoContext";
 import { idb } from "../constants";
 import { updateChatMessageContentAction, getChatMessagesAction } from "@/actions/chat";
+// HÀNG CHỜ FIFO TỐI ƯU HOÁ CHỤP POSTER THUMBNAIL (GIẢI PHÓNG BỘ NHỚ VRAM TỰ ĐỘNG, MAX 1 VIDEO/LẦN)
+const posterQueue: (() => Promise<void>)[] = [];
+let isProcessingPosterQueue = false;
+
+const processPosterQueue = async () => {
+    if (isProcessingPosterQueue || posterQueue.length === 0) return;
+    isProcessingPosterQueue = true;
+    const task = posterQueue.shift();
+    if (task) {
+        try {
+            await task();
+        } catch (e) {}
+    }
+    isProcessingPosterQueue = false;
+    setTimeout(processPosterQueue, 80);
+};
+
 // Hàm tự động chụp 1 khung ảnh tĩnh JPEG (Poster Snapshot 160x160) từ video mà KHÔNG giữ thẻ video HTML5 trong bộ nhớ
 export const generateVideoPoster = (videoUrl: string): Promise<string> => {
     if (!videoUrl) return Promise.resolve('');
@@ -76,17 +93,12 @@ export const generateVideoPoster = (videoUrl: string): Promise<string> => {
 
         const timeout = setTimeout(() => {
             captureFrame();
-        }, 1500);
-
-        video.onerror = () => {
-            clearTimeout(timeout);
-            captureFrame();
-        };
+        }, 1200);
 
         video.onloadeddata = () => {
-            if (video.duration && video.duration > 0.1) {
-                try { video.currentTime = 0.1; } catch(e) { captureFrame(); }
-            } else {
+            try {
+                video.currentTime = Math.min(0.5, (video.duration || 1) / 2);
+            } catch (e) {
                 captureFrame();
             }
         };
@@ -96,7 +108,28 @@ export const generateVideoPoster = (videoUrl: string): Promise<string> => {
             captureFrame();
         };
 
+        video.onerror = () => {
+            clearTimeout(timeout);
+            cleanup();
+            resolve('');
+        };
+
         video.src = videoUrl;
+    });
+};
+
+export const generateVideoPosterThrottled = (videoUrl: string): Promise<string> => {
+    if (!videoUrl) return Promise.resolve('');
+    return new Promise((resolve) => {
+        posterQueue.push(async () => {
+            try {
+                const res = await generateVideoPoster(videoUrl);
+                resolve(res);
+            } catch (e) {
+                resolve('');
+            }
+        });
+        processPosterQueue();
     });
 };
 // SceneThumbnailItem: Component thumbnail chụp ảnh tĩnh poster, hiển thị ảnh xem trước sắc nét mà KHÔNG tốn RAM/GPU
@@ -580,13 +613,20 @@ const VideoCreatorModal = (props?: any) => {
     const [batchRoleTag, setBatchRoleTag] = React.useState('lao');
     const [batchEmotionTag, setBatchEmotionTag] = React.useState('calm');
     const libraryFileInputRef = React.useRef<HTMLInputElement>(null);
+    const libraryFolderInputRef = React.useRef<HTMLInputElement>(null);
+    const [showFolderScopeModal, setShowFolderScopeModal] = React.useState(false);
+    const [folderTargetScope, setFolderTargetScope] = React.useState<'public' | 'private'>('public');
+    const [pendingFolderFiles, setPendingFolderFiles] = React.useState<File[]>([]);
 
     // TÂM AN THÊM: STATE CHO PHÂN TRANG VÀ TÌM KIẾM TRONG KHO CẢNH QUAY
     const [librarySearchTerm, setLibrarySearchTerm] = React.useState('');
     const [showAddCatModal, setShowAddCatModal] = React.useState(false);
+    const [addCatScope, setAddCatScope] = React.useState<'public' | 'private'>('private');
     const [newCatName, setNewCatName] = React.useState('');
     const [renameCategoryModal, setRenameCategoryModal] = React.useState<{ catId: string; catName: string } | null>(null);
     const [renameCatInputValue, setRenameCatInputValue] = React.useState('');
+    const [categoryToDeleteModal, setCategoryToDeleteModal] = React.useState<{ catId: string; catName: string } | null>(null);
+    const [singleClipToDelete, setSingleClipToDelete] = React.useState<any>(null);
 
     const handleConfirmRenameCategory = () => {
         if (!renameCategoryModal || !renameCatInputValue.trim()) return;
@@ -599,10 +639,32 @@ const VideoCreatorModal = (props?: any) => {
         setRenameCatInputValue('');
     };
 
+    const handleConfirmDeleteCategory = () => {
+        if (!categoryToDeleteModal) return;
+        const { catId } = categoryToDeleteModal;
+        if (p.handleDeleteCustomCategory) {
+            p.handleDeleteCustomCategory(catId);
+        }
+        setCategoryToDeleteModal(null);
+    };
+
+    const handleConfirmDeleteSingleClip = () => {
+        if (!singleClipToDelete) return;
+        const clipTarget = singleClipToDelete;
+        setSingleClipToDelete(null);
+
+        if (p.handleDeleteLibraryClip) {
+            p.handleDeleteLibraryClip(clipTarget.id || clipTarget.url || clipTarget.name);
+        }
+        if (p.setLocalFfClips) {
+            p.setLocalFfClips((prev: any[]) => (prev || []).filter((c: any) => c.id !== clipTarget.id && c.url !== clipTarget.url));
+        }
+    };
+
     const handleConfirmAddCategory = () => {
         if (!newCatName.trim()) return;
         if (p.handleAddCustomCategory) {
-            p.handleAddCustomCategory(newCatName.trim());
+            p.handleAddCustomCategory(newCatName.trim(), addCatScope === 'public');
         }
         setShowAddCatModal(false);
         setNewCatName('');
@@ -613,12 +675,23 @@ const VideoCreatorModal = (props?: any) => {
     const [libraryPageSize, setLibraryPageSize] = React.useState<number>(10);
     const [libraryCurrentPage, setLibraryCurrentPage] = React.useState<number>(1);
 
+    const [libraryScope, setLibraryScope] = React.useState<'all' | 'public' | 'private'>('all');
+
     const filteredLibraryClips = React.useMemo(() => {
         const allClips = [
-            ...(p.FULLFRAME_PACKS?.flatMap((pack: any) => pack.scenes.map((s: any) => ({ ...s, packName: pack.name }))) || []),
+            ...(p.FULLFRAME_PACKS?.flatMap((pack: any) => pack.scenes.map((s: any) => ({ ...s, packName: pack.name, isPublic: true }))) || []),
             ...(p.localFfClips || [])
         ];
         return allClips.filter((clip: any) => {
+            if (libraryScope === 'private') {
+                const currentUid = (p.currentUser || p.user)?.id;
+                const isMine = clip.userId ? (clip.userId === currentUid) : Boolean(clip.idbKey && !clip.packName);
+                if (!isMine) return false;
+            } else if (libraryScope === 'public') {
+                const isPublic = !clip.userId || clip.isPublic || Boolean(clip.packName);
+                if (!isPublic) return false;
+            }
+
             if (selectedLibraryCategory !== 'ALL') {
                 const matchCat = clip.role === selectedLibraryCategory || clip.category === selectedLibraryCategory;
                 if (!matchCat) return false;
@@ -632,7 +705,7 @@ const VideoCreatorModal = (props?: any) => {
             }
             return true;
         });
-    }, [p.FULLFRAME_PACKS, p.localFfClips, selectedLibraryCategory, librarySearchTerm, p.customLaoName, p.customUserName]);
+    }, [p.FULLFRAME_PACKS, p.localFfClips, selectedLibraryCategory, libraryScope, librarySearchTerm, p.customLaoName, p.customUserName, p.currentUser, p.user]);
 
     const totalLibraryPages = Math.max(1, Math.ceil(filteredLibraryClips.length / libraryPageSize));
 
@@ -825,19 +898,51 @@ const VideoCreatorModal = (props?: any) => {
 
                 const fileBlobUrl = URL.createObjectURL(file);
 
+                const targetCat = (selectedLibraryCategory && selectedLibraryCategory !== 'ALL') ? selectedLibraryCategory : 'Tải Lên';
+                
+                // Upload file lên server để lấy URL vĩnh viễn cho Kho Chung
+                let publicUrl = fileBlobUrl;
+                try {
+                    const fd = new FormData();
+                    fd.append('file', file);
+                    const upRes = await fetch('/api/upload/canh-quay', { method: 'POST', body: fd });
+                    const upData = await upRes.json();
+                    if (upData.success && upData.url) {
+                        publicUrl = upData.url;
+                    }
+                } catch (e) {}
+
                 const newClip = {
                     id: idbKey,
                     name: clipName,
                     role: detectedRole,
                     emotion: detectedEmotion,
-                    url: fileBlobUrl,
+                    url: publicUrl,
                     idbKey: idbKey,
-                    category: 'Tải Lên'
+                    category: targetCat,
+                    userId: null
                 };
 
                 newClipsToAdd.push(newClip);
                 addedCount++;
             }
+
+            // Đồng bộ bản ghi Kho Chung lên CSDL PostgreSQL
+            fetch('/api/user/canh-quay', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: null,
+                    canhQuay: newClipsToAdd.map(c => ({
+                        id: c.id,
+                        name: c.name,
+                        role: c.role,
+                        emotion: c.emotion,
+                        url: c.url,
+                        category: c.category
+                    }))
+                })
+            }).catch(err => console.warn("Lỗi lưu CanhQuay lên PostgreSQL DB:", err));
 
             const currentList = p.localFfClips || [];
             const updatedList = [...currentList, ...newClipsToAdd];
@@ -849,13 +954,226 @@ const VideoCreatorModal = (props?: any) => {
                 emotion: c.emotion,
                 idbKey: c.idbKey,
                 category: c.category,
-                url: c.idbKey ? `idb://${c.idbKey}` : c.url
+                url: c.url
             }))));
 
-            if (p.showToastMsg) p.showToastMsg(`Đã nạp thành công ${addedCount} clip mới vào kho video!`, 'success');
+            if (p.showToastMsg) p.showToastMsg(`Đã nạp thành công ${addedCount} clip mới vào Kho Chung hệ thống!`, 'success');
         } catch (err) {
             console.error('Lỗi nạp clip:', err);
-            if (p.showToastMsg) p.showToastMsg('Có lỗi khi lưu file video vào bộ nhớ trình duyệt!', 'error');
+            if (p.showToastMsg) p.showToastMsg('Có lỗi khi lưu file video vào kho!', 'error');
+        }
+    };
+
+    const handlePrepareFolderUpload = (fileList: FileList) => {
+        const videoFiles = Array.from(fileList).filter((f: File) => {
+            const type = f.type || '';
+            const name = f.name.toLowerCase();
+            return type.startsWith('video/') || name.endsWith('.mp4') || name.endsWith('.webm') || name.endsWith('.mov') || name.endsWith('.m4v') || name.endsWith('.avi') || name.endsWith('.mkv');
+        });
+
+        if (videoFiles.length === 0) {
+            if (p.showToastMsg) p.showToastMsg('Không tìm thấy file video hợp lệ nào trong các thư mục đã chọn!', 'error');
+            return;
+        }
+
+        setPendingFolderFiles(videoFiles);
+        setFolderTargetScope('public');
+        setShowFolderScopeModal(true);
+    };
+
+    const handleDropFolders = async (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const items = e.dataTransfer.items;
+        if (!items || items.length === 0) return;
+
+        const videoFiles: File[] = [];
+
+        const readEntry = async (entry: any, currentPath = '') => {
+            if (entry.isFile) {
+                return new Promise<void>((resolve) => {
+                    entry.file((file: File) => {
+                        const relPath = currentPath ? `${currentPath}/${file.name}` : file.name;
+                        try {
+                            Object.defineProperty(file, 'webkitRelativePath', {
+                                value: relPath,
+                                writable: true,
+                                configurable: true
+                            });
+                        } catch (e) {}
+                        const type = file.type || '';
+                        const name = file.name.toLowerCase();
+                        if (type.startsWith('video/') || name.endsWith('.mp4') || name.endsWith('.webm') || name.endsWith('.mov') || name.endsWith('.m4v') || name.endsWith('.avi') || name.endsWith('.mkv')) {
+                            videoFiles.push(file);
+                        }
+                        resolve();
+                    });
+                });
+            } else if (entry.isDirectory) {
+                const dirReader = entry.createReader();
+                const readEntriesBatch = (): Promise<any[]> => {
+                    return new Promise((resolve) => {
+                        dirReader.readEntries((results: any[]) => resolve(results));
+                    });
+                };
+                
+                let entries: any[] = [];
+                let batch = await readEntriesBatch();
+                while (batch.length > 0) {
+                    entries = entries.concat(batch);
+                    batch = await readEntriesBatch();
+                }
+
+                for (const childEntry of entries) {
+                    await readEntry(childEntry, currentPath ? `${currentPath}/${entry.name}` : entry.name);
+                }
+            }
+        };
+
+        if (p.showToastMsg) p.showToastMsg('Đang quét các thư mục được thả vào...', 'loading', 0);
+
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+            if (entry) {
+                await readEntry(entry, '');
+            }
+        }
+
+        if (videoFiles.length > 0) {
+            setPendingFolderFiles(videoFiles);
+            setFolderTargetScope('public');
+            setShowFolderScopeModal(true);
+            if (p.showToastMsg) p.showToastMsg(`Đã quét thấy ${videoFiles.length} video clips từ các folder!`, 'success');
+        } else {
+            if (p.showToastMsg) p.showToastMsg('Không tìm thấy file video nào trong các thư mục vừa chọn!', 'error');
+        }
+    };
+
+    const executeFolderBatchUpload = async () => {
+        setShowFolderScopeModal(false);
+        if (pendingFolderFiles.length === 0) return;
+
+        const files = pendingFolderFiles;
+        const isPublic = folderTargetScope === 'public';
+        const targetUserId = isPublic ? null : ((p.currentUser || p.user)?.id || 'user_private');
+
+        if (p.showToastMsg) p.showToastMsg(`Đang siêu tốc nạp ${files.length} video từ folder vào Kho ${isPublic ? 'Chung' : 'Riêng'}...`, 'loading', 0);
+
+        try {
+            let addedCount = 0;
+            const newClipsToAdd: any[] = [];
+            const createdCategories = new Set<string>();
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const clipName = file.name.replace(/\.[^/.]+$/, "");
+                
+                // Trích xuất tên Folder chuẩn xác từ webkitRelativePath
+                const relPath = file.webkitRelativePath || file.name;
+                const pathParts = relPath.split(/[\/\\]/).filter(Boolean);
+                let categoryName = 'Folder Video';
+
+                if (pathParts.length >= 3) {
+                    categoryName = pathParts[pathParts.length - 2];
+                } else if (pathParts.length === 2) {
+                    categoryName = pathParts[0];
+                }
+
+                // Tự động thêm Chuyên mục mới vào CSDL PostgreSQL nếu chưa tồn tại
+                if (!createdCategories.has(categoryName)) {
+                    createdCategories.add(categoryName);
+                    if (p.handleAddCustomCategory) {
+                        p.handleAddCustomCategory(categoryName, isPublic);
+                    }
+                }
+
+                const fileNameLower = file.name.toLowerCase();
+                let detectedRole = 'lao';
+                if (fileNameLower.includes('user') || fileNameLower.includes('con')) detectedRole = 'user';
+                else if (fileNameLower.includes('outro') || fileNameLower.includes('ket')) detectedRole = 'outro';
+
+                let detectedEmotion = 'calm';
+                if (fileNameLower.includes('joy') || fileNameLower.includes('vui')) detectedEmotion = 'joy';
+                else if (fileNameLower.includes('sad') || fileNameLower.includes('buon')) detectedEmotion = 'sad';
+                else if (fileNameLower.includes('hook') || fileNameLower.includes('intro')) detectedEmotion = 'hook';
+
+                const idbKey = `ff_clip_${detectedRole}_${detectedEmotion}_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 4)}`;
+                // Lưu siêu tốc vào IndexedDB local mà KHÔNG gây đứng bộ nhớ
+                await idb.set(idbKey, file);
+
+                const newClip = {
+                    id: idbKey,
+                    name: clipName,
+                    role: detectedRole,
+                    emotion: detectedEmotion,
+                    url: `idb://${idbKey}`,
+                    idbKey: idbKey,
+                    category: categoryName,
+                    userId: targetUserId,
+                    isPublic
+                };
+
+                newClipsToAdd.push(newClip);
+                addedCount++;
+            }
+
+            // Đồng bộ ngay danh sách clip lên giao diện để người dùng thấy lập tức (0.5s)
+            const currentList = p.localFfClips || [];
+            const updatedList = [...currentList, ...newClipsToAdd];
+            if (p.setLocalFfClips) p.setLocalFfClips(updatedList);
+            localStorage.setItem('taman_local_ff_clips', JSON.stringify(updatedList.map(c => ({
+                id: c.id,
+                name: c.name,
+                role: c.role,
+                emotion: c.emotion,
+                idbKey: c.idbKey,
+                category: c.category,
+                url: c.url,
+                userId: c.userId
+            }))));
+
+            // Đồng bộ thông tin metadata CanhQuay lên PostgreSQL CSDL
+            fetch('/api/user/canh-quay', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: targetUserId,
+                    canhQuay: newClipsToAdd.map(c => ({
+                        id: c.id,
+                        name: c.name,
+                        role: c.role,
+                        emotion: c.emotion,
+                        url: c.url,
+                        category: c.category
+                    }))
+                })
+            }).catch(err => console.warn("Lỗi lưu CanhQuay folder lên DB:", err));
+
+            // Upload ngầm các file video lên Server (không chặn UI)
+            (async () => {
+                for (let i = 0; i < files.length; i++) {
+                    try {
+                        const file = files[i];
+                        const clipObj = newClipsToAdd[i];
+                        if (!clipObj) continue;
+                        const fd = new FormData();
+                        fd.append('file', file);
+                        const upRes = await fetch('/api/upload/canh-quay', { method: 'POST', body: fd });
+                        const upData = await upRes.json();
+                        if (upData.success && upData.url) {
+                            clipObj.url = upData.url;
+                        }
+                    } catch (e) {}
+                }
+            })();
+
+            setPendingFolderFiles([]);
+            if (p.showToastMsg) p.showToastMsg(`🎉 Nạp siêu tốc thành công ${addedCount} clip từ ${createdCategories.size} thư mục vào Kho ${isPublic ? 'Chung' : 'Riêng'}!`, 'success', 5000);
+        } catch (err: any) {
+            console.error('Lỗi nạp folder clip:', err);
+            if (p.showToastMsg) p.showToastMsg('Có lỗi khi nạp các video từ thư mục!', 'error');
         }
     };
 
@@ -1011,22 +1329,6 @@ const VideoCreatorModal = (props?: any) => {
                           {/* SUB-TAB 1: VIDEO CLIPS & DANH SÁCH CẢNH */}
                           {videoSubTab === 'clips' && (
                              <div className="flex flex-col gap-3 flex-1 overflow-y-auto animate-in fade-in pr-1">
-                                {/* Chế độ Cắt ghép Video Dựng sẵn Toàn Cảnh */}
-                         <div className="flex flex-col gap-2 mt-1 mb-1 animate-in fade-in">
-                            <label className="text-xs font-bold text-emerald-400 tracking-wider flex items-center gap-1.5"><Film size={14}/> Video Dựng Sẵn Toàn Cảnh</label>
-                            <div className="flex items-center justify-between bg-slate-950 p-3 rounded-xl border border-emerald-500/30 shadow-inner">
-                                <div className="flex flex-col w-[80%]">
-                                    <span className="text-[11px] font-bold text-emerald-300">Cắt Cảnh Đa Cảm Xúc</span>
-                                    <span className="text-[9px] text-slate-400 mt-1 leading-relaxed">AI sẽ dựa vào cảm xúc của câu thoại (Vui, Buồn, Bình thường) để tự động chọn đúng video ghép vào.</span>
-                                </div>
-                                <button 
-                                    onClick={() => setIsFullFrameMode(!isFullFrameMode)} 
-                                    disabled={isExportingVideo || isPreparingVideoData}
-                                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 ${isFullFrameMode ? 'bg-emerald-500' : 'bg-slate-700'}`}
-                                >
-                                    <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isFullFrameMode ? 'translate-x-4' : 'translate-x-0'}`} />
-                                </button>
-                            </div>
                             {/* Kho Tải Video Dựng Sẵn (Chỉ hiện khi bật Chế độ) */}
                             {isFullFrameMode && (
                                 <div className="flex flex-col gap-3 mt-2 bg-emerald-900/10 p-3 rounded-xl border border-emerald-500/20 animate-in slide-in-from-top-2 max-h-[350px] overflow-y-auto scrollbar-hide">
@@ -1034,181 +1336,30 @@ const VideoCreatorModal = (props?: any) => {
                                               <button 
                                                   type="button"
                                                   onClick={() => setShowLibraryModal(true)}
-                                                  className="col-span-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:to-purple-500 text-white px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg border border-indigo-400/40 cursor-pointer hover:scale-[1.01]"
+                                                  className="col-span-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:to-purple-500 text-white px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg border border-indigo-400/40 cursor-pointer hover:scale-[1.01]"
                                               >
-                                                  <Film size={14}/> Chọn kho cảnh quay
+                                                  <Film size={15}/> Chọn kho cảnh quay
                                               </button>
                                               
-                                             <button 
-                                                 onClick={() => {
-                                                     if (!messages || messages.length === 0) {
-                                                         showToastMsg("Không có lời thoại nào trong hội thoại hiện tại.", "error");
-                                                         return;
-                                                     }
-                                                     const autoScenes = messages.map((m: any, idx: number) => ({
-                                                         id: `scene_msg_${m.id || idx}_${Date.now()}`,
-                                                         role: m.role === "ai" || m.role === "ASSISTANT" ? "lao" : "user",
-                                                         emotion: m.emotion || "calm",
-                                                         url: null,
-                                                         idbKey: null,
-                                                         msgId: m.id,
-                                                         textSnippet: m.text
-                                                     }));
-                                                     setFfScenes(autoScenes);
-                                                     showToastMsg(`Đã tạo ${autoScenes.length} cảnh từ lời thoại!`, "success");
-                                                 }}
-                                                 className="bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 shadow-sm font-sans"
-                                             >
-                                                 <Sparkles size={11}/> Chia cảnh theo thoại
-                                             </button>
-                                             <button 
-                                                 onClick={() => setFfScenes((prev: any) => [...prev, { id: `scene_${Date.now()}`, role: "user", emotion: "calm", url: null, idbKey: null }])}
-                                                 className="bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 shadow-sm font-sans"
-                                             >
-                                                 <Plus size={11}/> Thêm cảnh tự do
-                                             </button>
-                                             <button 
-                                                 onClick={() => {
-                                                     if (!ffScenes || ffScenes.length === 0) {
-                                                         if (p.showToastMsg) p.showToastMsg("Chưa có cảnh quay nào để lưu.", "error");
-                                                         return;
-                                                     }
-                                                     if (setSavePackData) {
-                                                         setSavePackData({
-                                                             name: `Bộ Cảnh ${new Date().toLocaleDateString("vi-VN")} ${new Date().toLocaleTimeString("vi-VN")}`,
-                                                             aspect: videoAspectRatio === "16x9" ? "ngang" : "doc",
-                                                             description: ""
-                                                         });
-                                                     }
-                                                     setShowSavePackModal(true);
-                                                 }}
-                                                 className="bg-amber-600 hover:bg-amber-500 text-white px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 shadow-sm font-sans"
-                                             >
-                                                 <Save size={11}/> Lưu Bộ Cảnh Này
-                                             </button>
-                                             <button 
-                                                 onClick={() => {
-                                                     setFfScenes((prev: any[]) => prev.map((s: any) => {
-                                                         if (s.url) URL.revokeObjectURL(s.url);
-                                                         return { ...s, url: null, idbKey: null };
-                                                     }));
-                                                     if (p.showToastMsg) p.showToastMsg("Đã xoá toàn bộ video cảnh quay!", "success");
-                                                 }}
-                                                 className="bg-rose-600 hover:bg-rose-500 text-white px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 shadow-sm font-sans"
-                                             >
-                                                 <Trash2 size={11}/> Xóa tất cả cảnh
-                                             </button>
-                                     </div>
-                                    {/* BATCH UPLOAD DROPZONE */}
-                                    <div 
-                                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                        onDrop={(e) => {
-                                            e.preventDefault(); e.stopPropagation();
-                                            const files = Array.from(e.dataTransfer.files).filter((f: any) => f.type.startsWith('video/'));
-                                            if (!files.length) return;
-                                            console.log("Batch Upload Drop - Received files:", files.map(f => f.name));
-                                            const fileData = files.map((f: any) => {
-                                                const name = f.name.toLowerCase();
-                                                let role = 'user';
-                                                if (name.includes('lao') || name.includes('lão') || name.includes('ai') || name.includes('đáp')) role = 'lao';
-                                                else if (name.includes('outro') || name.includes('kết') || name.includes('ket')) role = 'outro';
-                                                let em = 'calm';
-                                                if (name.includes('buon') || name.includes('buồn') || name.includes('sad')) em = 'sad';
-                                                else if (name.includes('vui') || name.includes('joy') || name.includes('hạnh phúc') || name.includes('hanh phuc')) em = 'joy';
-                                                else if (name.includes('hook') || name.includes('nhan manh') || name.includes('nhấn mạnh')) em = 'hook';
-                                                const idbKey = `ff_clip_${role}_${em}_${Date.now()}_${Math.floor(Math.random()*10000)}`;
-                                                setTimeout(() => { idb.set(idbKey, f).catch(err => console.warn('Lỗi lưu IDB:', err)); }, 100);
-                                                return { name: f.name, url: URL.createObjectURL(f), role, emotion: em, idbKey };
-                                            });
-                                            console.log("Parsed file data:", fileData);
-                                            setFfScenes((prev: any[]) => {
-                                                const newScenes = [...prev];
-                                                const updatedIndices = new Set<number>();
-                                                fileData.forEach(fd => {
-                                                    let matchIdx = newScenes.findIndex((s, idx) => 
-                                                        (s.msgId || s.role === 'outro') &&
-                                                        s.role === fd.role && 
-                                                        s.emotion === fd.emotion && 
-                                                        !updatedIndices.has(idx)
-                                                    );
-                                                    if (matchIdx === -1) {
-                                                        matchIdx = newScenes.findIndex((s, idx) => 
-                                                            (s.msgId || s.role === 'outro') &&
-                                                            s.role === fd.role && 
-                                                            !updatedIndices.has(idx)
-                                                        );
-                                                    }
-                                                    if (matchIdx !== -1) {
-                                                        newScenes[matchIdx] = { ...newScenes[matchIdx], url: fd.url, idbKey: fd.idbKey };
-                                                        updatedIndices.add(matchIdx);
-                                                    } else if (fd.role === 'outro') {
-                                                        const hasOutro = newScenes.some(s => s.role === 'outro');
-                                                        if (!hasOutro) {
-                                                            newScenes.push({ id: `scene_batch_${Date.now()}_${Math.random()}`, role: fd.role, emotion: fd.emotion, url: fd.url, idbKey: fd.idbKey });
-                                                        }
-                                                    }
-                                                });
-                                                return newScenes;
-                                            });
-                                            if (p.showToastMsg) p.showToastMsg(`Đã ghép tự động ${files.length} video!`, 'success');
-                                        }}
-                                        className="w-full border-2 border-dashed border-emerald-500/30 rounded-xl p-3 flex flex-col items-center justify-center cursor-pointer hover:bg-emerald-500/10 transition-colors mb-2 bg-slate-900/50"
-                                    >
-                                        <Upload size={16} className="text-emerald-400 mb-1" />
-                                        <span className="text-[10px] text-emerald-200 font-bold">Kéo thả nhiều video vào đây để ghép tự động</span>
-                                        <span className="text-[9px] text-slate-400 text-center leading-tight mt-1">AI tự nhận diện qua tên file<br/>(vd: "con_vui.mp4", "lao_buon.mp4")</span>
-                                        <input type="file" multiple accept="video/*" className="hidden" id="batch-upload" onChange={(e) => {
-                                            if(!e.target.files) return;
-                                            const files = Array.from(e.target.files);
-                                            console.log("Batch Upload File Select - Received files:", files.map(f => f.name));
-                                            const fileData = files.map((f: any) => {
-                                                const name = f.name.toLowerCase();
-                                                let role = 'user';
-                                                if (name.includes('lao') || name.includes('lão') || name.includes('ai') || name.includes('đáp')) role = 'lao';
-                                                else if (name.includes('outro') || name.includes('kết') || name.includes('ket')) role = 'outro';
-                                                let em = 'calm';
-                                                if (name.includes('buon') || name.includes('buồn') || name.includes('sad')) em = 'sad';
-                                                else if (name.includes('vui') || name.includes('joy') || name.includes('hạnh phúc') || name.includes('hanh phuc')) em = 'joy';
-                                                else if (name.includes('hook') || name.includes('nhan manh') || name.includes('nhấn mạnh')) em = 'hook';
-                                                const idbKey = `ff_clip_${role}_${em}_${Date.now()}_${Math.floor(Math.random()*10000)}`;
-                                                setTimeout(() => { idb.set(idbKey, f).catch(err => console.warn('Lỗi lưu IDB:', err)); }, 100);
-                                                return { name: f.name, url: URL.createObjectURL(f), role, emotion: em, idbKey };
-                                            });
-                                            console.log("Parsed file data:", fileData);
-                                            setFfScenes((prev: any[]) => {
-                                                const newScenes = [...prev];
-                                                const updatedIndices = new Set<number>();
-                                                fileData.forEach(fd => {
-                                                    let matchIdx = newScenes.findIndex((s, idx) => 
-                                                        (s.msgId || s.role === 'outro') &&
-                                                        s.role === fd.role && 
-                                                        s.emotion === fd.emotion && 
-                                                        !updatedIndices.has(idx)
-                                                    );
-                                                    if (matchIdx === -1) {
-                                                        matchIdx = newScenes.findIndex((s, idx) => 
-                                                            (s.msgId || s.role === 'outro') &&
-                                                            s.role === fd.role && 
-                                                            !updatedIndices.has(idx)
-                                                        );
-                                                    }
-                                                    if (matchIdx !== -1) {
-                                                        newScenes[matchIdx] = { ...newScenes[matchIdx], url: fd.url, idbKey: fd.idbKey };
-                                                        updatedIndices.add(matchIdx);
-                                                    } else if (fd.role === 'outro') {
-                                                        const hasOutro = newScenes.some(s => s.role === 'outro');
-                                                        if (!hasOutro) {
-                                                            newScenes.push({ id: `scene_batch_${Date.now()}_${Math.random()}`, role: fd.role, emotion: fd.emotion, url: fd.url, idbKey: fd.idbKey });
-                                                        }
-                                                    }
-                                                });
-                                                return newScenes;
-                                            });
-                                            if (p.showToastMsg) p.showToastMsg(`Đã ghép tự động ${files.length} video!`, 'success');
-                                            e.target.value = '';
-                                        }} />
-                                        <label htmlFor="batch-upload" className="mt-2 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded text-[9px] font-bold cursor-pointer transition-all">Hoặc Chọn File</label>
-                                    </div>
+                                              <button 
+                                                  onClick={() => setFfScenes((prev: any) => [...prev, { id: `scene_${Date.now()}`, role: "user", emotion: "calm", url: null, idbKey: null }])}
+                                                  className="bg-emerald-600/80 hover:bg-emerald-500 text-white px-2.5 py-2 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm font-sans"
+                                              >
+                                                  <Plus size={13}/> Thêm cảnh tự do
+                                              </button>
+                                              <button 
+                                                  onClick={() => {
+                                                      setFfScenes((prev: any[]) => prev.map((s: any) => {
+                                                          if (s.url) URL.revokeObjectURL(s.url);
+                                                          return { ...s, url: null, idbKey: null };
+                                                      }));
+                                                      if (p.showToastMsg) p.showToastMsg("Đã xoá toàn bộ video cảnh quay!", "success");
+                                                  }}
+                                                  className="bg-rose-600/80 hover:bg-rose-500 text-white px-2.5 py-2 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm font-sans"
+                                              >
+                                                  <Trash2 size={13}/> Xóa tất cả cảnh
+                                              </button>
+                                      </div>
                                     {(() => {
                                         const hasMsgScenes = ffScenes?.some((s: any) => s.msgId);
                                         return ffScenes.map((scene: any, idx: any) => {
@@ -1384,8 +1535,7 @@ const VideoCreatorModal = (props?: any) => {
                             })()}
                                 </div>
                             )}
-                         </div>
-                             </div>
+                          </div>
                           )}
                           {/* SUB-TAB 2: LOGO WATERMARK & CHỌN NHẠC BGM */}
                           {videoSubTab === 'logo_music' && (
@@ -2140,6 +2290,26 @@ const VideoCreatorModal = (props?: any) => {
                                         if (e.target.files) handleBatchUploadToLibrary(e.target.files);
                                     }} 
                                 />
+                                <input 
+                                    ref={libraryFolderInputRef} 
+                                    type="file" 
+                                    // @ts-ignore
+                                    webkitdirectory=""
+                                    directory=""
+                                    multiple 
+                                    className="hidden" 
+                                    onChange={e => {
+                                        if (e.target.files && e.target.files.length > 0) handlePrepareFolderUpload(e.target.files);
+                                    }} 
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => libraryFolderInputRef.current?.click()}
+                                    className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md cursor-pointer hover:scale-105 active:scale-95"
+                                    title="Chọn 1 hoặc nhiều thư mục (folder) trên máy tính để tự động trích xuất clip & tạo chuyên mục theo tên folder"
+                                >
+                                    <FolderPlus size={14} /> Nạp Clips Từ Folder
+                                </button>
                                 <button
                                     type="button"
                                     onClick={() => libraryFileInputRef.current?.click()}
@@ -2155,9 +2325,13 @@ const VideoCreatorModal = (props?: any) => {
                         </div>
 
                         {/* BODY CONTENT MODAL */}
-                        <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
+                        <div 
+                            className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden relative"
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={handleDropFolders}
+                        >
                             {/* LEFT SIDEBAR: PHÂN MỤC */}
-                            <div className="w-full md:w-56 bg-slate-950/60 p-3 border-r border-white/10 flex flex-col gap-2 shrink-0 overflow-y-auto">
+                            <div className="w-full md:w-80 lg:w-[340px] bg-slate-950/60 p-3 border-r border-white/10 flex flex-col gap-2 shrink-0 overflow-y-auto">
                                 <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 px-2 py-1">Phân Mục Cảnh Quay</span>
                                 <button 
                                     type="button"
@@ -2189,26 +2363,93 @@ const VideoCreatorModal = (props?: any) => {
                                     <span>🎬 Cảnh Outro Kết Thúc</span>
                                 </button>
 
-                                {/* CHUYÊN MỤC TÙY CHỈNH TỪ CSDL / NẠP THÊM */}
+                                {/* PHẦN KHO RIÊNG (PRIVATE CATEGORIES) */}
                                 <div className="flex flex-col gap-1.5 mt-2 pt-2 border-t border-white/10">
                                     <div className="flex justify-between items-center px-2 py-0.5">
-                                        <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">
-                                            Chuyên Mục Tùy Chỉnh ({(p.customCategories || []).length})
+                                        <span className="text-[9px] font-extrabold uppercase tracking-widest text-amber-400">
+                                            KHO RIÊNG ({((p.customCategories || []).filter((c: any) => c.isPublic === false || (typeof c === 'object' && c.userId))).length})
                                         </span>
                                         <button
                                             type="button"
                                             onClick={() => {
+                                                setAddCatScope('private');
                                                 setNewCatName('');
                                                 setShowAddCatModal(true);
                                             }}
-                                            className="w-5 h-5 bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white rounded-lg flex items-center justify-center transition-all shadow-sm cursor-pointer"
-                                            title="Thêm chuyên mục mới (+)"
+                                            className="w-5 h-5 bg-slate-800 hover:bg-amber-600 text-slate-300 hover:text-white rounded-lg flex items-center justify-center transition-all shadow-sm cursor-pointer"
+                                            title="Thêm chuyên mục vào Kho Riêng (+)"
                                         >
                                             <Plus size={13} />
                                         </button>
                                     </div>
 
-                                    {Array.isArray(p.customCategories) && p.customCategories.map((cat: any) => {
+                                    {Array.isArray(p.customCategories) && p.customCategories.filter((cat: any) => cat.isPublic === false || (typeof cat === 'object' && cat.userId)).map((cat: any) => {
+                                         const catName = typeof cat === 'string' ? cat : (cat.name || cat.id);
+                                         const catId = typeof cat === 'string' ? cat : (cat.id || cat.name);
+                                         const isSelected = selectedLibraryCategory === catName || selectedLibraryCategory === catId;
+                                         const clipCount = (p.localFfClips || []).filter((c: any) => c.category === catName || c.category === catId).length;
+                                         return (
+                                             <div key={catId} className="flex items-center gap-1 group">
+                                                 <button 
+                                                     type="button"
+                                                     onClick={() => setSelectedLibraryCategory(catName)} 
+                                                     title={catName}
+                                                     className={`flex-1 flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all text-left ${isSelected ? 'bg-amber-600 text-white shadow-md' : 'text-slate-300 hover:bg-white/5'}`}
+                                                 >
+                                                     <span className="flex-1 pr-1 leading-snug">🔒 {catName}</span>
+                                                     <span className="text-[10px] opacity-75 shrink-0 ml-1">{clipCount}</span>
+                                                 </button>
+                                                 <button
+                                                     type="button"
+                                                     onClick={(e) => {
+                                                         e.stopPropagation();
+                                                         e.preventDefault();
+                                                         setRenameCategoryModal({ catId, catName });
+                                                         setRenameCatInputValue(catName);
+                                                     }}
+                                                     className="text-amber-400 hover:text-amber-300 p-1 rounded-lg hover:bg-amber-500/20 transition-all cursor-pointer shrink-0"
+                                                     title="Đổi tên chuyên mục"
+                                                 >
+                                                     <Edit3 size={13} />
+                                                 </button>
+                                                 <button
+                                                     type="button"
+                                                     onClick={(e) => {
+                                                         e.stopPropagation();
+                                                         e.preventDefault();
+                                                         if (p.handleDeleteCustomCategory) p.handleDeleteCustomCategory(catId);
+                                                     }}
+                                                     className="text-rose-400 hover:text-rose-300 p-1 rounded-lg hover:bg-rose-500/20 transition-all cursor-pointer shrink-0"
+                                                     title="Xóa chuyên mục"
+                                                 >
+                                                     <Trash2 size={13} />
+                                                 </button>
+                                             </div>
+                                         );
+                                     })}
+                                </div>
+
+                                {/* PHẦN KHO CHUNG (PUBLIC SHARED CATEGORIES) */}
+                                <div className="flex flex-col gap-1.5 mt-2 pt-2 border-t border-white/10">
+                                    <div className="flex justify-between items-center px-2 py-0.5">
+                                        <span className="text-[9px] font-extrabold uppercase tracking-widest text-emerald-400 flex items-center gap-1">
+                                            KHO CHUNG ({((p.customCategories || []).filter((c: any) => c.isPublic !== false && !(typeof c === 'object' && c.userId))).length})
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setAddCatScope('public');
+                                                setNewCatName('');
+                                                setShowAddCatModal(true);
+                                            }}
+                                            className="w-5 h-5 bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white rounded-lg flex items-center justify-center transition-all shadow-sm cursor-pointer"
+                                            title="Thêm chuyên mục vào Kho Chung (+)"
+                                        >
+                                            <Plus size={13} />
+                                        </button>
+                                    </div>
+
+                                    {Array.isArray(p.customCategories) && p.customCategories.filter((cat: any) => cat.isPublic !== false && !(typeof cat === 'object' && cat.userId)).map((cat: any) => {
                                         const catName = typeof cat === 'string' ? cat : (cat.name || cat.id);
                                         const catId = typeof cat === 'string' ? cat : (cat.id || cat.name);
                                         const isSelected = selectedLibraryCategory === catName || selectedLibraryCategory === catId;
@@ -2499,13 +2740,139 @@ const VideoCreatorModal = (props?: any) => {
                 </div>
             )}
 
+            {/* MODAL TÙY CHỌN KHO CHUNG HAY KHO RIÊNG KHI NẠP CLIPS TỪ FOLDER */}
+            {showFolderScopeModal && (
+                <div className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex justify-center items-center p-4" onClick={() => setShowFolderScopeModal(false)}>
+                    <div className="bg-slate-900 border border-emerald-500/40 rounded-3xl p-6 max-w-md w-full flex flex-col gap-5 shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center border-b border-white/10 pb-3">
+                            <span className="text-base font-extrabold text-emerald-400 flex items-center gap-2">
+                                <FolderPlus size={20} /> Nạp Folder ({pendingFolderFiles.length} video clips)
+                            </span>
+                            <button onClick={() => setShowFolderScopeModal(false)} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="flex flex-col gap-3">
+                            <p className="text-xs text-slate-300 leading-relaxed">
+                                Đã phát hiện tổng cộng <strong className="text-emerald-400 font-bold">{pendingFolderFiles.length} video clips</strong> từ các thư mục. Mỗi thư mục con sẽ tự động làm 1 <strong>Chuyên Mục</strong> tương ứng.
+                            </p>
+
+                            {/* HIỂN THỊ DANH SÁCH CÁC SUBFOLDER PHÁT HIỆN ĐƯỢC */}
+                            {(() => {
+                                const folderMap = new Map<string, number>();
+                                pendingFolderFiles.forEach((file: any) => {
+                                    const relPath = file.webkitRelativePath || file.name;
+                                    const pathParts = relPath.split(/[\/\\]/).filter(Boolean);
+                                    let folderName = 'Folder Video';
+                                    if (pathParts.length >= 3) {
+                                        folderName = pathParts[pathParts.length - 2];
+                                    } else if (pathParts.length === 2) {
+                                        folderName = pathParts[0];
+                                    }
+                                    folderMap.set(folderName, (folderMap.get(folderName) || 0) + 1);
+                                });
+                                const entries = Array.from(folderMap.entries());
+                                return (
+                                    <div className="bg-slate-950/80 p-3 rounded-2xl border border-white/10 max-h-36 overflow-y-auto custom-scrollbar flex flex-col gap-1.5 shadow-inner">
+                                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Tự động nạp vào {entries.length} Chuyên Mục:</span>
+                                        {entries.map(([fName, fCount]) => (
+                                            <div key={fName} className="flex justify-between items-center text-xs text-slate-200 bg-slate-900/90 px-2.5 py-1 rounded-xl border border-white/5">
+                                                <span className="font-bold flex items-center gap-1.5">📂 {fName}</span>
+                                                <span className="text-[10px] text-emerald-400 font-extrabold bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-500/20">{fCount} clip</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
+                            
+                            <label className="text-xs font-bold text-amber-300 uppercase tracking-wider mt-1">
+                                Vui lòng chọn kho lưu trữ (Chỉ chọn 1 trong 2):
+                            </label>
+
+                            {/* TÙY CHỌN SINGLE CHOICE / RADIO BUTTONS */}
+                            <div className="flex flex-col gap-2.5">
+                                {/* LỰA CHỌN 1: KHO CHUNG */}
+                                <div 
+                                    onClick={() => setFolderTargetScope('public')}
+                                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center gap-3 ${
+                                        folderTargetScope === 'public'
+                                            ? 'bg-emerald-950/80 border-emerald-500 shadow-md ring-1 ring-emerald-500/50'
+                                            : 'bg-slate-950/60 border-white/10 hover:border-emerald-500/40'
+                                    }`}
+                                >
+                                    <input 
+                                        type="radio" 
+                                        name="folderScope" 
+                                        checked={folderTargetScope === 'public'} 
+                                        onChange={() => setFolderTargetScope('public')}
+                                        className="w-4 h-4 accent-emerald-500 cursor-pointer shrink-0" 
+                                    />
+                                    <div className="flex flex-col gap-0.5">
+                                        <span className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                                            🌐 KHO CHUNG (Hệ thống & Dùng chung)
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 leading-normal">
+                                            Tất cả mọi người và Xưởng Phim Tự Động đều có thể thấy và sử dụng các clip này.
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* LỰA CHỌN 2: KHO RIÊNG */}
+                                <div 
+                                    onClick={() => setFolderTargetScope('private')}
+                                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center gap-3 ${
+                                        folderTargetScope === 'private'
+                                            ? 'bg-purple-950/80 border-purple-500 shadow-md ring-1 ring-purple-500/50'
+                                            : 'bg-slate-950/60 border-white/10 hover:border-purple-500/40'
+                                    }`}
+                                >
+                                    <input 
+                                        type="radio" 
+                                        name="folderScope" 
+                                        checked={folderTargetScope === 'private'} 
+                                        onChange={() => setFolderTargetScope('private')}
+                                        className="w-4 h-4 accent-purple-500 cursor-pointer shrink-0" 
+                                    />
+                                    <div className="flex flex-col gap-0.5">
+                                        <span className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                                            🔒 KHO RIÊNG (Chỉ cá nhân bạn)
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 leading-normal">
+                                            Chỉ duy nhất tài khoản cá nhân của bạn mới thấy và sử dụng các clip này.
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-3 border-t border-white/10">
+                            <button
+                                type="button"
+                                onClick={() => setShowFolderScopeModal(false)}
+                                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                type="button"
+                                onClick={executeFolderBatchUpload}
+                                className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold shadow-lg transition-all flex items-center gap-2 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                            >
+                                <CheckCircle2 size={15} /> 🚀 Bắt Đầu Nạp Folder
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* MODAL THÊM CHUYÊN MỤC MỚI */}
             {showAddCatModal && (
                 <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4" onClick={() => setShowAddCatModal(false)}>
                     <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl p-5 max-w-md w-full flex flex-col gap-4 shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
                         <div className="flex justify-between items-center border-b border-white/10 pb-3">
-                            <span className="text-sm font-bold text-emerald-400 flex items-center gap-2">
-                                <Plus size={16} /> Thêm chuyên mục cảnh quay mới
+                            <span className={`text-sm font-bold flex items-center gap-2 ${addCatScope === 'public' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                <Plus size={16} /> Thêm chuyên mục cho {addCatScope === 'public' ? 'KHO CHUNG' : 'KHO RIÊNG'}
                             </span>
                             <button onClick={() => setShowAddCatModal(false)} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors">
                                 <X size={18} />
@@ -2544,8 +2911,87 @@ const VideoCreatorModal = (props?: any) => {
                 </div>
             )}
 
-</div>
-  );
+            {/* MODAL CẢNH BÁO XÁC NHẬN XÓA CHUYÊN MỤC */}
+            {categoryToDeleteModal && (
+                <div className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex justify-center items-center p-4" onClick={() => setCategoryToDeleteModal(null)}>
+                    <div className="bg-slate-900 border border-rose-500/40 rounded-3xl p-6 max-w-md w-full flex flex-col gap-4 shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center border-b border-white/10 pb-3">
+                            <span className="text-base font-extrabold text-rose-400 flex items-center gap-2">
+                                <Trash2 size={20} /> Xác Nhận Xóa Chuyên Mục
+                            </span>
+                            <button onClick={() => setCategoryToDeleteModal(null)} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors">
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <p className="text-xs text-slate-300 leading-relaxed">
+                                Bạn có chắc chắn muốn xóa chuyên mục <strong className="text-amber-400 font-bold">"{categoryToDeleteModal.catName}"</strong> khỏi hệ thống?
+                            </p>
+                            <p className="text-[11px] text-rose-300/80 bg-rose-950/40 p-2.5 rounded-xl border border-rose-500/20 leading-normal">
+                                ⚠️ Hành động này sẽ xóa chuyên mục và không thể hoàn tác!
+                            </p>
+                        </div>
+                        <div className="flex justify-end gap-3 pt-3 border-t border-white/10">
+                            <button
+                                type="button"
+                                onClick={() => setCategoryToDeleteModal(null)}
+                                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
+                            >
+                                Hủy Bỏ
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmDeleteCategory}
+                                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-lg transition-all flex items-center gap-1.5 cursor-pointer hover:scale-105 active:scale-95"
+                            >
+                                <Trash2 size={15} /> Đồng Ý Xóa
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL CẢNH BÁO XÁC NHẬN XÓA TỪNG CLIP VIDEO */}
+            {singleClipToDelete && (
+                <div className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex justify-center items-center p-4" onClick={() => setSingleClipToDelete(null)}>
+                    <div className="bg-slate-900 border border-rose-500/40 rounded-3xl p-6 max-w-md w-full flex flex-col gap-4 shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center border-b border-white/10 pb-3">
+                            <span className="text-base font-extrabold text-rose-400 flex items-center gap-2">
+                                <Trash2 size={20} /> Xác Nhận Xóa Video Clip
+                            </span>
+                            <button onClick={() => setSingleClipToDelete(null)} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors">
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <p className="text-xs text-slate-300 leading-relaxed">
+                                Bạn có chắc chắn muốn xóa vĩnh viễn video clip <strong className="text-amber-400 font-bold">"{singleClipToDelete.name || singleClipToDelete.displayName || 'Video Clip'}"</strong> khỏi Kho Cảnh Quay không?
+                            </p>
+                            <p className="text-[11px] text-rose-300/80 bg-rose-950/40 p-2.5 rounded-xl border border-rose-500/20 leading-normal">
+                                ⚠️ Video clip này sẽ bị xóa khỏi hệ thống và không thể khôi phục lại.
+                            </p>
+                        </div>
+                        <div className="flex justify-end gap-3 pt-3 border-t border-white/10">
+                            <button
+                                type="button"
+                                onClick={() => setSingleClipToDelete(null)}
+                                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
+                            >
+                                Hủy Bỏ
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmDeleteSingleClip}
+                                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-lg transition-all flex items-center gap-1.5 cursor-pointer hover:scale-105 active:scale-95"
+                            >
+                                <Trash2 size={15} /> Đồng Ý Xóa Clip
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 };
 
 // SUBCOMPONENT: LIBRARY CLIP CARD (RESOLVES IDB BLOB URLS AND HANDLES 404 ONERROR)
@@ -2577,7 +3023,7 @@ const LibraryClipCard = ({ clip, idx, globalIndex, isSelected, roleName, emotion
                         createdUrl = URL.createObjectURL(blob);
                         setBlobUrl(createdUrl);
                         if (!clip.poster && !poster) {
-                            const p = await generateVideoPoster(createdUrl);
+                            const p = await generateVideoPosterThrottled(createdUrl);
                             if (p && isMounted) setPoster(p);
                         }
                         return;
@@ -2602,7 +3048,7 @@ const LibraryClipCard = ({ clip, idx, globalIndex, isSelected, roleName, emotion
                 const targetUrl = resolveClipUrl(clip.url);
                 setBlobUrl(targetUrl);
                 if (!clip.poster && !poster) {
-                    const p = await generateVideoPoster(targetUrl);
+                    const p = await generateVideoPosterThrottled(targetUrl);
                     if (p && isMounted) setPoster(p);
                 }
             }
@@ -2615,6 +3061,9 @@ const LibraryClipCard = ({ clip, idx, globalIndex, isSelected, roleName, emotion
             if (createdUrl) URL.revokeObjectURL(createdUrl);
         };
     }, [clip.url, clip.idbKey, clip.poster]);
+
+    const isLaoRole = clip.role === 'lao' || clip.role === 'ai';
+    const isOutroRole = clip.role === 'outro';
 
     return (
         <div className={`flex flex-col bg-slate-950/90 border rounded-2xl p-2.5 gap-2 relative transition-all group shadow-md ${isSelected ? 'border-emerald-500 bg-emerald-950/30 ring-1 ring-emerald-500/50' : 'border-white/10 hover:border-indigo-500/40'}`}>
@@ -2640,12 +3089,30 @@ const LibraryClipCard = ({ clip, idx, globalIndex, isSelected, roleName, emotion
                     <Check size={14} className={isSelected ? 'stroke-[3]' : 'opacity-60'} />
                 </button>
 
+                {/* NÚT XÓA TỪNG CLIP TẠI GÓC TRÊN PHẢI CARD */}
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        if (onDeleteSingle) onDeleteSingle(clip);
+                    }}
+                    className="absolute top-2 right-2 z-20 w-6 h-6 rounded-lg flex items-center justify-center transition-all cursor-pointer bg-black/60 text-rose-400 border border-rose-500/30 hover:bg-rose-600 hover:text-white hover:border-rose-400 shadow-lg"
+                    title="Xóa clip video này khỏi kho"
+                >
+                    <Trash2 size={13} />
+                </button>
+
                 {poster ? (
                     <img src={poster} alt="thumbnail" className="w-full h-full object-cover" />
                 ) : (
-                    <div className="flex flex-col items-center justify-center gap-1 text-indigo-400 p-2 text-center">
-                        <Film size={22} className="opacity-60" />
-                        <span className="text-[9px] font-semibold text-slate-400">Clip Video</span>
+                    <div className={`w-full h-full flex flex-col items-center justify-center gap-1 p-2 text-center transition-all ${
+                        isLaoRole 
+                            ? 'bg-gradient-to-br from-orange-950/80 via-slate-900 to-amber-950/80 text-orange-400' 
+                            : (isOutroRole ? 'bg-gradient-to-br from-purple-950/80 via-slate-900 to-indigo-950/80 text-purple-400' : 'bg-gradient-to-br from-blue-950/80 via-slate-900 to-indigo-950/80 text-indigo-400')
+                    }`}>
+                        <Film size={26} className="opacity-80 drop-shadow-md" />
+                        <span className="text-[10px] font-extrabold tracking-wide uppercase opacity-90">{displayName}</span>
                     </div>
                 )}
                 {blobUrl && (

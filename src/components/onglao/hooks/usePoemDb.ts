@@ -35,84 +35,29 @@ export const usePoemDb = ({
 
   // --- STATE QUẢN LÝ KHO KỆ PHÁP (MỚI) ---
   const [poemDatabase, setPoemDatabase] = useState<any[]>(() => {
-      let rawData: any[];
-      const saved = typeof window !== 'undefined' ? localStorage.getItem('taman_poem_db') : null;
-      if (saved) {
-          rawData = JSON.parse(saved);
-          if (Array.isArray(initialPoems) && initialPoems.length > 0) {
-              const existingTitles = new Set(rawData.map((p: any) => p.title.toLowerCase().trim()));
-              const newPoems = initialPoems.filter((p: any) => !existingTitles.has(p.title.toLowerCase().trim()));
-              if (newPoems.length > 0) {
-                  rawData = [...rawData, ...newPoems];
-                  if (typeof window !== 'undefined') {
-                      localStorage.setItem('taman_poem_db', JSON.stringify(rawData));
-                  }
-              }
-          }
-      } else {
-          rawData = initialPoems;
-      }
-
-      // Xử lý tương thích ngược: Chuyển đổi dữ liệu cũ sang cấu trúc mới (tách đoạn)
-      const processedData = rawData.map((poem: any, index: number) => {
-          if (poem.stanzas) return poem; // Đã là cấu trúc mới
-
-          // Xử lý dữ liệu cũ (Tách đoạn 4 câu)
-          let titleTag = "Bài kệ " + (index + 1);
-          const lines = (poem.content as string).split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0);
-          
-          // Lấy dòng đầu làm tên bài nếu ngắn
-          if (lines.length > 0 && lines[0].length < 50 && !lines[0].toLowerCase().includes('tam vô')) {
-              const firstLine = lines.shift();
-              if (firstLine) {
-                  titleTag = firstLine.replace(/^[0-9.\s]+/, '').replace(/\*/g, '').split('(')[0].trim();
-              }
-          }
-
-          const stanzas = [];
-          let currentStanza = [];
-          
-          for (let i = 0; i < lines.length; i++) {
-              if (lines[i].toLowerCase().includes('tam vô') && lines[i].match(/\d+/)) continue; // Bỏ dòng tác giả/ngày
-              
-              currentStanza.push(lines[i]);
-              
-              if (currentStanza.length === 4) {
-                  const remainingLines = lines.slice(i + 1).filter((l: any) => !l.toLowerCase().includes('tam vô'));
-                  // Nếu số câu dư còn lại <= 2, gộp luôn vào đoạn này để tránh đoạn cụt ngủn
-                  if (remainingLines.length > 0 && remainingLines.length <= 2) {
-                      continue; 
-                  } else {
-                      stanzas.push({
-                          id: `p${index}_s${stanzas.length + 1}_${Date.now()}`,
-                          tags: [...poem.tags],
-                          content: currentStanza.join('\n'),
-                          audioUrl: null,
-                          isSaved: false
-                      });
-                      currentStanza = [];
-                  }
-              }
-          }
-          if (currentStanza.length > 0) {
-              stanzas.push({
-                  id: `p${index}_s${stanzas.length + 1}_${Date.now()}`,
-                  tags: [...poem.tags],
-                  content: currentStanza.join('\n'),
-                  audioUrl: null,
-                  isSaved: false
-              });
-          }
-
-          return { id: poem.id || `poem_legacy_${index}`, title: titleTag, stanzas };
-      });
-
-      if (typeof window !== 'undefined') {
-          localStorage.setItem('taman_poem_db', JSON.stringify(processedData));
-      }
-      return processedData;
-
+      return Array.isArray(initialPoems) ? initialPoems : [];
   });
+
+  // Tự động đồng bộ khi initialPoems từ CSDL thay đổi
+  useEffect(() => {
+      if (Array.isArray(initialPoems) && initialPoems.length > 0) {
+          setPoemDatabase(initialPoems);
+      }
+  }, [initialPoems]);
+
+  // Tự động tải Kệ Pháp từ DB ngầm nếu poemDatabase đang rỗng (dành cho Admin và Menu khi initialPoems chưa sẵn sàng)
+  useEffect(() => {
+      if (poemDatabase.length === 0) {
+          fetch('/api/public/poems')
+              .then(res => res.json())
+              .then(d => {
+                  if (d.success && Array.isArray(d.data) && d.data.length > 0) {
+                      setPoemDatabase(d.data);
+                  }
+              })
+              .catch(err => console.warn('Lỗi tải Kệ Pháp từ public API:', err));
+      }
+  }, [poemDatabase.length]);
   
   const [showPoemModal, setShowPoemModal] = useState(false);
   const [poemModalTab, setPoemModalTab] = useState<'poems' | 'greetings' | 'rag'>('poems'); // State quản lý tab Kho Kệ / Kho Mào Đầu / Kho Huấn Luyện
@@ -122,18 +67,10 @@ export const usePoemDb = ({
   const [generatingMeanings, setGeneratingMeanings] = useState<Record<string, boolean>>({}); // TÂM AN THÊM: Trạng thái tạo audio Ý nghĩa
   const [isGeneratingAIMeaning, setIsGeneratingAIMeaning] = useState<Record<string, boolean>>({}); // TÂM AN THÊM: Trạng thái AI viết ý nghĩa
 
-  // TÂM AN THÊM: State quản lý nội dung chữ, tìm kiếm và âm thanh cho Kho Mào Đầu
-  const [greetingsDb, setGreetingsDb] = useState<any>(() => {
-      const saved = typeof window !== 'undefined' ? localStorage.getItem('taman_greetings_text_db') : null;
-      if (saved) return JSON.parse(saved);
-      return LAO_GREETINGS_DB;
-  });
+  // State quản lý nội dung chữ, tìm kiếm và âm thanh cho Kho Mào Đầu
+  const [greetingsDb, setGreetingsDb] = useState<any>(LAO_GREETINGS_DB);
   const [greetingSearch, setGreetingSearch] = useState('');
-  const [greetingAudioUrls, setGreetingAudioUrls] = useState<Record<string, string>>(() => {
-      const saved = typeof window !== 'undefined' ? localStorage.getItem('taman_greeting_audio_urls') : null;
-      if (saved) return JSON.parse(saved);
-      return {};
-  });
+  const [greetingAudioUrls, setGreetingAudioUrls] = useState<Record<string, string>>({});
   const [generatingGreetings, setGeneratingGreetings] = useState<Record<string, boolean>>({});
   const [transitionAudioUrls, setTransitionAudioUrls] = useState<Record<string, string>>({});
 
@@ -232,10 +169,6 @@ export const usePoemDb = ({
 
                       setGreetingsDb(newGreetingsDb);
                       setGreetingAudioUrls(newGreetingAudioUrls);
-                      if (typeof window !== 'undefined') {
-                          localStorage.setItem('taman_greetings_text_db', JSON.stringify(newGreetingsDb));
-                          localStorage.setItem('taman_greeting_audio_urls', JSON.stringify(newGreetingAudioUrls));
-                      }
                   }
               }
           } catch (err) {

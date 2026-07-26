@@ -27,7 +27,7 @@ const DEFAULT_SETTINGS: SystemSettings = {
   apiKey: process.env.GEMINI_API_KEY || '',
   modelName: 'gemini-2.5-flash-preview-09-2025',
   ttsModel: 'gemini-2.5-flash-preview-tts',
-  laoVoiceName: 'Puck',
+  laoVoiceName: 'Algieba',
   laoVoiceStyle: 'Trầm ấm, từ hòa, thong dong, minh triết, từ tốn, ngắt nhịp rõ ràng',
   userVoiceName: 'Kore',
   userVoiceStyle: 'Lắng đọng, kính cẩn, chân thành, nhẹ nhàng, tìm cầu đạo lý',

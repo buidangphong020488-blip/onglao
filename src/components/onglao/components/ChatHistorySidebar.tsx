@@ -1,7 +1,6 @@
 "use client";
-
 import React from 'react';
-import { updateChatSessionTypeAction } from '@/actions/chat';
+import { updateChatSessionTypeAction, updateChatMessageContentAction } from '@/actions/chat';
 import MiniLaoFace from './MiniLaoFace';
 import { 
   X, MessageSquare, Loader2, Mic, Wand2, Video, Play, Pause, Square,
@@ -81,10 +80,50 @@ export const ChatHistorySidebar = (props?: { p?: any }) => {
   const [localEditingId, setLocalEditingId] = React.useState<string | null>(null);
   const [localTempText, setLocalTempText] = React.useState<string>('');
 
-  const activeEditingId = editingId !== undefined ? editingId : localEditingId;
-  const activeTempText = tempEditText !== undefined ? tempEditText : localTempText;
-  const safeSetEditingId = typeof setEditingId === 'function' ? setEditingId : setLocalEditingId;
-  const safeSetTempEditText = typeof setTempEditText === 'function' ? setTempEditText : setLocalTempText;
+  const activeEditingId = editingId || localEditingId;
+  const activeTempText = tempEditText || localTempText;
+  const safeSetEditingId = (id: any) => {
+    if (typeof setEditingId === 'function') setEditingId(id);
+    setLocalEditingId(id);
+  };
+  const safeSetTempEditText = (txt: any) => {
+    if (typeof setTempEditText === 'function') setTempEditText(txt);
+    setLocalTempText(txt);
+  };
+
+  const doSaveMessageText = async (msg: any, rawNewText: string) => {
+    const newText = rawNewText.trim();
+    if (!newText) return;
+    const sessId = currentSessionId || p.currentSessionId;
+    const updater = (prev: any[]) => (prev || []).map((m: any) =>
+      String(m.id) === String(msg.id) ? { ...m, text: newText, content: newText } : m
+    );
+
+    // 1. Cập nhật giao diện lập tức (Instant UI Feedback)
+    const targetUpdateFn = typeof updateCurrentMessages === 'function' ? updateCurrentMessages : p?.updateCurrentMessages;
+    if (typeof targetUpdateFn === 'function') {
+      targetUpdateFn(updater, sessId);
+    } else {
+      const targetSetSessionsFn = p?.setSessions;
+      if (typeof targetSetSessionsFn === 'function') {
+        targetSetSessionsFn((prev: any[]) => (prev || []).map((s: any) => 
+          s.id === sessId ? {
+            ...s,
+            messages: updater(s.messages || [])
+          } : s
+        ));
+      }
+    }
+
+    // 2. Lưu CSDL PostgreSQL ngầm
+    const res = await updateChatMessageContentAction(msg.id, newText, sessId, msg.role);
+    if (res.success) {
+      if (p.showToastMsg) p.showToastMsg('Đã lưu nội dung tin nhắn thành công!', 'success');
+    } else {
+      console.warn('Lỗi lưu DB:', res.error);
+      if (p.showToastMsg) p.showToastMsg(`Lỗi lưu DB: ${res.error || 'Thao tác không hợp lệ'}`, 'error');
+    }
+  };
 
   const [copiedId, setCopiedId] = React.useState<any>(null);
   const [isDownloadingAllLocal, setIsDownloadingAllLocal] = React.useState(false);
@@ -142,7 +181,17 @@ export const ChatHistorySidebar = (props?: { p?: any }) => {
 
   const handleCopy = (e: any, msg: any) => {
     e.stopPropagation();
-    copyToClipboard(msg.text);
+    const textToCopy = msg.text || msg.content || '';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(textToCopy);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = textToCopy;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
     setCopiedId(msg.id);
     setTimeout(() => setCopiedId(null), 2000);
   };
@@ -169,19 +218,6 @@ export const ChatHistorySidebar = (props?: { p?: any }) => {
 
       <div className="px-5 py-3 border-b border-white/5 bg-slate-900/20 flex flex-col gap-3">
         <div className="grid grid-cols-2 gap-2">
-          <button 
-             onClick={() => handleGenerateScriptVoices(currentSessionId)} 
-             disabled={isRegeneratingAll || messages.filter((m: any) => !m.audioUrl).length === 0} 
-             className={`w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[10px] font-black border transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${regenerationComplete ? 'border-emerald-700 bg-emerald-900/40 text-emerald-400' : messages.filter((m: any) => !m.audioUrl).length > 0 ? 'border-emerald-500/50 bg-emerald-600 text-white hover:bg-emerald-500 animate-pulse shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'border-indigo-700 bg-indigo-900/40 text-indigo-400 hover:text-indigo-300'}`}
-          >
-             {isRegeneratingAll ? (
-                 <><Loader2 size={12} className="animate-spin" /> Tạo... {regenerationProgress}%</>
-             ) : regenerationComplete ? (
-                 <><Check size={12} /> Đã xong</>
-             ) : (
-                 <><Mic size={12} /> Tạo MP3 thiếu</>
-             )}
-          </button>
           {currentSession?.type?.includes('script') ? (
             <div className="w-full flex flex-col items-center justify-center gap-0.5 py-1.5 px-2 rounded-xl text-[10px] font-black border border-emerald-800/80 bg-emerald-950/80 text-emerald-400 cursor-default select-none shadow-sm">
                <div className="flex items-center gap-1 text-emerald-400 font-bold">
@@ -198,96 +234,23 @@ export const ChatHistorySidebar = (props?: { p?: any }) => {
                <Archive size={12} /> Lưu kịch bản
             </button>
           )}
+
+          <button onClick={() => {
+             if (messages.length === 0) {
+                if (p.showToastMsg) p.showToastMsg('Vui lòng trò chuyện để tạo kịch bản trước khi tạo video.', 'error');
+                return;
+             }
+             const sessId = currentSessionId || p.currentSessionId;
+             if (sessId) {
+               window.location.href = `/?modal=ai-director&action=update&type=chat&id=${encodeURIComponent(sessId)}`;
+             } else {
+               window.location.href = '/?modal=ai-director';
+             }
+          }} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[9px] font-black border border-pink-700 bg-pink-900/40 text-pink-400 hover:text-pink-300 hover:bg-pink-900/60 transition-all shadow-lg">
+             <Video size={14} /> Tạo video
+          </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-           <button onClick={handleSummarizeSession} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[9px] font-black border border-amber-700 bg-amber-900/40 text-amber-400 hover:text-amber-300 hover:bg-amber-900/60 transition-all shadow-lg">
-              <Wand2 size={14} /> ✨ Đúc kết kệ pháp
-           </button>
-            <button onClick={() => {
-               if (messages.length === 0) {
-                  if (p.showToastMsg) p.showToastMsg('Vui lòng trò chuyện để tạo kịch bản trước khi tạo video.', 'error');
-                  return;
-               }
-               const hasAudio = messages.some((m: any) => m.audioUrl);
-               if (!hasAudio) {
-                  if (p.showToastMsg) p.showToastMsg('Kịch bản chưa có âm thanh để tạo video. Vui lòng bấm "Tạo MP3 thiếu" trước!', 'error');
-                  return;
-               }
-               if (setVideoSlug) setVideoSlug('createvideo');
-               setShowVideoExportModal(true);
-            }} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[9px] font-black border border-pink-700 bg-pink-900/40 text-pink-400 hover:text-pink-300 hover:bg-pink-900/60 transition-all shadow-lg">
-               <Video size={14} /> Tạo video
-            </button>
-        </div>
-
-        <div className="w-full bg-slate-900/60 rounded-xl p-3 border border-white/5 flex flex-col gap-2">
-          <div className="flex items-center justify-between text-[9px] font-bold text-emerald-400 tracking-widest">
-            <span>Phát toàn bộ đàm đạo</span>
-            {isPreparingGlobal && <Loader2 size={10} className="animate-spin" />}
-          </div>
-          <div className="flex items-center gap-3">
-             <button onClick={toggleGlobalPlay} className="p-2 bg-emerald-600 hover:bg-emerald-500 rounded-full text-white transition-all shadow-md shrink-0">
-               {isGlobalPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
-             </button>
-             <div className="flex-1 flex flex-col gap-1">
-               <input type="range" min="0" max="100" value={globalProgress} onChange={handleGlobalSeek} className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500" />
-               <div className="flex justify-between text-[8px] text-slate-400 font-mono font-medium tracking-wider">
-                 <span>{formatTime(globalCurrentTime)}</span>
-                 <span>{formatTime(globalDuration)}</span>
-               </div>
-             </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div className="relative w-full">
-            <button onClick={(e: any) => { e.stopPropagation(); setShowDownloadMenu(!showDownloadMenu); setShowShareMenu(false); }} className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[9px] font-black border border-slate-700 bg-slate-800 text-slate-400 hover:text-orange-400 transition-all">
-              <Archive size={14} /> Tải MP3 <ChevronDown size={12} />
-            </button>
-            {showDownloadMenu && (
-              <div className="absolute top-full left-0 mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg p-1 z-50 shadow-xl flex flex-col gap-1">
-                 <button onClick={(e: any) => { 
-                    e.stopPropagation(); 
-                    setIsDownloadingAllLocal(true);
-                    const fn = downloadAllAudios || p.downloadAllAudios;
-                    if (typeof fn === 'function') {
-                      try { fn(); } catch (err) { console.warn('Download all error:', err); }
-                    } else if (p.showToastMsg) {
-                      p.showToastMsg('Vui lòng làm mới trang (F5) để tải tệp âm thanh!', 'warning');
-                    }
-                    setTimeout(() => setIsDownloadingAllLocal(false), (messages?.length || 1) * 400 + 1000);
-                 }} disabled={isDownloadingAllLocal} className="text-[10px] p-2 hover:bg-slate-700 rounded text-left text-white font-medium flex items-center gap-1.5 disabled:opacity-50">
-                    {isDownloadingAllLocal ? <Loader2 size={10} className="animate-spin" /> : <FileText size={10} />}
-                    {isDownloadingAllLocal ? 'Đang chuẩn bị...' : 'Từng đoạn rời rạc'}
-                 </button>
-                 <button onClick={async (e: any) => { 
-                    e.stopPropagation(); 
-                    const fn = downloadCombinedAudio || p.downloadCombinedAudio;
-                    if (typeof fn === 'function') {
-                      try { await fn(); } catch (err) { console.warn('Download combined error:', err); }
-                    } else if (p.showToastMsg) {
-                      p.showToastMsg('Vui lòng làm mới trang (F5) để gộp tệp âm thanh!', 'warning');
-                    }
-                 }} disabled={isPreparingGlobal} className="text-[10px] p-2 hover:bg-slate-700 rounded text-left text-emerald-400 font-medium flex items-center gap-1.5 disabled:opacity-50">
-                    {isPreparingGlobal ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10}/>}
-                    {isPreparingGlobal ? 'Đang xử lý...' : 'Gộp 1 file chung'}
-                 </button>
-              </div>
-            )}
-          </div>
-
-          <div className="relative w-full">
-            <button onClick={(e: any) => { 
-                e.stopPropagation(); 
-                let content = `Lời khai thị từ Lão - ${p.currentSession?.title || "Hội thoại"}:\n\n`;
-                messages.forEach((msg: any) => { content += `${msg.role === 'user' ? "Con" : "Lão"}: ${msg.text}\n\n`; });
-                copyToClipboard(content);
-            }} className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[9px] font-black border border-slate-700 bg-slate-800 text-slate-400 hover:text-emerald-400 transition-all">
-              <Copy size={14} /> Copy toàn bộ văn bản
-            </button>
-          </div>
-        </div>
       </div>
       
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-5 pb-32 space-y-10 scrollbar-hide">
@@ -344,7 +307,7 @@ export const ChatHistorySidebar = (props?: { p?: any }) => {
                              <button onClick={(e: any) => { e.stopPropagation(); handleStopCorrecting(msg.id, msg.text); }} className="text-[9px] bg-rose-500 text-white hover:bg-rose-400 px-3 py-1 rounded-full shadow-md font-bold transition-all transform hover:scale-105 flex items-center gap-1 tracking-wider"><X size={10} strokeWidth={3} /> Dừng</button>
                            </div>
                          </>
-                      ) : activeEditingId === msg.id ? (
+                      ) : (String(activeEditingId) === String(msg.id)) ? (
                           <div className="flex flex-col gap-2 w-full my-1">
                             <textarea
                               value={activeTempText}
@@ -365,15 +328,12 @@ export const ChatHistorySidebar = (props?: { p?: any }) => {
                               </button>
                               <button
                                 type="button"
-                                onClick={(e: any) => {
+                                onClick={async (e: any) => {
                                   e.preventDefault(); e.stopPropagation();
-                                  const newText = activeTempText.trim();
-                                  if (newText) {
-                                    updateCurrentMessages((prev: any[]) => prev.map((m: any) => m.id === msg.id ? { ...m, text: newText } : m));
-                                  }
+                                  await doSaveMessageText(msg, activeTempText);
                                   safeSetEditingId(null); safeSetTempEditText('');
                                 }}
-                                className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-md flex items-center gap-1"
+                                className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-md flex items-center gap-1 cursor-pointer"
                               >
                                 <Check size={12} /> Lưu
                               </button>
@@ -386,7 +346,7 @@ export const ChatHistorySidebar = (props?: { p?: any }) => {
                               <button onClick={(e: any) => handleCopy(e, msg)} className={`transition-colors ${copiedId === msg.id ? 'text-emerald-400' : 'text-orange-200 hover:text-white'}`} title="Copy văn bản">
                                  {copiedId === msg.id ? <Check size={14} /> : <Copy size={14} />}
                               </button>
-                              <button onClick={(e: any) => { e.stopPropagation(); safeSetEditingId(msg.id); safeSetTempEditText(msg.text); }} className="text-orange-200 hover:text-white transition-colors" title="Sửa nội dung"><Pencil size={14} /></button>
+                               <button onClick={(e: any) => { e.stopPropagation(); safeSetEditingId(msg.id); safeSetTempEditText(msg.text || msg.content || ''); }} className="text-orange-200 hover:text-white transition-colors" title="Sửa nội dung"><Pencil size={14} /></button>
                             </div>
                           </div>
                        )}
@@ -438,7 +398,7 @@ export const ChatHistorySidebar = (props?: { p?: any }) => {
                     <div className="absolute top-0 left-0 w-1 h-full bg-orange-500/50"></div>
                     
                     <div className="flex flex-col w-full">
-                       {activeEditingId === msg.id ? (
+                       {(activeEditingId && String(activeEditingId) === String(msg.id)) ? (
                            <div className="flex flex-col gap-2 w-full my-1">
                              <textarea
                                value={activeTempText}
@@ -459,15 +419,12 @@ export const ChatHistorySidebar = (props?: { p?: any }) => {
                                </button>
                                <button
                                  type="button"
-                                 onClick={(e: any) => {
+                                 onClick={async (e: any) => {
                                    e.preventDefault(); e.stopPropagation();
-                                   const newText = activeTempText.trim();
-                                   if (newText) {
-                                     updateCurrentMessages((prev: any[]) => prev.map((m: any) => m.id === msg.id ? { ...m, text: newText } : m));
-                                   }
+                                   await doSaveMessageText(msg, activeTempText);
                                    safeSetEditingId(null); safeSetTempEditText('');
                                  }}
-                                 className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-md flex items-center gap-1"
+                                 className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-md flex items-center gap-1 cursor-pointer"
                                >
                                  <Check size={12} /> Lưu
                                </button>
@@ -501,14 +458,14 @@ export const ChatHistorySidebar = (props?: { p?: any }) => {
                          <button type="button" onClick={(e: any) => handleCopy(e, msg)} className={`p-1.5 rounded transition-all cursor-pointer flex items-center justify-center ${copiedId === msg.id ? 'text-emerald-400 bg-emerald-400/10' : 'hover:bg-white/10 hover:text-white'}`} title="Copy văn bản">
                            {copiedId === msg.id ? <Check size={14} /> : <Copy size={14} />}
                          </button>
-                         <button type="button" onClick={(e: any) => { e.preventDefault(); e.stopPropagation(); safeSetEditingId(msg.id); safeSetTempEditText(msg.text); }} className="p-1.5 rounded hover:bg-white/10 hover:text-white transition-all cursor-pointer flex items-center justify-center" title="Sửa nội dung"><Pencil size={14} /></button>
+                         <button type="button" onClick={(e: any) => { e.preventDefault(); e.stopPropagation(); safeSetEditingId(msg.id); safeSetTempEditText(msg.text || msg.content || ''); }} className="p-1.5 rounded hover:bg-white/10 hover:text-white transition-all cursor-pointer flex items-center justify-center" title="Sửa nội dung"><Pencil size={14} /></button>
                        </div>
                     </div>
                  </div>
                  <div className="flex flex-wrap items-center gap-3 px-3">
                     {(msg.audioUrl || currentlyPlayingId === msg.id) ? (
                       <div className="flex items-center gap-3 bg-slate-900/50 rounded-full px-3 py-1">
-                         <button onClick={() => playVoice(msg.audioUrl, msg.id, 'ai')} className={`flex items-center gap-1.5 text-[9px] font-bold text-slate-400 hover:text-emerald-400 ${currentlyPlayingId === msg.id ? 'text-emerald-400' : ''}`}>
+                         <button onClick={() => playVoice(msg.audioUrl, msg.id, 'ai', false, msg)} className={`flex items-center gap-1.5 text-[9px] font-bold text-slate-400 hover:text-emerald-400 ${currentlyPlayingId === msg.id ? 'text-emerald-400' : ''}`}>
                            {currentlyPlayingId === msg.id ? (
                              <>
                                <Square size={12} fill="currentColor" /> Dừng
@@ -595,13 +552,21 @@ export const ChatHistorySidebar = (props?: { p?: any }) => {
                  >
                     Hủy bỏ
                  </button>
-                 <button 
-                    onClick={() => handleSaveEdit(editingId)} 
-                    className="px-5 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
-                 >
-                    <Check size={14} />
-                    Lưu thay đổi
-                 </button>
+                  <button 
+                     onClick={async () => {
+                        const targetMsg = (messages || []).find((m: any) => m.id === editingId) || { id: editingId };
+                        await doSaveMessageText(targetMsg, tempEditText);
+                        if (typeof handleSaveEdit === 'function') {
+                          handleSaveEdit(editingId);
+                        } else {
+                          safeSetEditingId(null); safeSetTempEditText('');
+                        }
+                     }} 
+                     className="px-5 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                  >
+                     <Check size={14} />
+                     Lưu thay đổi
+                  </button>
               </div>
            </div>
         </div>

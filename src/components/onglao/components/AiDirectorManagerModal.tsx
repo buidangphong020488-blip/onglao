@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, X, Pencil, Trash2, Plus, Play, Pause, Music, Loader2, Save, RefreshCw, ChevronLeft, ChevronRight, ArrowRight, Volume2, Film, Mic, Info, Video, Layers, CheckCircle2, Home } from 'lucide-react';
+import { Sparkles, X, Pencil, Trash2, Plus, Play, Pause, Music, Loader2, Save, RefreshCw, ChevronLeft, ChevronRight, ArrowRight, Volume2, Film, Mic, Info, Video, Layers, CheckCircle2, Home, Copy, Check, Calendar } from 'lucide-react';
 import AiDirectorModal from './AiDirectorModal';
 import ScriptModal, { ScriptModalHandle } from './ScriptModal';
 import {
@@ -65,6 +65,64 @@ interface AiDirectorManagerModalProps {
     allCharacters?: any[];
 }
 
+const CustomDateInput = ({ value, onChange, placeholder = "dd/mm/yyyy", title }: { value: string; onChange: (val: string) => void; placeholder?: string; title?: string }) => {
+    const displayValue = value && value.includes('-') ? value.split('-').reverse().join('/') : value;
+    const dateInputRef = useRef<HTMLInputElement>(null);
+
+    const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const raw = e.target.value;
+        if (!raw) {
+            onChange('');
+            return;
+        }
+        const parts = raw.split('/');
+        if (parts.length === 3 && parts[2].length === 4) {
+            const day = parts[0].padStart(2, '0');
+            const month = parts[1].padStart(2, '0');
+            const year = parts[2];
+            if (!isNaN(Number(day)) && !isNaN(Number(month)) && !isNaN(Number(year))) {
+                onChange(`${year}-${month}-${day}`);
+            }
+        }
+    };
+
+    return (
+        <div className="relative flex items-center shrink-0">
+            <input
+                type="text"
+                value={displayValue}
+                placeholder={placeholder}
+                onChange={handleTextChange}
+                className="bg-slate-950 text-slate-200 border border-white/10 rounded-xl pl-3 pr-8 py-1.5 outline-none text-xs focus:border-indigo-500 font-mono shadow-inner w-32 cursor-text placeholder:text-slate-500"
+                title={title}
+            />
+            <button
+                type="button"
+                onClick={() => {
+                    if (dateInputRef.current) {
+                        if (typeof dateInputRef.current.showPicker === 'function') {
+                            dateInputRef.current.showPicker();
+                        } else {
+                            dateInputRef.current.click();
+                        }
+                    }
+                }}
+                className="absolute right-2 text-slate-400 hover:text-indigo-400 p-0.5 rounded cursor-pointer transition-colors"
+                title="Mở lịch chọn ngày"
+            >
+                <Calendar size={14} />
+            </button>
+            <input
+                ref={dateInputRef}
+                type="date"
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                className="sr-only"
+            />
+        </div>
+    );
+};
+
 const AiDirectorManagerModal = (props: any) => {
     const p = props.p || props;
     const isVisible = props.show ?? p.show;
@@ -88,7 +146,8 @@ const AiDirectorManagerModal = (props: any) => {
             }
             const modal = url.searchParams.get('modal');
             const id = url.searchParams.get('id');
-            if (modal === 'ai-director' && id) {
+            const action = url.searchParams.get('action');
+            if (modal === 'ai-director' && id && (action === 'update' || action === 'edit' || action === 'insert')) {
                 return 'edit';
             }
         }
@@ -102,6 +161,8 @@ const AiDirectorManagerModal = (props: any) => {
     const [downloadingAudio, setDownloadingAudio] = useState(false);
     const [generatingAudio, setGeneratingAudio] = useState(false);
     const [audioProgress, setAudioProgress] = useState<{ current: number; total: number; percent: number } | null>(null);
+    const [editingTitleScriptId, setEditingTitleScriptId] = useState<string | null>(null);
+    const [editingTitleText, setEditingTitleText] = useState<string>('');
 
     // Từ điển Trạng thái Nhân vật động từ Database (Admin Panel)
     const [dynamicCharacterStates, setDynamicCharacterStates] = useState<{ id: string; name: string }[]>([]);
@@ -176,6 +237,8 @@ const AiDirectorManagerModal = (props: any) => {
     const [showCreator, setShowCreator] = useState<boolean>(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterType, setFilterType] = useState('all');
+    const [fromDate, setFromDate] = useState('');
+    const [toDate, setToDate] = useState('');
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const [editingTopic, setEditingTopic] = useState('');
@@ -273,14 +336,11 @@ const AiDirectorManagerModal = (props: any) => {
                     if (!selectedScript) handleCreateAIScript();
                     if (p.setShowScriptModal) p.setShowScriptModal(false);
                     restoredFromUrlRef.current = true;
-                } else if (idParam) {
+                } else if (idParam && (actionParam === 'update' || actionParam === 'edit')) {
                     if (p.sessions.length > 0) {
                         const script = p.sessions.find((s: any) => s.id === idParam);
                         if (script) {
                             if (selectedScript?.id !== idParam) handleStartEdit(script);
-                            restoredFromUrlRef.current = true;
-                        } else if (actionParam === 'insert') {
-                            if (!selectedScript) handleCreateAIScript();
                             restoredFromUrlRef.current = true;
                         }
                     }
@@ -427,12 +487,58 @@ const AiDirectorManagerModal = (props: any) => {
     // Reset pagination when search or filter changes
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, filterType]);
+    }, [searchTerm, filterType, fromDate, toDate]);
+
+    // Helper tính thời lượng Audio ước tính (tính theo số từ: ~3 từ/giây)
+    const calculateScriptDuration = (script: any) => {
+        let totalWords = 0;
+        if (Array.isArray(script.messages) && script.messages.length > 0) {
+            script.messages.forEach((m: any) => {
+                const text = m.text || m.content || '';
+                totalWords += text.trim().split(/\s+/).filter(Boolean).length;
+            });
+        } else if (script.rawText) {
+            totalWords = script.rawText.trim().split(/\s+/).filter(Boolean).length;
+        } else if (script.title) {
+            totalWords = script.title.trim().split(/\s+/).filter(Boolean).length * 15;
+        }
+        const totalSec = Math.max(10, Math.round(totalWords / 3));
+        const mins = Math.floor(totalSec / 60);
+        const secs = totalSec % 60;
+        return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    };
 
     // Filter sessions
     const scripts = (p.sessions || []).filter((s: any) => {
         if (s.type !== 'script' && s.type !== 'chat|script') return false;
         if (searchTerm && !s.title?.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+
+        // Lọc theo từ ngày - đến ngày
+        if (fromDate) {
+            const sDate = s.updatedAt ? new Date(s.updatedAt) : (s.createdAt ? new Date(s.createdAt) : null);
+            if (sDate) {
+                const from = new Date(fromDate);
+                from.setHours(0, 0, 0, 0);
+                if (sDate < from) return false;
+            }
+        }
+        if (toDate) {
+            const sDate = s.updatedAt ? new Date(s.updatedAt) : (s.createdAt ? new Date(s.createdAt) : null);
+            if (sDate) {
+                const to = new Date(toDate);
+                to.setHours(23, 59, 59, 999);
+                if (sDate > to) return false;
+            }
+        }
+
+        const hasAudio = Array.isArray(s.messages) && s.messages.length > 0 && s.messages.every((m: any) => Boolean(m.audioUrl));
+        const hasVideo = Array.isArray(renderHistoryList) && renderHistoryList.some((r: any) => r.sessionId === s.id && r.videoUrl && r.videoUrl !== 'PROCESSING' && !r.videoUrl.startsWith('ERROR'));
+
+        if (filterType === 'no_audio' && hasAudio) return false;
+        if (filterType === 'audio_done' && !hasAudio) return false;
+        if (filterType === 'no_video' && hasVideo) return false;
+        if (filterType === 'video_done' && !hasVideo) return false;
+
         return true;
     });
 
@@ -1753,21 +1859,169 @@ const AiDirectorManagerModal = (props: any) => {
                                             </button>
                                         </>
                                     )}
+                                    <button 
+                                        onClick={() => {
+                                            if (typeof p?.setShowAutoPilotModal === 'function') {
+                                                p.setShowAutoPilotModal(true);
+                                            } else if (typeof props?.setShowAutoPilotModal === 'function') {
+                                                props.setShowAutoPilotModal(true);
+                                            } else {
+                                                const url = new URL(window.location.href);
+                                                url.searchParams.set('modal', 'auto-pilot');
+                                                window.history.pushState({}, '', url.toString());
+                                                window.dispatchEvent(new Event('popstate'));
+                                            }
+                                        }} 
+                                        className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 hover:from-amber-500 hover:to-orange-500 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg border border-amber-400/40 hover:scale-105 cursor-pointer"
+                                    >
+                                        <Film size={14} /> Xưởng phim tự động
+                                    </button>
                                     <button onClick={handleCreateAIScript} disabled={saving} className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg border border-indigo-500/50 hover:scale-105 disabled:opacity-50 cursor-pointer">
                                         <Plus size={14} /> Tạo kịch bản
                                     </button>
                                 </div>
                             </div>
 
-                            {/* TÌM KIẾM KỊCH BẢN */}
-                            <div className="flex flex-col sm:flex-row gap-4 sm:items-center bg-slate-900/50 p-3 rounded-2xl border border-white/5">
+                            {/* DÒNG 1: TÌM KIẾM KỊCH BẢN & BỘ LỌC TẬP TAB LINK */}
+                            <div className="flex flex-col md:flex-row gap-3 md:items-center bg-slate-900/50 p-3 rounded-2xl border border-white/5">
                                 <input 
                                     type="text" 
                                     placeholder="Tìm theo tiêu đề kịch bản..." 
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:border-indigo-500 outline-none"
+                                    className="w-full md:w-64 bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:border-indigo-500 outline-none shrink-0"
                                 />
+                                <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide flex-1 py-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => setFilterType('all')}
+                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                                            filterType === 'all'
+                                                ? 'bg-indigo-600 text-white shadow-md'
+                                                : 'bg-slate-950 text-slate-400 hover:text-white border border-white/5'
+                                        }`}
+                                    >
+                                        🌐 Tất cả kịch bản ({scripts.length})
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFilterType('no_audio')}
+                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                                            filterType === 'no_audio'
+                                                ? 'bg-amber-600 text-white shadow-md'
+                                                : 'bg-slate-950 text-slate-400 hover:text-white border border-white/5'
+                                        }`}
+                                    >
+                                        🎙️ Chưa tạo Audio
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFilterType('audio_done')}
+                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                                            filterType === 'audio_done'
+                                                ? 'bg-emerald-600 text-white shadow-md'
+                                                : 'bg-slate-950 text-slate-400 hover:text-white border border-white/5'
+                                        }`}
+                                    >
+                                        ✅ Đã tạo Audio
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFilterType('no_video')}
+                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                                            filterType === 'no_video'
+                                                ? 'bg-purple-600 text-white shadow-md'
+                                                : 'bg-slate-950 text-slate-400 hover:text-white border border-white/5'
+                                        }`}
+                                    >
+                                        🎬 Chưa tạo Video
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFilterType('video_done')}
+                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                                            filterType === 'video_done'
+                                                ? 'bg-cyan-600 text-white shadow-md'
+                                                : 'bg-slate-950 text-slate-400 hover:text-white border border-white/5'
+                                        }`}
+                                    >
+                                        🎥 Đã tạo Video
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* DÒNG 2: BỘ LỌC NGÀY ĐĂNG (DÒNG DƯỚI RIÊNG BIỆT: TỪ NGÀY -> ĐẾN NGÀY) */}
+                            <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900/50 p-2.5 px-4 rounded-2xl border border-white/5 text-xs">
+                                <div className="flex items-center gap-3 flex-wrap">
+                                    <span className="text-slate-300 font-bold whitespace-nowrap flex items-center gap-1.5">
+                                        <Calendar size={14} className="text-indigo-400" /> Lọc theo ngày đăng:
+                                    </span>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-slate-400 text-[11px] font-medium whitespace-nowrap">Từ ngày:</span>
+                                        <CustomDateInput
+                                            value={fromDate}
+                                            onChange={(val) => setFromDate(val)}
+                                            placeholder="dd/mm/yyyy"
+                                            title="Từ ngày (dd/mm/yyyy)"
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-slate-400 text-[11px] font-medium whitespace-nowrap">Đến ngày:</span>
+                                        <CustomDateInput
+                                            value={toDate}
+                                            onChange={(val) => setToDate(val)}
+                                            placeholder="dd/mm/yyyy"
+                                            title="Đến ngày (dd/mm/yyyy)"
+                                        />
+                                    </div>
+                                    {(fromDate || toDate) && (
+                                        <button
+                                            type="button"
+                                            onClick={() => { setFromDate(''); setToDate(''); }}
+                                            className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                                            title="Xóa bộ lọc ngày"
+                                        >
+                                            <X size={12}/> Xóa lọc ngày
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const today = new Date().toISOString().slice(0, 10);
+                                            setFromDate(today);
+                                            setToDate(today);
+                                        }}
+                                        className="text-[11px] text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 px-2 py-1 rounded-lg transition-all cursor-pointer font-medium"
+                                    >
+                                        Hôm nay
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const now = new Date();
+                                            const past7 = new Date(now.getTime() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+                                            setFromDate(past7);
+                                            setToDate(now.toISOString().slice(0, 10));
+                                        }}
+                                        className="text-[11px] text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 px-2 py-1 rounded-lg transition-all cursor-pointer font-medium"
+                                    >
+                                        7 ngày qua
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const now = new Date();
+                                            const past30 = new Date(now.getTime() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+                                            setFromDate(past30);
+                                            setToDate(now.toISOString().slice(0, 10));
+                                        }}
+                                        className="text-[11px] text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 px-2 py-1 rounded-lg transition-all cursor-pointer font-medium"
+                                    >
+                                        30 ngày qua
+                                    </button>
+                                </div>
                             </div>
 
                             {scripts.length > 0 && (
@@ -1797,7 +2051,7 @@ const AiDirectorManagerModal = (props: any) => {
                             {scripts.length === 0 ? (
                                 <div className="flex-1 flex flex-col items-center justify-center p-12 text-slate-500 border border-dashed border-white/5 rounded-2xl">
                                     <Music size={32} className="mb-2 text-slate-600" />
-                                    <p className="text-sm">Chưa có kịch bản AI nào được tạo.</p>
+                                    <p className="text-sm">Chưa có kịch bản AI nào phù hợp với bộ lọc.</p>
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 gap-4">
@@ -1837,6 +2091,9 @@ const AiDirectorManagerModal = (props: any) => {
                                                              <span className="font-bold text-sm text-slate-200 truncate">{script.title ? script.title.replace(/^\[(AI|Thủ công)\]\s*/i, '') : 'Kịch bản mới'}</span>
                                                              <span className="text-[10px] font-bold text-indigo-300 bg-indigo-950/70 border border-indigo-500/40 px-2 py-0.5 rounded-md shrink-0 flex items-center gap-1 shadow-sm">
                                                                  💬 {script.messages ? script.messages.filter((m: any) => m.role !== 'system').length : 0} câu thoại
+                                                             </span>
+                                                             <span className="text-[10px] font-bold text-amber-300 bg-amber-950/70 border border-amber-500/40 px-2 py-0.5 rounded-md shrink-0 flex items-center gap-1 shadow-sm" title="Thời lượng Audio ước tính">
+                                                                 ⏱️ {calculateScriptDuration(script)}
                                                              </span>
                                                              {(() => {
                                                                  const renderItem = renderHistoryList.find((rh: any) => rh.sessionId === script.id);
@@ -1951,9 +2208,49 @@ const AiDirectorManagerModal = (props: any) => {
                                                     <button 
                                                         onClick={() => handleStartEdit(script)} 
                                                         title="Sửa kịch bản"
-                                                        className="bg-slate-800 hover:bg-slate-700 text-indigo-400 hover:text-indigo-300 px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors"
+                                                        className="bg-slate-800 hover:bg-slate-700 text-indigo-400 hover:text-indigo-300 px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
                                                     >
                                                         <Pencil size={12} /> Sửa
+                                                    </button>
+                                                    <button 
+                                                        onClick={async () => {
+                                                            try {
+                                                                toast('Đang copy kịch bản...', 'loading');
+                                                                const res = await getChatMessagesAction(script.id);
+                                                                let textContent = `KỊCH BẢN: ${script.title ? script.title.replace(/^\[(AI|Thủ công)\]\s*/i, '') : 'Kịch bản'}\n\n`;
+                                                                if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+                                                                    res.data.forEach((m: any) => {
+                                                                        const speaker = m.role === 'USER' || m.role === 'user' ? 'Con' : (m.role === 'OUTRO' ? 'Outro' : 'Lão');
+                                                                        textContent += `${speaker}: ${m.content}\n\n`;
+                                                                    });
+                                                                } else if (script.messages && Array.isArray(script.messages)) {
+                                                                    script.messages.forEach((m: any) => {
+                                                                        if (m.role !== 'system') {
+                                                                            const speaker = m.role === 'USER' || m.role === 'user' ? 'Con' : (m.role === 'OUTRO' ? 'Outro' : 'Lão');
+                                                                            textContent += `${speaker}: ${m.text || m.content}\n\n`;
+                                                                        }
+                                                                    });
+                                                                }
+                                                                const cleanText = textContent.trim();
+                                                                if (navigator.clipboard && navigator.clipboard.writeText) {
+                                                                    await navigator.clipboard.writeText(cleanText);
+                                                                } else {
+                                                                    const ta = document.createElement('textarea');
+                                                                    ta.value = cleanText;
+                                                                    document.body.appendChild(ta);
+                                                                    ta.select();
+                                                                    document.execCommand('copy');
+                                                                    document.body.removeChild(ta);
+                                                                }
+                                                                toast('Đã copy kịch bản thành công!', 'success');
+                                                            } catch (err) {
+                                                                toast('Lỗi copy kịch bản.', 'error');
+                                                            }
+                                                        }} 
+                                                        title="Copy toàn bộ văn bản kịch bản"
+                                                        className="bg-slate-800 hover:bg-slate-700 text-teal-400 hover:text-teal-300 px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                                                    >
+                                                        <Copy size={12} /> Copy
                                                     </button>
                                                      {(() => {
                                                          const renderItem = renderHistoryList.find((rh: any) => rh.sessionId === script.id);
@@ -2248,20 +2545,32 @@ const AiDirectorManagerModal = (props: any) => {
                                                 </select>
                                             )}
                                         </div>
-                                        <div className="flex gap-2">
-                                            <div className="flex-[1.5] flex flex-col gap-1">
-                                                <span className="text-[9px] text-slate-500">Tên hiển thị:</span>
-                                                <input type="text" value={localUserName} onChange={e=>setLocalUserName(e.target.value)} onBlur={()=>p.setCustomUserName?.(localUserName)} placeholder="Tên (VD: Con, Anh Hào...)" className="w-full bg-slate-950 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-indigo-500 outline-none"/>
-                                            </div>
-                                            <div className="flex-[1] flex flex-col gap-1">
-                                                <span className="text-[9px] text-slate-500">Tự xưng là:</span>
-                                                <input type="text" value={localUserSelf} onChange={e=>setLocalUserSelf(e.target.value)} onBlur={()=>p.setUserSelfCall?.(localUserSelf)} placeholder="Tự xưng (Con, Anh...)" className="w-full bg-slate-950 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-indigo-500 outline-none"/>
-                                            </div>
-                                            <div className="flex-[1] flex flex-col gap-1">
-                                                <span className="text-[9px] text-slate-500">Gọi đối phương:</span>
-                                                <input type="text" value={localUserCallL} onChange={e=>setLocalUserCallL(e.target.value)} onBlur={()=>p.setUserCallLao?.(localUserCallL)} placeholder="Gọi kia (Lão, Em Đu...)" className="w-full bg-slate-950 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-indigo-500 outline-none"/>
-                                            </div>
-                                        </div>
+                                         <div className="flex gap-2 flex-wrap">
+                                             <div className="flex-[1.5] min-w-[90px] flex flex-col gap-1">
+                                                 <span className="text-[9px] text-slate-500">Tên hiển thị:</span>
+                                                 <input type="text" value={localUserName} onChange={e=>setLocalUserName(e.target.value)} onBlur={()=>p.setCustomUserName?.(localUserName)} placeholder="Tên (VD: Con, Anh Hào...)" className="w-full bg-slate-950 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-indigo-500 outline-none"/>
+                                             </div>
+                                             <div className="flex-[1] min-w-[70px] flex flex-col gap-1">
+                                                 <span className="text-[9px] text-slate-500">Giới tính:</span>
+                                                 <select value={p.userGender || 'Khác'} onChange={e=>p.setUserGender?.(e.target.value)} className="w-full bg-slate-950 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-indigo-500 outline-none cursor-pointer">
+                                                     <option value="Nam">Nam</option>
+                                                     <option value="Nữ">Nữ</option>
+                                                     <option value="Khác">Khác</option>
+                                                 </select>
+                                             </div>
+                                             <div className="flex-[1] min-w-[60px] flex flex-col gap-1">
+                                                 <span className="text-[9px] text-slate-500">Độ tuổi:</span>
+                                                 <input type="number" value={p.userAge || 25} onChange={e=>p.setUserAge?.(Number(e.target.value))} placeholder="Tuổi" className="w-full bg-slate-950 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-indigo-500 outline-none"/>
+                                             </div>
+                                             <div className="flex-[1] min-w-[70px] flex flex-col gap-1">
+                                                 <span className="text-[9px] text-slate-500">Tự xưng là:</span>
+                                                 <input type="text" value={localUserSelf} onChange={e=>setLocalUserSelf(e.target.value)} onBlur={()=>p.setUserSelfCall?.(localUserSelf)} placeholder="Tự xưng (Con, Anh...)" className="w-full bg-slate-950 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-indigo-500 outline-none"/>
+                                             </div>
+                                             <div className="flex-[1] min-w-[70px] flex flex-col gap-1">
+                                                 <span className="text-[9px] text-slate-500">Gọi đối phương:</span>
+                                                 <input type="text" value={localUserCallL} onChange={e=>setLocalUserCallL(e.target.value)} onBlur={()=>p.setUserCallLao?.(localUserCallL)} placeholder="Gọi kia (Lão, Em Đu...)" className="w-full bg-slate-950 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-indigo-500 outline-none"/>
+                                             </div>
+                                         </div>
                                     </div>
                                 </div>
 
