@@ -1017,12 +1017,12 @@ YÊU CẦU: Lão đã cất lời mào đầu và đọc bài kệ trên cho ng�
         <>
           {!passProps.hasEntered ? (
             <WelcomeScreen p={passProps} />
-          ) : currentPath.startsWith('/kich-ban') || showAiManager || passProps.showAITopicModal ? (
+          ) : passProps.showVideoExportModal ? (
+            <VideoCreatorModal p={passProps} />
+          ) : showAiManager || passProps.showAITopicModal ? (
             <AiDirectorManagerModal p={{ ...passProps, show: true, onClose: () => { setShowAiManager(false); if (passProps.setShowAITopicModal) passProps.setShowAITopicModal(false); } }} />
-          ) : currentPath.startsWith('/tao-video') || passProps.showVideoExportModal ? (
-            <VideoCreatorModal p={{ ...passProps, show: true }} />
-          ) : currentPath.startsWith('/ke-phap') || passProps.showPoemModal ? (
-            <PoemVaultModal p={{ ...passProps, show: true }} />
+          ) : passProps.showPoemModal ? (
+            <PoemVaultModal p={passProps} />
           ) : !passProps.isLiveMode ? (
             <NormalModePanel p={passProps} />
           ) : (

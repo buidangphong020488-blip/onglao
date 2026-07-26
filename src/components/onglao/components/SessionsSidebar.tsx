@@ -135,7 +135,7 @@ export const SessionsSidebar = (props?: { p?: any }) => {
         </button>
 
         <a
-          href="/kich-ban"
+          href="/?modal=ai-director"
           className="w-full py-2.5 rounded-xl bg-cyan-700/80 hover:bg-cyan-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-cyan-500/50 mt-1 cursor-pointer"
         >
           <FileText size={16} /> Quản lý Kịch bản Đạo diễn
@@ -143,7 +143,7 @@ export const SessionsSidebar = (props?: { p?: any }) => {
 
         {/* NÚT MỞ QUẢN LÝ KHO KỆ PHÁP */}
         <a
-          href="/ke-phap"
+          href="/?modal=poem-vault"
           className="w-full py-2.5 rounded-xl bg-amber-700/80 hover:bg-amber-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-amber-500/50 mt-1 cursor-pointer"
         >
           <BookOpen size={16} /> Kho Kệ Pháp
