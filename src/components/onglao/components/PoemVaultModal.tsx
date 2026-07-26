@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { X, BookOpen, FileText, Tag, Search, Loader2, Download, XCircle, Check, Info, Plus, Trash2, Play, Pause, Upload, RefreshCw, Wand2, Music4, Bot, Cloud, Copy, Archive, Save, Mic, VolumeX, Sparkles, Edit3, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
+import { X, BookOpen, FileText, Tag, Search, Loader2, Download, XCircle, Check, Info, Plus, Trash2, Play, Pause, Upload, RefreshCw, Wand2, Music4, Bot, Cloud, Copy, Archive, Save, Mic, VolumeX, Sparkles, Edit3, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Home } from "lucide-react";
 import { RagSection } from "../ui/RagSection";
 
 // PoemVaultModal: Nhận toàn bộ state/handlers qua context
@@ -1579,13 +1579,16 @@ const PoemVaultModal = ({ isAdminMode = false, inline = false, p: propP }: { isA
                       <p className="text-xs text-slate-400">Xem kệ pháp, mào đầu tiếp đón, và nạp nội dung huấn luyện cho Lão</p>
                   </div>
               </div>
-              <a 
-                  href="/" 
+              <button 
+                  onClick={() => {
+                      if (setShowPoemModal) setShowPoemModal(false);
+                      window.location.href = '/';
+                  }} 
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-md cursor-pointer"
                   title="Quay lại Thiền đường"
               >
-                  <ChevronLeft size={16} /> Quay lại Thiền đường
-              </a>
+                  <Home size={16} /> Quay lại Thiền đường
+              </button>
           </div>
 
           {/* Body Content - Trang Full-screen */}

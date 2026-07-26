@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, X, Pencil, Trash2, Plus, Play, Pause, Music, Loader2, Save, RefreshCw, ChevronLeft, ChevronRight, ArrowRight, Volume2, Film, Mic, Info, Video, Layers, CheckCircle2 } from 'lucide-react';
+import { Sparkles, X, Pencil, Trash2, Plus, Play, Pause, Music, Loader2, Save, RefreshCw, ChevronLeft, ChevronRight, ArrowRight, Volume2, Film, Mic, Info, Video, Layers, CheckCircle2, Home } from 'lucide-react';
 import AiDirectorModal from './AiDirectorModal';
 import ScriptModal, { ScriptModalHandle } from './ScriptModal';
 import {
@@ -1684,13 +1684,35 @@ const AiDirectorManagerModal = (props: any) => {
                         <p className="text-xs text-slate-400">Trang quản lý danh sách kịch bản AI & Thủ công, biên tập thoại và xuất video</p>
                     </div>
                 </div>
-                <a 
-                    href="/" 
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-md cursor-pointer"
-                    title="Quay lại Thiền đường"
-                >
-                    <ChevronLeft size={16} /> Quay lại Thiền đường
-                </a>
+                <div className="flex items-center gap-2">
+                    {view === 'edit' && (
+                        <button
+                            onClick={() => {
+                                setView('list');
+                                setSelectedScript(null);
+                                if (typeof window !== 'undefined') {
+                                    const url = new URL(window.location.href);
+                                    url.searchParams.delete('id');
+                                    window.history.replaceState(null, '', url.toString());
+                                }
+                            }}
+                            className="px-3.5 py-2 bg-indigo-900/60 hover:bg-indigo-800 border border-indigo-500/30 text-indigo-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                            title="Quay lại Danh sách Kịch bản"
+                        >
+                            <ChevronLeft size={16} /> Quay lại Danh Sách
+                        </button>
+                    )}
+                    <button 
+                        onClick={() => {
+                            handleCloseCreator();
+                            window.location.href = '/';
+                        }} 
+                        className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                        title="Quay lại Thiền đường (Trang chủ)"
+                    >
+                        <Home size={15} /> Quay lại Thiền đường
+                    </button>
+                </div>
             </div>
 
             {/* Main Body Page - Danh Sách Kịch Bản */}
