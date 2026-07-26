@@ -134,25 +134,20 @@ export const SessionsSidebar = (props?: { p?: any }) => {
           <Video size={16} /> Bật chế độ Livestream Obs
         </button>
 
-        <button
-          onClick={() => {
-            if (p.setShowAiManager) p.setShowAiManager(true);
-            if (p.setShowAITopicModal) p.setShowAITopicModal(true);
-          }}
+        <a
+          href="/kich-ban"
           className="w-full py-2.5 rounded-xl bg-cyan-700/80 hover:bg-cyan-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-cyan-500/50 mt-1 cursor-pointer"
         >
           <FileText size={16} /> Quản lý Kịch bản Đạo diễn
-        </button>
+        </a>
 
         {/* NÚT MỞ QUẢN LÝ KHO KỆ PHÁP */}
-        <button
-          onClick={() => {
-            if (typeof setShowPoemModal === 'function') setShowPoemModal(true);
-          }}
-          className="w-full py-2.5 rounded-xl bg-amber-700/80 hover:bg-amber-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-amber-500/50 mt-1"
+        <a
+          href="/ke-phap"
+          className="w-full py-2.5 rounded-xl bg-amber-700/80 hover:bg-amber-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-amber-500/50 mt-1 cursor-pointer"
         >
           <BookOpen size={16} /> Kho Kệ Pháp
-        </button>
+        </a>
 
         {/* NÚT CHỌN LÃO TRONG KHI CHAT */}
         <div className="w-full rounded-xl bg-slate-900 border border-amber-500/30 mt-1 flex flex-col relative z-20">

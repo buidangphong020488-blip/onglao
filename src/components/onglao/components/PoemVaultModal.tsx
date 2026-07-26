@@ -443,7 +443,7 @@ const PoemVaultModal = ({ isAdminMode = false, inline = false, p: propP }: { isA
     }
   };
 
-  if (!showPoemModal && !inline) return null;
+  if (!showPoemModal && !inline && !p.show) return null;
 
   const innerContent = (
     <>

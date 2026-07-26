@@ -876,14 +876,19 @@ const VideoCreatorModal = (props?: any) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [p.showVideoExportModal]);
 
-  if (!p.showVideoExportModal) return null;
+  if (!p.showVideoExportModal && !p.show) return null;
 
   return (
          <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-md flex justify-center items-center p-4 md:p-6">
            <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-7xl shadow-2xl flex flex-col h-[92vh] md:h-[88vh] overflow-hidden">
               <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-800 shrink-0">
-                <h2 className="font-black text-orange-400 tracking-widest flex items-center gap-2"><Film size={18}/> Xuất video pháp bảo</h2>
-                <button onClick={cancelVideoExport} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors" title="Đóng (Esc)"><X size={22}/></button>
+                <div className="flex items-center gap-3">
+                  <a href="/" className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-200 hover:text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm">
+                    <ChevronLeft size={14} /> Quay lại Thiền đường
+                  </a>
+                  <h2 className="font-black text-orange-400 tracking-widest flex items-center gap-2"><Film size={18}/> Xuất video pháp bảo</h2>
+                </div>
+                <a href="/" className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors" title="Quay lại Thiền đường"><X size={22}/></a>
               </div>
               <div className="flex flex-col md:flex-row gap-6 p-4 md:p-6 flex-1 min-h-0">
                  {/* BÊN TRÁI: BẢNG ĐIỀU CHỈNH THÔNG SỐ & LỊCH SỬ RENDER */}

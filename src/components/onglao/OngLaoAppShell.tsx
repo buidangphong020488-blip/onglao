@@ -38,6 +38,17 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
 
   const [showHistory, setShowHistory] = React.useState(true);
 
+  const [currentPath, setCurrentPath] = React.useState<string>(() => {
+    if (typeof window !== 'undefined') return window.location.pathname;
+    return '/';
+  });
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setCurrentPath(window.location.pathname);
+    }
+  }, []);
+
   // Global Modals State
   const [showAiManager, setShowAiManager] = React.useState(() => {
     if (typeof window !== 'undefined') {
@@ -1004,28 +1015,18 @@ YÊU CẦU: Lão đã cất lời mào đầu và đọc bài kệ trên cho ng�
         <LoginPage onLogin={passProps.handleLogin} />
       ) : (
         <>
-          {/* 1. Màn hình Chào / Sửa Profile */}
           {!passProps.hasEntered ? (
             <WelcomeScreen p={passProps} />
+          ) : currentPath.startsWith('/kich-ban') || showAiManager || passProps.showAITopicModal ? (
+            <AiDirectorManagerModal p={{ ...passProps, show: true, onClose: () => { setShowAiManager(false); if (passProps.setShowAITopicModal) passProps.setShowAITopicModal(false); } }} />
+          ) : currentPath.startsWith('/tao-video') || passProps.showVideoExportModal ? (
+            <VideoCreatorModal p={{ ...passProps, show: true }} />
+          ) : currentPath.startsWith('/ke-phap') || passProps.showPoemModal ? (
+            <PoemVaultModal p={{ ...passProps, show: true }} />
           ) : !passProps.isLiveMode ? (
             <NormalModePanel p={passProps} />
           ) : (
             <LiveModePanel p={passProps} />
-          )}
-
-          {/* 3. Studio Dựng Video (Chỉ hiển thị khi bật Modal) */}
-          {passProps.showVideoExportModal && (
-            <VideoCreatorModal p={passProps} />
-          )}
-
-          {/* 4. AI Director Script Manager (Chỉ hiển thị khi bật Modal) */}
-          {(showAiManager || passProps.showAITopicModal) && (
-            <AiDirectorManagerModal p={{ ...passProps, show: true, onClose: () => { setShowAiManager(false); if (passProps.setShowAITopicModal) passProps.setShowAITopicModal(false); } }} />
-          )}
-
-          {/* 5. Kho Kệ Pháp Modal (Chỉ hiển thị khi bật Modal) */}
-          {passProps.showPoemModal && (
-            <PoemVaultModal p={passProps} />
           )}
         </>
       )}

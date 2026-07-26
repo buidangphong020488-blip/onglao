@@ -82,6 +82,10 @@ const AiDirectorManagerModal = (props: any) => {
     const [view, setView] = useState<'list' | 'edit'>(() => {
         if (typeof window !== 'undefined') {
             const url = new URL(window.location.href);
+            const path = url.pathname;
+            if (path === '/kich-ban/tao' || (path.startsWith('/kich-ban/') && path !== '/kich-ban')) {
+                return 'edit';
+            }
             const modal = url.searchParams.get('modal');
             const id = url.searchParams.get('id');
             if (modal === 'ai-director' && id) {
