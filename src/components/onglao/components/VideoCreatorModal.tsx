@@ -2438,6 +2438,14 @@ const VideoCreatorModal = (props?: any) => {
                                 </button>
                                 <button 
                                     type="button"
+                                    onClick={() => setSelectedLibraryCategory('Tải Lên')} 
+                                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all text-left ${selectedLibraryCategory === 'Tải Lên' || selectedLibraryCategory === 'upload' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-300 hover:bg-white/5'}`}
+                                >
+                                    <span>📤 Clip Tải Lên</span>
+                                    <span className="text-[10px] opacity-75 font-mono bg-emerald-950/80 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/30">{(p.localFfClips || []).filter((c: any) => c.category === 'Tải Lên' || c.category === 'upload' || !c.category).length}</span>
+                                </button>
+                                <button 
+                                    type="button"
                                     onClick={() => setSelectedLibraryCategory('lao')} 
                                     className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all text-left ${selectedLibraryCategory === 'lao' ? 'bg-orange-600 text-white shadow-md' : 'text-slate-300 hover:bg-white/5'}`}
                                 >
