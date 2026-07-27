@@ -3186,6 +3186,23 @@ const LibraryClipCard = ({ clip, idx, globalIndex, isSelected, roleName, emotion
                 onClick={() => blobUrl && setPreviewVideoUrl(blobUrl)}
                 title="Click để xem thử clip video này"
             >
+                {/* DẤU CHECK CHỌN TỪNG CLIP TẠI GÓC TRÊN TRÁI CARD THUMBNAIL */}
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        handleStageClip({ ...clip, url: blobUrl || clip.url, name: displayName });
+                    }}
+                    className={`absolute top-2 left-2 z-20 w-6 h-6 rounded-lg flex items-center justify-center transition-all cursor-pointer shadow-lg ${
+                        isSelected 
+                            ? 'bg-emerald-500 text-white border-2 border-white scale-110 shadow-emerald-500/50' 
+                            : 'bg-black/60 text-slate-400 border border-white/30 hover:border-white hover:text-white hover:bg-black/80'
+                    }`}
+                    title={isSelected ? 'Bỏ chọn clip này' : 'Chọn clip này'}
+                >
+                    <Check size={14} className={isSelected ? 'stroke-[3]' : 'opacity-60'} />
+                </button>
+
                 {poster ? (
                     <img src={poster} alt="thumbnail" className="w-full h-full object-cover" />
                 ) : (
