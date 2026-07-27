@@ -54,12 +54,11 @@ export async function POST(req: NextRequest) {
           phanMucId: data.phanMucId ? String(data.phanMucId) : undefined,
           role: data.role ? String(data.role) : 'lao',
           emotion: data.emotion ? String(data.emotion) : 'calm',
-          isPublic: data.isPublic !== undefined ? Boolean(data.isPublic) : true,
           url: data.url ? String(data.url) : null,
           poster: data.poster ? String(data.poster) : null,
           assetsNgang: data.assetsNgang || undefined,
           assetsDoc: data.assetsDoc || undefined,
-        },
+        } as any,
         create: {
           id: String(data.id),
           userId: data.userId ? String(data.userId) : undefined,
@@ -68,12 +67,11 @@ export async function POST(req: NextRequest) {
           category: data.category ? String(data.category) : 'lao',
           role: data.role ? String(data.role) : 'lao',
           emotion: data.emotion ? String(data.emotion) : 'calm',
-          isPublic: data.isPublic !== undefined ? Boolean(data.isPublic) : true,
           url: data.url ? String(data.url) : null,
           poster: data.poster ? String(data.poster) : null,
           assetsNgang: data.assetsNgang || undefined,
           assetsDoc: data.assetsDoc || undefined,
-        }
+        } as any
       });
       return NextResponse.json({ success: true, data: clip });
     }

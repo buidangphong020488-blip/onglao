@@ -6,8 +6,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # QUY TẮC PHÁT TRIỂN & KỶ LUẬT DỰ ÁN ÔNG LÃO (AI THIỀN ĐƯỜNG)
 
-## 0. SKILL BẮT BUỘC: ĐỌC THƯ MỤC DOCS BAN ĐẦU (MANDATORY INITIAL DOCS INSPECTION)
-- **BẮT BUỘC ĐỌC THƯ MỤC `docs/`**: Ở đầu mỗi cuộc trò chuyện hoặc trước khi phân tích / viết bất kỳ dòng mã nguồn nào, AI **BẮT BUỘC PHẢI DÙNG `view_file` ĐỌC TỆP `docs/RULES_AND_TESTS.md` VÀ CÁC TỆP TRONG THƯ MỤC `docs/`** để cập nhật 100% quy trình kỷ luật và kiến trúc dự án.
+## 0. SKILL BẮT BUỘC: ĐỌC THƯ MỤC DOCS VÀ SKILLS (MANDATORY DOCS & SKILLS INSPECTION)
+- **BẮT BUỘC ĐỌC `docs/` VÀ SKILLS (`.agent/skills/`)**: Trước khi thực hiện bất kỳ tác vụ nào (phân tích, lập kế hoạch, sửa mã nguồn, chạy lệnh hay tạo tính năng...), AI **BẮT BUỘC PHẢI DÙNG `view_file` ĐỌC TỆP `docs/RULES_AND_TESTS.md`, CÁC TỆP TRONG THƯ MỤC `docs/` VÀ ĐỌC TỆP HƯỚNG DẪN `SKILL.md` CỦA SKILL LIÊN QUAN** để đảm bảo tuân thủ 100% quy trình kỷ luật, kiến trúc dự án và hướng dẫn nghiệp vụ.
 
 ---
 

@@ -1571,7 +1571,7 @@ const VideoCreatorModal = (props?: any) => {
                                <div className="flex gap-2 w-full">
                                   <input type="file" ref={logoFileInputRef} className="hidden" accept="image/*" onChange={handleUploadLogo} />
                                   <button onClick={() => logoFileInputRef.current?.click()} disabled={isExportingVideo || isPreparingVideoData} className="flex-1 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-bold py-2 px-3 rounded-lg border border-white/10 flex justify-center items-center gap-1.5 transition-all">
-                                    <Upload size={14} /> Chọn Logo
+                                     <Upload size={14} /> Chọn Logo
                                   </button>
                                   {logoData && (
                                      <button onClick={removeLogo} disabled={isExportingVideo || isPreparingVideoData} className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold py-2 px-4 rounded-lg flex items-center justify-center transition-all">
@@ -1581,8 +1581,47 @@ const VideoCreatorModal = (props?: any) => {
                                </div>
                                {logoData && (
                                   <div className="flex flex-col gap-3 p-3 bg-amber-900/20 rounded-lg border border-amber-500/30 animate-in fade-in">
+                                     {/* Vị trí & Kích thước Logo */}
+                                     <div className="flex flex-col gap-2 border-b border-amber-500/20 pb-3">
+                                        <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1.5"><Sliders size={14}/> Vị Trí & Hiển Thị Logo</span>
+                                        <div className="grid grid-cols-2 gap-2">
+                                           <div className="flex flex-col gap-1">
+                                              <span className="text-[10px] text-slate-400">Vị trí góc</span>
+                                              <select 
+                                                 value={logoSettings.position || 'top-right'} 
+                                                 onChange={e => setLogoSettings((p: any) => ({ ...p, position: e.target.value }))}
+                                                 className="w-full bg-slate-800 border border-white/10 text-white p-1.5 rounded text-[11px] outline-none focus:border-amber-500"
+                                              >
+                                                 <option value="top-right">↗️ Góc trên bên phải</option>
+                                                 <option value="top-left">↖️ Góc trên bên trái</option>
+                                                 <option value="bottom-right">↘️ Góc dưới bên phải</option>
+                                                 <option value="bottom-left">↙️ Góc dưới bên trái</option>
+                                              </select>
+                                           </div>
+                                           <div className="flex flex-col gap-1">
+                                              <span className="text-[10px] text-slate-400 font-mono flex justify-between"><span>Tỉ lệ cỡ</span> <span>{Math.round((logoSettings.scale || 1.0) * 100)}%</span></span>
+                                              <input 
+                                                 type="range" min="0.3" max="2.5" step="0.1" 
+                                                 value={logoSettings.scale || 1.0} 
+                                                 onChange={e => setLogoSettings((p: any) => ({ ...p, scale: Number(e.target.value) }))} 
+                                                 className="accent-amber-500 my-auto" 
+                                              />
+                                           </div>
+                                        </div>
+                                        <div className="flex flex-col gap-1 mt-1">
+                                           <span className="text-[10px] text-slate-400 font-mono flex justify-between"><span>Độ mờ (Opacity)</span> <span>{Math.round((logoSettings.opacity !== undefined ? logoSettings.opacity : 0.8) * 100)}%</span></span>
+                                           <input 
+                                              type="range" min="0.1" max="1.0" step="0.05" 
+                                              value={logoSettings.opacity !== undefined ? logoSettings.opacity : 0.8} 
+                                              onChange={e => setLogoSettings((p: any) => ({ ...p, opacity: Number(e.target.value) }))} 
+                                              className="accent-amber-500" 
+                                           />
+                                        </div>
+                                     </div>
+
+                                     {/* Chroma Key / Xóa Nền */}
                                      <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1.5"><Palette size={14}/> Xóa nền Logo (Chroma Key)</span>
-                                     <select value={logoSettings.chromaType} onChange={e => setLogoSettings(p => ({...p, chromaType: e.target.value}))} className="w-full bg-slate-800 border border-white/10 text-white p-2 rounded-lg outline-none text-[11px] focus:border-amber-500">
+                                     <select value={logoSettings.chromaType} onChange={e => setLogoSettings((p: any) => ({...p, chromaType: e.target.value}))} className="w-full bg-slate-800 border border-white/10 text-white p-2 rounded-lg outline-none text-[11px] focus:border-amber-500">
                                         <option value="none">Giữ nguyên bản gốc</option>
                                         <option value="black">Xóa Nền Đen</option>
                                         <option value="white">Xóa Nền Trắng</option>
@@ -1592,18 +1631,18 @@ const VideoCreatorModal = (props?: any) => {
                                         <div className="flex flex-col gap-2 mt-1 animate-in fade-in">
                                            {logoSettings.chromaType === 'custom' && (
                                               <div className="flex items-center gap-2">
-                                                 <input type="color" value={logoSettings.chromaColor} onChange={e => setLogoSettings(p => ({...p, chromaColor: e.target.value}))} className="w-8 h-8 rounded border-none bg-transparent cursor-pointer" />
+                                                 <input type="color" value={logoSettings.chromaColor} onChange={e => setLogoSettings((p: any) => ({...p, chromaColor: e.target.value}))} className="w-8 h-8 rounded border-none bg-transparent cursor-pointer" />
                                                  <span className="text-[10px] text-slate-400">Chọn màu nền cần xóa</span>
                                               </div>
                                            )}
                                            <div className="grid grid-cols-2 gap-4">
                                               <div className="flex flex-col gap-1">
                                                  <span className="text-[10px] text-slate-400 font-mono flex justify-between"><span>Độ ăn lẹm</span> <span>{logoSettings.tolerance}</span></span>
-                                                 <input type="range" min="5" max="250" value={logoSettings.tolerance} onChange={e => setLogoSettings(p => ({...p, tolerance: Number(e.target.value)}))} className="accent-amber-500" />
+                                                 <input type="range" min="5" max="250" value={logoSettings.tolerance} onChange={e => setLogoSettings((p: any) => ({...p, tolerance: Number(e.target.value)}))} className="accent-amber-500" />
                                               </div>
                                               <div className="flex flex-col gap-1">
                                                  <span className="text-[10px] text-slate-400 font-mono flex justify-between"><span>Độ mềm viền</span> <span>{logoSettings.smoothness || 0}</span></span>
-                                                 <input type="range" min="0" max="100" value={logoSettings.smoothness || 0} onChange={e => setLogoSettings(p => ({...p, smoothness: Number(e.target.value)}))} className="accent-amber-500" />
+                                                 <input type="range" min="0" max="100" value={logoSettings.smoothness || 0} onChange={e => setLogoSettings((p: any) => ({...p, smoothness: Number(e.target.value)}))} className="accent-amber-500" />
                                               </div>
                                            </div>
                                         </div>

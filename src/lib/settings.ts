@@ -15,6 +15,7 @@ export interface SystemSettings {
   qrImageUrl: string;
   subscribeCodes: string;
   freeLimit: string;
+  defaultLogoUrl?: string;
   defaultAiConfigId?: string;
   characterStates?: string | any;
   laoVoiceName?: string;
@@ -38,6 +39,7 @@ const DEFAULT_SETTINGS: SystemSettings = {
   qrImageUrl: '',
   subscribeCodes: 'TAMVO2025,UNGDUNG888,THIENSUGD2025',
   freeLimit: '20',
+  defaultLogoUrl: '',
   defaultAiConfigId: '1',
   characterStates: JSON.stringify([
   {

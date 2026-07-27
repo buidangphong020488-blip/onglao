@@ -79,7 +79,7 @@ export default function AdminPage() {
   const [settings, setSettings] = useState<any>({
     apiKey: '', modelName: 'gemini-2.5-flash-preview-09-2025',
     ttsModel: 'gemini-2.5-flash-preview-tts',
-    laoVoiceName: 'Puck',
+    laoVoiceName: 'Algieba',
     laoVoiceStyle: 'Trầm ấm, từ hòa, thong dong, minh triết, từ tốn, ngắt nhịp rõ ràng',
     userVoiceName: 'Kore',
     userVoiceStyle: 'Lắng đọng, kính cẩn, chân thành, nhẹ nhàng, tìm cầu đạo lý',
@@ -663,16 +663,91 @@ export default function AdminPage() {
                       value={settings.defaultLogoUrl || ''} 
                       onChange={e => setSettings((p: any) => ({ ...p, defaultLogoUrl: e.target.value }))}
                       placeholder="https://... hoặc /uploads/logo.png" 
-                      className="flex-1 bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-cyan-500" 
+                      className="flex-1 bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-cyan-500 font-mono" 
                     />
+                    <label className="bg-cyan-700/40 hover:bg-cyan-700/70 border border-cyan-600/40 text-cyan-200 hover:text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all shrink-0">
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const url = await doUpload(file);
+                          if (url) {
+                            setSettings((p: any) => ({ ...p, defaultLogoUrl: url }));
+                            showSaved('Đã tải logo thành công!');
+                          }
+                          e.target.value = '';
+                        }} 
+                      />
+                      <Upload size={14} /> Tải file lên
+                    </label>
                     {settings.defaultLogoUrl && (
-                      <img src={settings.defaultLogoUrl} alt="Default Logo" className="w-10 h-10 object-contain bg-slate-950 p-1 rounded-lg border border-white/10" />
+                      <div className="relative group">
+                        <img src={settings.defaultLogoUrl} alt="Default Logo" className="w-10 h-10 object-contain bg-slate-950 p-1 rounded-lg border border-white/10" />
+                        <button 
+                          type="button" 
+                          onClick={() => setSettings((p: any) => ({ ...p, defaultLogoUrl: '' }))}
+                          className="absolute -top-1.5 -right-1.5 bg-rose-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Xóa logo"
+                        >
+                          <X size={10} />
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
 
+                {/* CẤU HÌNH GIỌNG ĐỌC CỦA LÃO */}
+                <div className="flex flex-col gap-3 pt-3 border-t border-white/10">
+                  <label className="text-[11px] text-amber-400 font-bold flex items-center gap-1.5">
+                    <Mic size={14} /> Giọng Đọc Mặc Định Của Lão (Khi trả lời Chat)
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[10px] text-slate-400 font-bold">Diễn viên giọng đọc (Lão)</span>
+                      <select 
+                        value={settings.laoVoiceName || 'Algieba'} 
+                        onChange={e => setSettings((p: any) => ({ ...p, laoVoiceName: e.target.value }))}
+                        className="bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-amber-500 font-medium"
+                      >
+                        <optgroup label="🎙️ Giọng Nam (Khuyên dùng cho Lão)" className="bg-slate-900 text-amber-400 font-bold">
+                          <option value="Algieba">Algieba (Mặc định - Nam từ hòa, minh triết)</option>
+                          <option value="Puck">Puck (Nam chuẩn)</option>
+                          <option value="Charon">Charon (Nam đầm thấm)</option>
+                          <option value="Fenrir">Fenrir (Nam mạnh mẽ)</option>
+                          <option value="Orus">Orus (Nam điềm đạm)</option>
+                          <option value="Enceladus">Enceladus (Nam trung niên)</option>
+                          <option value="Iapetus">Iapetus (Nam thanh niên)</option>
+                        </optgroup>
+                        <optgroup label="🎙️ Giọng Nữ" className="bg-slate-900 text-amber-400 font-bold">
+                          <option value="Aoede">Aoede (Chuẩn Nữ)</option>
+                          <option value="Kore">Kore (Nữ thanh / Trẻ em)</option>
+                          <option value="Leda">Leda (Nữ nhẹ nhàng)</option>
+                          <option value="Zephyr">Zephyr (Nữ trầm)</option>
+                          <option value="Callirrhoe">Callirrhoe (Nữ ấm áp)</option>
+                          <option value="Autonoe">Autonoe (Nữ kể chuyện)</option>
+                        </optgroup>
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[10px] text-slate-400 font-bold">Mô tả phong cách đọc của Lão</span>
+                      <input 
+                        type="text" 
+                        value={settings.laoVoiceStyle || 'Trầm ấm, từ hòa, thong dong, minh triết, từ tốn, ngắt nhịp rõ ràng'} 
+                        onChange={e => setSettings((p: any) => ({ ...p, laoVoiceStyle: e.target.value }))}
+                        placeholder="VD: Trầm ấm, từ hòa, thong dong..."
+                        className="bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-amber-500 font-medium" 
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="p-4 bg-slate-950/60 rounded-xl border border-white/10 text-xs text-slate-400 leading-relaxed">
-                  📌 <strong>Lưu ý Giọng Đọc:</strong> Giọng đọc của Lão và Con được cấu hình trực tiếp trong phần <strong>Hội thoại (Conversation / Profile nhân vật)</strong> ban đầu. Cấu hình giọng đọc trong Admin đã được bỏ để đảm bảo tính nhất quàn với Profile người dùng.
+                  📌 <strong>Phân Định Giọng Đọc:</strong><br />
+                  - <strong>Giọng Lão (Cấu hình trên):</strong> Áp dụng cho các câu giải đáp đạo lý, mào đầu & đúc kết của Lão trong Chat đàm đạo.<br />
+                  - <strong>Giọng Con (Cấu hình Profile):</strong> Áp dụng riêng cho lời thoại của Con khi làm Kịch bản & Xuất Video Pháp Bảo.
                 </div>
               </section>
               {/* Freemium */}

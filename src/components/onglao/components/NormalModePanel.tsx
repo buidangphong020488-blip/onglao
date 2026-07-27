@@ -45,10 +45,41 @@ const IsolatedChatInputBar = ({
   selectedImage,
   setSelectedImage,
   isVoiceEnabled,
-  setIsVoiceEnabled
+  setIsVoiceEnabled,
+  showToastMsg
 }: any) => {
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const localFileInputRef = React.useRef<HTMLInputElement>(null);
+  const activeFileInputRef = fileInputRef || localFileInputRef;
   const [emotion, setEmotion] = React.useState('calm');
+
+  const [internalVoiceEnabled, setInternalVoiceEnabled] = React.useState(
+    isVoiceEnabled !== undefined ? isVoiceEnabled : true
+  );
+
+  React.useEffect(() => {
+    if (isVoiceEnabled !== undefined) {
+      setInternalVoiceEnabled(isVoiceEnabled);
+    }
+  }, [isVoiceEnabled]);
+
+  const toggleVoice = () => {
+    const nextState = !internalVoiceEnabled;
+    setInternalVoiceEnabled(nextState);
+    if (typeof setIsVoiceEnabled === 'function') {
+      setIsVoiceEnabled(nextState);
+    }
+    if (typeof showToastMsg === 'function') {
+      showToastMsg(
+        nextState ? 'Đã BẬT giọng đọc tự động của Lão' : 'Đã TẮT giọng đọc tự động của Lão', 
+        nextState ? 'success' : 'warning'
+      );
+    }
+  };
+
+  const [localCameraOn, setLocalCameraOn] = React.useState(false);
+  const activeCameraOn = cameraOn !== undefined ? cameraOn : localCameraOn;
+  const activeToggleCamera = toggleCamera || (async () => { setLocalCameraOn(prev => !prev); });
 
   React.useEffect(() => {
     if (inputRef.current && inputText !== undefined) {
@@ -58,18 +89,74 @@ const IsolatedChatInputBar = ({
 
   const onSend = () => {
     const textVal = inputRef.current?.value || '';
-    if (!textVal.trim() && !selectedImage) return;
-    handleSendMessage(textVal, emotion);
+    if (!textVal.trim() && !selectedImage) {
+      if (typeof showToastMsg === 'function') {
+        showToastMsg('Vui lòng gõ nội dung thưa thỉnh hoặc chọn ảnh!', 'info');
+      }
+      return;
+    }
+    if (typeof handleSendMessage === 'function') {
+      handleSendMessage(textVal, emotion);
+    }
     if (inputRef.current) inputRef.current.value = '';
     setEmotion('calm');
   };
 
+  const onRefine = async () => {
+    const textVal = inputRef.current?.value || '';
+    if (!textVal.trim()) {
+      if (typeof showToastMsg === 'function') {
+        showToastMsg('Vui lòng gõ nội dung câu hỏi để Lão giúp con tinh lọc cốt lõi!', 'info');
+      }
+      return;
+    }
+    if (typeof handleRefineInput === 'function') {
+      const refined = await handleRefineInput(textVal);
+      if (refined && inputRef.current) {
+        inputRef.current.value = refined;
+      }
+    }
+  };
+
+  const onFileChange = (e: any) => {
+    if (typeof handleImageUpload === 'function') {
+      handleImageUpload(e);
+    } else {
+      const file = e.target.files?.[0];
+      if (file && typeof setSelectedImage === 'function') {
+        const reader = new FileReader();
+        reader.onload = (ev) => setSelectedImage(ev.target?.result as string);
+        reader.readAsDataURL(file);
+      }
+    }
+  };
+
+  const onMicClick = async () => {
+    if (typeof toggleMic === 'function') {
+      toggleMic();
+    } else {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach(t => t.stop());
+          if (typeof showToastMsg === 'function') {
+            showToastMsg('Đã cho phép quyền Micro!', 'success');
+          }
+        } catch (e) {
+          if (typeof showToastMsg === 'function') {
+            showToastMsg('Vui lòng CHO PHÉP (Allow) sử dụng Micro trên trình duyệt!', 'warning');
+          }
+        }
+      }
+    }
+  };
+
   return (
-    <div className="fixed bottom-0 left-0 right-0 p-4 pb-8 md:pb-6 flex flex-col items-center z-50 bg-gradient-to-t from-[#020617] to-transparent">
+    <div className="fixed bottom-0 left-0 right-0 p-4 pb-8 md:pb-6 flex flex-col items-center z-[80] bg-gradient-to-t from-[#020617] to-transparent pointer-events-none">
       {selectedImage && (
-        <div className="mb-3 relative animate-in slide-in-from-bottom-2">
+        <div className="mb-3 relative animate-in slide-in-from-bottom-2 pointer-events-auto">
           <img src={selectedImage} alt="Preview" className="w-16 h-16 object-cover rounded-lg border-2 border-orange-500 shadow-lg" />
-          <button onClick={() => setSelectedImage(null)} className="absolute -top-2 -right-2 bg-rose-500 rounded-full p-1 shadow-lg hover:scale-110 transition-all">
+          <button onClick={() => typeof setSelectedImage === 'function' && setSelectedImage(null)} className="absolute -top-2 -right-2 bg-rose-500 rounded-full p-1 shadow-lg hover:scale-110 transition-all">
             <X size={10} />
           </button>
         </div>
@@ -77,18 +164,18 @@ const IsolatedChatInputBar = ({
       
       <IdleTimerDisplay />
 
-      <div className="bg-slate-900/95 backdrop-blur-3xl border border-white/5 rounded-full p-1.5 md:p-2 flex items-center gap-2 shadow-2xl w-full max-w-xl overflow-hidden relative mt-1">
-        <button data-tutorial="tut-mic" onClick={toggleMic} className={`p-6 md:p-6 rounded-full transition-all transform active:scale-95 relative ${isRecording ? 'bg-rose-500 text-white shadow-[0_0_40px_rgba(244,63,94,0.7)] scale-110' : 'bg-slate-800 text-slate-400 hover:text-rose-400'}`} title="Thưa hỏi Lão">
+      <div className="bg-slate-900/95 backdrop-blur-3xl border border-white/5 rounded-full p-1.5 md:p-2 flex items-center gap-2 shadow-2xl w-full max-w-xl overflow-hidden relative mt-1 pointer-events-auto">
+        <button data-tutorial="tut-mic" onClick={onMicClick} className={`p-6 md:p-6 rounded-full transition-all transform active:scale-95 relative cursor-pointer ${isRecording ? 'bg-rose-500 text-white shadow-[0_0_40px_rgba(244,63,94,0.7)] scale-110' : 'bg-slate-800 text-slate-400 hover:text-rose-400'}`} title="Thưa hỏi Lão">
           <div className={`absolute inset-0 rounded-full border-[6px] border-rose-500/30 ${!isRecording ? 'animate-ping opacity-60' : ''}`}></div>
           <div className={`absolute inset-0 rounded-full bg-rose-500/10 ${!isRecording ? 'animate-pulse' : ''}`}></div>
           {isRecording ? <MicOff size={32} className="relative z-10" /> : <Mic size={32} className="relative z-10" />}
         </button>
-        <button onClick={toggleCamera} className={`p-3 rounded-full transition-all ${cameraOn ? 'bg-orange-600 text-white shadow-lg' : 'bg-slate-800 text-slate-500'}`} title="Mở tầm nhìn">
+        <button onClick={activeToggleCamera} className={`p-3 rounded-full transition-all cursor-pointer ${activeCameraOn ? 'bg-orange-600 text-white shadow-lg' : 'bg-slate-800 text-slate-500 hover:text-white'}`} title="Mở tầm nhìn">
           <Camera size={18} />
         </button>
-        <button onClick={() => fileInputRef.current?.click()} className="p-3 rounded-full bg-slate-800 text-slate-500 hover:text-white transition-all" title="Gửi ảnh">
+        <button onClick={() => activeFileInputRef.current?.click()} className="p-3 rounded-full bg-slate-800 text-slate-500 hover:text-white transition-all cursor-pointer" title="Gửi ảnh">
           <ImageIcon size={18} />
-          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
+          <input type="file" ref={activeFileInputRef} className="hidden" accept="image/*" onChange={onFileChange} />
         </button>
         <div data-tutorial="tut-input" className="flex items-center bg-slate-800/40 rounded-full px-2 py-2 flex-1 md:w-[260px] border border-white/5 focus-within:border-orange-500/30 shadow-inner relative">
           <input 
@@ -106,22 +193,35 @@ const IsolatedChatInputBar = ({
           />
           <button 
             data-tutorial="tut-refine" 
-            onClick={() => handleRefineInput(inputRef.current?.value || '')} 
+            onClick={onRefine} 
             disabled={isRefining} 
             title="✨ Tinh lọc cốt lõi (Gỡ rối tơ lòng)" 
-            className={`absolute right-10 p-1.5 transition-all text-amber-400 hover:scale-110`}
+            className={`absolute right-10 p-1.5 transition-all text-amber-400 hover:scale-110 cursor-pointer`}
           >
             {isRefining ? <Loader2 size={16} className="animate-spin text-amber-500" /> : <Sparkles size={16} />}
           </button>
           <button 
             onClick={onSend} 
-            className={`p-1.5 transition-all mr-1 text-orange-400 scale-110`}
+            className={`p-1.5 transition-all mr-1 text-orange-400 scale-110 cursor-pointer hover:text-orange-300`}
+            title="Gửi tin nhắn"
           >
             <Send size={16} />
           </button>
         </div>
-        <button onClick={() => setIsVoiceEnabled(!isVoiceEnabled)} className={`p-3 rounded-full transition-all ${isVoiceEnabled ? 'bg-emerald-600/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>
-          {isVoiceEnabled ? <Volume1 size={18} /> : <VolumeX size={18} />}
+        <button 
+          onClick={toggleVoice} 
+          className={`p-3 rounded-full transition-all cursor-pointer flex items-center justify-center relative ${
+            internalVoiceEnabled 
+              ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30' 
+              : 'bg-rose-950/60 text-rose-400 border border-rose-500/50 hover:bg-rose-900/60 shadow-[0_0_20px_rgba(244,63,94,0.4)]'
+          }`} 
+          title={internalVoiceEnabled ? 'Đang BẬT giọng đọc tự động (Nhấp để Tắt)' : 'Đang TẮT giọng đọc tự động (Nhấp để Bật)'}
+        >
+          {internalVoiceEnabled ? (
+            <Volume1 size={18} className="text-emerald-400" />
+          ) : (
+            <VolumeX size={18} className="text-rose-400" />
+          )}
         </button>
       </div>
 
@@ -483,6 +583,7 @@ const NormalModePanel = (props?: { p?: any }) => {
           setSelectedImage={setSelectedImage}
           isVoiceEnabled={isVoiceEnabled}
           setIsVoiceEnabled={setIsVoiceEnabled}
+          showToastMsg={showToastMsg}
         />
       </div>
 

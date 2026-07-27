@@ -4,7 +4,10 @@ Tài liệu này quy định toàn bộ các nguyên tắc bắt buộc phải t
 
 ---
 
-## I. 4 NGUYÊN TẮC KỶ LUẬT BẮT BUỘC
+## I. NGUYÊN TẮC KỶ LUẬT BẮT BUỘC
+
+0. **Đọc Docs & Skill Bắt Buộc**:
+   - Trước khi làm bất kỳ việc gì (phân tích, lập kế hoạch, sửa mã nguồn, chạy lệnh, tạo tính năng...), AI **BẮT BUỘC PHẢI DÙNG `view_file` ĐỌC TỆP `docs/RULES_AND_TESTS.md`, CÁC TỆP TRONG `docs/` VÀ ĐỌC HƯỚNG DẪN `SKILL.md` CỦA SKILL LIÊN QUAN**.
 
 1. **Thẩm Định Kế Hoạch (`implementation_plan.md`)**:
    - Không được phép tự ý sửa code. Mọi thay đổi logic phức tạp đều phải viết kế hoạch chi tiết và **chờ phản hồi phê duyệt từ người dùng**.

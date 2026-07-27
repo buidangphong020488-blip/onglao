@@ -971,9 +971,24 @@ export const useVideoExport = ({
   const [isGeneratingBgm, setIsGeneratingBgm] = useState(false);
 
   const [logoData, setLogoData] = useState<string | null>(null);
-  const [logoSettings, setLogoSettings] = useState({
-     chromaType: 'black', chromaColor: '#000000', tolerance: 45, smoothness: 35
+  const [logoSettings, setLogoSettings] = useState<any>({
+     position: 'top-right', scale: 1.0, opacity: 0.8, visible: true,
+     chromaType: 'none', chromaColor: '#000000', tolerance: 45, smoothness: 35
   });
+
+  // Tự động nạp Logo Mặc Định từ Cấu hình Hệ thống khi mở modal nếu chưa có logo cá nhân
+  useEffect(() => {
+    if (showVideoExportModal && !logoData) {
+      fetch('/api/settings/public')
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.defaultLogoUrl) {
+            setLogoData(data.defaultLogoUrl);
+          }
+        })
+        .catch(err => console.error("Error fetching default logo:", err));
+    }
+  }, [showVideoExportModal]);
   const logoFileInputRef = useRef<any>(null);
   const logoImgRef = useRef<any>(null);
   const processedLogoRef = useRef<any>(null);

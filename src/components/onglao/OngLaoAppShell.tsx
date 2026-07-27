@@ -180,6 +180,11 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
     }
   }, []);
 
+
+
+  const [isVoiceEnabled, setIsVoiceEnabled] = React.useState(true);
+  const isVoiceEnabledRef = React.useRef(isVoiceEnabled);
+
   // Auth state & global user settings (truyền setSessions & setCurrentSessionId để sync DB)
   const authState = useAuth({
     setSessions,
@@ -362,8 +367,6 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
             audio.play().catch(() => {});
             window.removeEventListener('click', retryOnClick);
           };
-          window.addEventListener('click', retryOnClick, { once: true });
-          showToastMsg('Nhấp chuột bất kỳ vào trang để nghe giọng đọc của Lão!', 'info');
         });
       }
     } catch (err) {
@@ -371,22 +374,6 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
       finishOnce();
     }
   }, []);
-
-  const processAudioQueue = React.useCallback(async () => {
-    if (isPlayingQueueRef.current || audioQueueRef.current.length === 0) return;
-    
-    isPlayingQueueRef.current = true;
-    const nextItem = audioQueueRef.current.shift();
-    if (!nextItem) {
-      isPlayingQueueRef.current = false;
-      return;
-    }
-
-    playAudioWithWebAudioFallback(nextItem.audioUrl, nextItem.msgId, () => {
-      isPlayingQueueRef.current = false;
-      setTimeout(() => processAudioQueue(), 200);
-    });
-  }, [playAudioWithWebAudioFallback]);
 
   const clearAudioQueue = React.useCallback(() => {
     audioQueueRef.current = [];
@@ -402,10 +389,41 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
     setCurrentlyPlayingId(null);
   }, []);
 
+  React.useEffect(() => {
+    isVoiceEnabledRef.current = isVoiceEnabled;
+    if (!isVoiceEnabled) {
+      clearAudioQueue();
+    }
+  }, [isVoiceEnabled, clearAudioQueue]);
+
+  const processAudioQueue = React.useCallback(async () => {
+    if (!isVoiceEnabledRef.current) {
+      audioQueueRef.current = [];
+      isPlayingQueueRef.current = false;
+      return;
+    }
+    if (isPlayingQueueRef.current || audioQueueRef.current.length === 0) return;
+    
+    isPlayingQueueRef.current = true;
+    const nextItem = audioQueueRef.current.shift();
+    if (!nextItem) {
+      isPlayingQueueRef.current = false;
+      return;
+    }
+
+    playAudioWithWebAudioFallback(nextItem.audioUrl, nextItem.msgId, () => {
+      isPlayingQueueRef.current = false;
+      setTimeout(() => processAudioQueue(), 200);
+    });
+  }, [playAudioWithWebAudioFallback]);
+
   const enqueueAudio = React.useCallback((audioUrl: string, msgId: string) => {
+    if (!isVoiceEnabledRef.current) return;
     audioQueueRef.current.push({ audioUrl, msgId });
     processAudioQueue();
   }, [processAudioQueue]);
+
+
 
   const parseMessageParts = React.useCallback((fullText: string) => {
     if (!fullText) return { greetingText: '', stanzaText: '', aiReply: '' };
@@ -1064,7 +1082,7 @@ YÊU CẦU: Lão đã cất lời mào đầu và đọc bài kệ trên cho ng�
   const [isRecording, setIsRecording] = React.useState(false);
   const recognitionRef = React.useRef<any>(null);
 
-  const toggleMic = React.useCallback(() => {
+  const toggleMic = React.useCallback(async () => {
     if (typeof window === 'undefined') return;
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -1080,27 +1098,48 @@ YÊU CẦU: Lão đã cất lời mào đầu và đọc bài kệ trên cho ng�
     }
 
     try {
+      // 1. Kích hoạt Popup xin quyền Micro (Allow Microphone) của trình duyệt
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach(t => t.stop());
+        } catch (permErr: any) {
+          showToastMsg('📌 Bấm icon Ổ khóa/Cài đặt góc trái thanh địa chỉ URL -> Chọn Cho phép (Allow) Micro -> Tải lại trang (F5)', 'warning', 6000);
+          return;
+        }
+      }
+
       const rec = new SpeechRecognition();
       rec.lang = 'vi-VN';
-      rec.continuous = false;
+      rec.continuous = true;
       rec.interimResults = true;
 
       rec.onstart = () => {
         setIsRecording(true);
-        showToastMsg('Đang lắng nghe lời thưa thỉnh của bạn...', 'info');
+        showToastMsg('🎙️ Đang lắng nghe... Hãy thưa thỉnh cùng Lão!', 'success');
       };
 
       rec.onresult = (e: any) => {
         const transcript = Array.from(e.results)
-          .map((r: any) => r[0].transcript)
+          .map((r: any) => (r as any)[0].transcript)
           .join('');
-        // Ghi chú: Cần setInputText nếu tồn tại trong component này
+        
+        // Điền văn bản giọng nói trực tiếp vào ô thưa thỉnh DOM
+        const chatInput = document.querySelector('[data-tutorial="tut-input"] input') as HTMLInputElement;
+        if (chatInput) {
+          chatInput.value = transcript;
+          chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
       };
 
       rec.onerror = (e: any) => {
         console.warn('SpeechRecognition error:', e);
         setIsRecording(false);
-        showToastMsg(`Lỗi mic: ${e.error || 'không thể ghi âm'}`, 'warning');
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          showToastMsg('📌 Bấm icon Ổ khóa/Cài đặt góc trái thanh địa chỉ URL -> Chọn Cho phép (Allow) Micro -> Tải lại trang (F5)', 'warning', 6000);
+        } else {
+          showToastMsg(`Lỗi mic: ${e.error || 'không thể ghi âm'}`, 'warning');
+        }
       };
 
       rec.onend = () => {
@@ -1164,6 +1203,10 @@ YÊU CẦU: Lão đã cất lời mào đầu và đọc bài kệ trên cho ng�
     setCurrentlyPlayingId,
     isLaoSpeakingSession,
     mouthOpen,
+    isVoiceEnabled,
+    setIsVoiceEnabled,
+    isRecording,
+    toggleMic,
   };
 
   return (

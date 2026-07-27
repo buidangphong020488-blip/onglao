@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
       bankAccount: settings.bankAccount,
       qrImageUrl: settings.qrImageUrl,
       freeLimit: settings.freeLimit,
+      defaultLogoUrl: settings.defaultLogoUrl || '',
       defaultAiConfigId: settings.defaultAiConfigId || '1',
       characterStates: settings.characterStates || '[]',
       laoVoiceName: settings.laoVoiceName || 'Algieba',
