@@ -2458,6 +2458,7 @@ const VideoCreatorModal = (props?: any) => {
                                     className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all text-left ${selectedLibraryCategory === 'lao' ? 'bg-orange-600 text-white shadow-md' : 'text-slate-300 hover:bg-white/5'}`}
                                 >
                                     <span>🧘 Cảnh Lão Đàm Đạo</span>
+                                    <span className="text-[10px] opacity-75 font-mono bg-orange-950/80 text-orange-400 px-1.5 py-0.5 rounded border border-orange-500/30">{(p.localFfClips || []).filter((c: any) => c.role === 'lao' || c.role === 'ai').length}</span>
                                 </button>
                                 <button 
                                     type="button"
@@ -2465,6 +2466,7 @@ const VideoCreatorModal = (props?: any) => {
                                     className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all text-left ${selectedLibraryCategory === 'user' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-300 hover:bg-white/5'}`}
                                 >
                                     <span>👤 Cảnh Con Hỏi Đạo</span>
+                                    <span className="text-[10px] opacity-75 font-mono bg-indigo-950/80 text-indigo-400 px-1.5 py-0.5 rounded border border-indigo-500/30">{(p.localFfClips || []).filter((c: any) => c.role === 'user' || c.role === 'con').length}</span>
                                 </button>
                                 <button 
                                     type="button"
@@ -2472,6 +2474,7 @@ const VideoCreatorModal = (props?: any) => {
                                     className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all text-left ${selectedLibraryCategory === 'outro' ? 'bg-purple-600 text-white shadow-md' : 'text-slate-300 hover:bg-white/5'}`}
                                 >
                                     <span>🎬 Cảnh Outro Kết Thúc</span>
+                                    <span className="text-[10px] opacity-75 font-mono bg-purple-950/80 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/30">{(p.localFfClips || []).filter((c: any) => c.role === 'outro').length}</span>
                                 </button>
 
                                 {/* PHẦN KHO RIÊNG (PRIVATE CATEGORIES) */}
