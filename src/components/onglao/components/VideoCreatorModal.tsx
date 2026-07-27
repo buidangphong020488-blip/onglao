@@ -1592,17 +1592,25 @@ const VideoCreatorModal = (props?: any) => {
                          <div className="flex flex-col gap-2">
                             <label className="text-xs font-bold text-amber-400 tracking-wider flex items-center gap-1.5"><ImageIcon size={14}/> Logo & Đóng Dấu (Watermark)</label>
                             <div className="flex flex-col gap-3 bg-slate-950 p-3 rounded-xl border border-white/10">
-                               <div className="flex gap-2 w-full">
-                                  <input type="file" ref={logoFileInputRef} className="hidden" accept="image/*" onChange={handleUploadLogo} />
-                                  <button onClick={() => logoFileInputRef.current?.click()} disabled={isExportingVideo || isPreparingVideoData} className="flex-1 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-bold py-2 px-3 rounded-lg border border-white/10 flex justify-center items-center gap-1.5 transition-all">
-                                     <Upload size={14} /> Chọn Logo
-                                  </button>
-                                  {logoData && (
-                                     <button onClick={removeLogo} disabled={isExportingVideo || isPreparingVideoData} className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold py-2 px-4 rounded-lg flex items-center justify-center transition-all">
-                                        <X size={14} /> Gỡ bỏ
-                                     </button>
-                                  )}
-                               </div>
+                               <div className="flex items-center gap-2 w-full">
+                                   <input type="file" ref={logoFileInputRef} className="hidden" accept="image/*" onChange={handleUploadLogo} />
+                                   <button onClick={() => logoFileInputRef.current?.click()} disabled={isExportingVideo || isPreparingVideoData} className="flex-1 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-bold py-2 px-3 rounded-lg border border-white/10 flex justify-center items-center gap-1.5 transition-all cursor-pointer">
+                                      <Upload size={14} /> {logoData ? 'Đổi Logo' : 'Chọn Logo'}
+                                   </button>
+
+                                   {/* PREVIEW KHUNG THUMBNAIL LOGO (HỆ THỐNG HOẶC UPLOAD) */}
+                                   {logoData && (
+                                      <div className="w-9 h-9 rounded-lg border border-amber-500/50 bg-slate-950 p-1 flex items-center justify-center shrink-0 shadow-md relative group/logoprev" title="Xem trước Logo hiện tại">
+                                         <img src={logoData} alt="Logo preview" className="w-full h-full object-contain" />
+                                      </div>
+                                   )}
+
+                                   {logoData && (
+                                      <button onClick={removeLogo} disabled={isExportingVideo || isPreparingVideoData} className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1 text-xs transition-all cursor-pointer border border-rose-500/30">
+                                         <X size={14} /> Gỡ bỏ
+                                      </button>
+                                   )}
+                                </div>
                                {logoData && (
                                   <div className="flex flex-col gap-3 p-3 bg-amber-900/20 rounded-lg border border-amber-500/30 animate-in fade-in">
                                      {/* Vị trí & Kích thước Logo */}
