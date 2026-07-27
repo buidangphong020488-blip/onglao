@@ -2636,14 +2636,34 @@ const VideoCreatorModal = (props?: any) => {
                                         </button>
 
                                         {stagedClips.length > 0 && (
-                                            <button
-                                                type="button"
-                                                onClick={handleClearAllStagedClips}
-                                                className="px-3 py-1.5 bg-rose-600/80 hover:bg-rose-500 text-white text-[11px] font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-md cursor-pointer hover:scale-105 active:scale-95"
-                                                title="Xóa tất cả clip khỏi danh sách chờ"
-                                            >
-                                                <X size={13} /> Bỏ Chọn ({stagedClips.length})
-                                            </button>
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleClearAllStagedClips}
+                                                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-md cursor-pointer hover:scale-105 active:scale-95 border border-white/10"
+                                                    title="Bỏ chọn tất cả các clip"
+                                                >
+                                                    <X size={13} /> Bỏ Chọn ({stagedClips.length})
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (stagedClips.length === 0) return;
+                                                        if (confirm(`Bạn có chắc chắn muốn XÓA VĨNH VIỄN ${stagedClips.length} video clip đang chọn khỏi CSDL Kho Cảnh Quay?`)) {
+                                                            const clipIds = stagedClips.map((s: any) => s.id || s.idbKey).filter(Boolean);
+                                                            if (p.handleBatchDeleteLibraryClips) {
+                                                                p.handleBatchDeleteLibraryClips(clipIds);
+                                                            }
+                                                            setStagedClips([]);
+                                                            if (p.showToastMsg) p.showToastMsg(`Đã xóa ${clipIds.length} clip khỏi Kho Cảnh Quay!`, 'success');
+                                                        }
+                                                    }}
+                                                    className="px-3 py-1.5 bg-rose-700 hover:bg-rose-600 text-white text-[11px] font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-md cursor-pointer hover:scale-105 active:scale-95 border border-rose-500/30"
+                                                    title="Xóa tất cả clip đang chọn khỏi Kho Cảnh Quay"
+                                                >
+                                                    <Trash2 size={13} /> Xóa Đã Chọn ({stagedClips.length})
+                                                </button>
+                                            </>
                                         )}
                                     </div>
                                 </div>
@@ -2676,6 +2696,13 @@ const VideoCreatorModal = (props?: any) => {
                                                     handleStageClip={targetPickerSceneId ? () => handleAssignClipToSingleScene(clip) : handleStageClip}
                                                     setPreviewVideoUrl={setPreviewVideoUrl}
                                                     isSinglePickerMode={!!targetPickerSceneId}
+                                                    onDeleteSingle={(c: any) => {
+                                                        const clipId = c.id || c.idbKey;
+                                                        if (confirm(`Bạn có chắc muốn xóa clip "${c.name || displayName}" này khỏi Kho Cảnh Quay?`)) {
+                                                            if (p.handleDeleteLibraryClip) p.handleDeleteLibraryClip(clipId);
+                                                            if (p.showToastMsg) p.showToastMsg(`Đã xóa clip "${c.name || displayName}" khỏi kho!`, 'info');
+                                                        }
+                                                    }}
                                                 />
                                             );
                                         })}
