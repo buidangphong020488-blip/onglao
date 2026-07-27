@@ -192,17 +192,11 @@ export const useFullFrameScenes = ({
         })
         .catch(err => console.warn('Lỗi tải Custom Categories từ DB:', err));
 
-      // Đọc trực tiếp từ CSDL PostgreSQL và gộp an toàn với local clips
+      // Đọc trực tiếp từ CSDL PostgreSQL (Nguồn Sự Thật Duy Nhất)
       fetch('/api/user/canh-quay')
         .then(res => res.json())
         .then(dbList => {
-          let localSaved: any[] = [];
-          try {
-            const raw = localStorage.getItem('taman_local_ff_clips');
-            if (raw) localSaved = JSON.parse(raw);
-          } catch (e) {}
-
-          if (Array.isArray(dbList)) {
+          if (Array.isArray(dbList) && dbList.length > 0) {
             const dbClips = dbList.map((item: any) => ({
               id: item.id,
               name: item.name,
@@ -216,14 +210,17 @@ export const useFullFrameScenes = ({
               isDb: true
             }));
 
-            // Merge DB clips with local clips based on clip id / idbKey
-            const mergedMap = new Map<string, any>();
-            localSaved.forEach((c: any) => { if (c.id || c.idbKey) mergedMap.set(c.id || c.idbKey, c); });
-            dbClips.forEach((c: any) => { if (c.id || c.idbKey) mergedMap.set(c.id || c.idbKey, c); });
+            // Làm sạch cache rác cũ ở trình duyệt local
+            try {
+              localStorage.removeItem('taman_local_ff_clips');
+            } catch (e) {}
 
-            setLocalFfClips(Array.from(mergedMap.values()));
-          } else if (localSaved.length > 0) {
-            setLocalFfClips(localSaved);
+            setLocalFfClips(dbClips);
+          } else {
+            try {
+              const raw = localStorage.getItem('taman_local_ff_clips');
+              if (raw) setLocalFfClips(JSON.parse(raw));
+            } catch (e) {}
           }
         })
         .catch(err => {
