@@ -4,32 +4,29 @@ import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
-// API route serve file tĩnh từ public/uploads/canhquay/ 
-// Dò tìm trên nhiều đường dẫn khả thi (bao gồm standalone build & aaPanel paths)
-
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ filename: string }> }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const { filename } = await params;
+  const resolvedParams = await params;
+  const pathArray = resolvedParams?.path || [];
   
-  if (!filename) {
+  if (!pathArray || pathArray.length === 0) {
     return new NextResponse('Not found', { status: 404 });
   }
 
-  // Sanitize: chỉ lấy tên file an toàn
-  const safeName = path.basename(filename);
+  const rawFilename = pathArray[pathArray.length - 1];
+  const safeName = path.basename(rawFilename);
+
   if (!safeName || safeName.includes('..')) {
     return new NextResponse('Invalid filename', { status: 400 });
   }
 
-  // Danh sách các vị trí thư mục lưu file có thể có trên server VPS & Local
   const possibleDirs = [
     path.join(process.cwd(), 'public', 'uploads', 'canhquay'),
     path.join(process.cwd(), 'uploads', 'canhquay'),
     path.join(process.cwd(), 'public', 'uploads'),
     path.join(process.cwd(), 'uploads'),
-    path.join(process.cwd(), 'public', 'uploads', 'lao_co_nen'),
     path.join(process.cwd(), '..', 'public', 'uploads', 'canhquay'),
     path.join(process.cwd(), '..', '..', 'public', 'uploads', 'canhquay'),
     '/www/wwwroot/onglao.giac.ngo/public/uploads/canhquay',

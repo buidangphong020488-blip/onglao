@@ -260,7 +260,15 @@ const SceneThumbnailItem = React.memo(({ scene, setFfScenes }: { scene: any; set
             {activeUrl && !hasError ? (
                 poster ? (
                     <div className="w-full h-full relative group">
-                        <img src={poster} alt="thumbnail" className="w-full h-full object-cover" />
+                        <img src={poster} alt="thumbnail" className="w-full h-full object-cover" onError={() => setPoster(null)} />
+                ) : (blobUrl || clip.url) ? (
+                    <video 
+                        src={blobUrl || (clip.url ? resolveClipUrl(clip.url) : '')} 
+                        muted 
+                        preload="metadata" 
+                        playsInline
+                        className="w-full h-full object-cover pointer-events-none" 
+                    />
                         <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors flex items-center justify-center">
                             <Film size={14} className="text-white/80 drop-shadow" />
                         </div>
@@ -3220,7 +3228,15 @@ const LibraryClipCard = ({ clip, idx, globalIndex, isSelected, roleName, emotion
                 </button>
 
                 {poster ? (
-                    <img src={poster} alt="thumbnail" className="w-full h-full object-cover" />
+                    <img src={poster} alt="thumbnail" className="w-full h-full object-cover" onError={() => setPoster(null)} />
+                ) : (blobUrl || clip.url) ? (
+                    <video 
+                        src={blobUrl || (clip.url ? resolveClipUrl(clip.url) : '')} 
+                        muted 
+                        preload="metadata" 
+                        playsInline
+                        className="w-full h-full object-cover pointer-events-none" 
+                    />
                 ) : (
                     <div className={`w-full h-full flex flex-col items-center justify-center gap-1 p-2 text-center transition-all ${
                         isLaoRole 
