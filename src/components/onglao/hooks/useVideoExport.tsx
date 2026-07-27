@@ -983,7 +983,10 @@ export const useVideoExport = ({
         .then(res => res.json())
         .then(data => {
           if (data && data.defaultLogoUrl) {
-            setLogoData(data.defaultLogoUrl);
+            const testImg = new Image();
+            testImg.onload = () => setLogoData(data.defaultLogoUrl);
+            testImg.onerror = () => setLogoData(null);
+            testImg.src = data.defaultLogoUrl;
           }
         })
         .catch(err => console.error("Error fetching default logo:", err));

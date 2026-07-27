@@ -14,13 +14,16 @@ export async function GET(
 
     // Sanitize path to prevent directory traversal
     const safePath = pathSegments.map(p => path.basename(p)).join('/');
-    let filePath = path.join(process.cwd(), 'public', 'uploads', safePath);
+    const candidatePaths = [
+      path.join(process.cwd(), 'public', 'uploads', safePath),
+      path.join(process.cwd(), 'uploads', safePath),
+      path.join('/www/wwwroot/onglao.giac.ngo/public/uploads', safePath),
+      path.join('/www/wwwroot/onglao.giac.ngo/uploads', safePath),
+    ];
 
-    if (!fs.existsSync(filePath)) {
-      filePath = path.join(process.cwd(), 'uploads', safePath);
-    }
+    let filePath = candidatePaths.find(p => fs.existsSync(p));
 
-    if (!fs.existsSync(filePath)) {
+    if (!filePath || !fs.existsSync(filePath)) {
       return new NextResponse('File not found', { status: 404 });
     }
 
