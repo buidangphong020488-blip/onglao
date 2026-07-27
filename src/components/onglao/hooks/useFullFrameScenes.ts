@@ -192,11 +192,16 @@ export const useFullFrameScenes = ({
         })
         .catch(err => console.warn('Lỗi tải Custom Categories từ DB:', err));
 
-      // Đọc trực tiếp từ CSDL PostgreSQL (Nguồn Sự Thật Duy Nhất)
+      // Đọc trực tiếp từ CSDL PostgreSQL (100% DB Server, KHÔNG DÙNG localStorage)
       fetch('/api/user/canh-quay')
         .then(res => res.json())
         .then(dbList => {
-          if (Array.isArray(dbList) && dbList.length > 0) {
+          // Xóa triệt để cache rác cũ ở trình duyệt local
+          try {
+            localStorage.removeItem('taman_local_ff_clips');
+          } catch (e) {}
+
+          if (Array.isArray(dbList)) {
             const dbClips = dbList.map((item: any) => ({
               id: item.id,
               name: item.name,
@@ -209,26 +214,14 @@ export const useFullFrameScenes = ({
               idbKey: item.id,
               isDb: true
             }));
-
-            // Làm sạch cache rác cũ ở trình duyệt local
-            try {
-              localStorage.removeItem('taman_local_ff_clips');
-            } catch (e) {}
-
             setLocalFfClips(dbClips);
           } else {
-            try {
-              const raw = localStorage.getItem('taman_local_ff_clips');
-              if (raw) setLocalFfClips(JSON.parse(raw));
-            } catch (e) {}
+            setLocalFfClips([]);
           }
         })
         .catch(err => {
           console.warn('Lỗi tải CanhQuay từ PostgreSQL DB:', err);
-          try {
-            const raw = localStorage.getItem('taman_local_ff_clips');
-            if (raw) setLocalFfClips(JSON.parse(raw));
-          } catch (e) {}
+          setLocalFfClips([]);
         });
   }, []);
 
@@ -597,7 +590,6 @@ export const useFullFrameScenes = ({
           const newClip = { id: idbKey, role: scene.role, name, url: `idb://${idbKey}` };
           const updatedList = [...localFfClips, newClip];
           setLocalFfClips(updatedList);
-          localStorage.setItem('taman_local_ff_clips', JSON.stringify(updatedList));
 
           setFfScenes((prev: any[]) => prev.map((s: any) => s.id === sceneId ? { ...s, idbKey } : s));
           showToastMsg('Đã lưu video vào kho thành công!', 'success');
@@ -734,7 +726,6 @@ export const useFullFrameScenes = ({
               await idb.remove(idbKey);
               const updatedList = localFfClips.filter((c: any) => c.id !== idbKey);
               setLocalFfClips(updatedList);
-              localStorage.setItem('taman_local_ff_clips', JSON.stringify(updatedList));
               
               setFfScenes((prev: any[]) => prev.map((s: any) => {
                   if (s.idbKey === idbKey) {
