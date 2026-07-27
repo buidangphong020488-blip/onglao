@@ -192,10 +192,16 @@ export const useFullFrameScenes = ({
         })
         .catch(err => console.warn('Lỗi tải Custom Categories từ DB:', err));
 
-      // Đọc trực tiếp duy nhất từ CSDL PostgreSQL
+      // Đọc trực tiếp từ CSDL PostgreSQL và gộp an toàn với local clips
       fetch('/api/user/canh-quay')
         .then(res => res.json())
         .then(dbList => {
+          let localSaved: any[] = [];
+          try {
+            const raw = localStorage.getItem('taman_local_ff_clips');
+            if (raw) localSaved = JSON.parse(raw);
+          } catch (e) {}
+
           if (Array.isArray(dbList)) {
             const dbClips = dbList.map((item: any) => ({
               id: item.id,
@@ -209,10 +215,24 @@ export const useFullFrameScenes = ({
               idbKey: item.id,
               isDb: true
             }));
-            setLocalFfClips(dbClips);
+
+            // Merge DB clips with local clips based on clip id / idbKey
+            const mergedMap = new Map<string, any>();
+            localSaved.forEach((c: any) => { if (c.id || c.idbKey) mergedMap.set(c.id || c.idbKey, c); });
+            dbClips.forEach((c: any) => { if (c.id || c.idbKey) mergedMap.set(c.id || c.idbKey, c); });
+
+            setLocalFfClips(Array.from(mergedMap.values()));
+          } else if (localSaved.length > 0) {
+            setLocalFfClips(localSaved);
           }
         })
-        .catch(err => console.warn('Lỗi tải CanhQuay từ PostgreSQL DB:', err));
+        .catch(err => {
+          console.warn('Lỗi tải CanhQuay từ PostgreSQL DB:', err);
+          try {
+            const raw = localStorage.getItem('taman_local_ff_clips');
+            if (raw) setLocalFfClips(JSON.parse(raw));
+          } catch (e) {}
+        });
   }, []);
 
   const handleAddCustomCategory = async (name: string, isPublic: boolean = true) => {

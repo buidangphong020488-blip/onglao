@@ -1083,16 +1083,35 @@ const VideoCreatorModal = (props?: any) => {
         const isPublic = folderTargetScope === 'public';
         const targetUserId = isPublic ? null : ((p.currentUser || p.user)?.id || 'user_private');
 
-        if (p.showToastMsg) p.showToastMsg(`Đang siêu tốc nạp ${files.length} video từ folder vào Kho ${isPublic ? 'Chung' : 'Riêng'}...`, 'loading', 0);
+        if (p.showToastMsg) p.showToastMsg(`Đang chuẩn bị nạp ${files.length} video từ folder vào Kho ${isPublic ? 'Chung' : 'Riêng'}...`, 'loading', 0);
 
         try {
+            // 1. Đọc danh sách clip đã tồn tại trong CSDL PostgreSQL để kiểm tra trùng
+            const existingClips = await fetch('/api/user/canh-quay')
+                .then(r => r.json())
+                .catch(() => []);
+            
+            const existingSignatures = new Set<string>();
+            if (Array.isArray(existingClips)) {
+                existingClips.forEach((c: any) => {
+                    const catKey = (c.category || '').toLowerCase().trim();
+                    const nameKey = (c.name || '').toLowerCase().trim();
+                    if (nameKey) {
+                        existingSignatures.add(`${catKey}::${nameKey}`);
+                        existingSignatures.add(nameKey);
+                    }
+                });
+            }
+
             let addedCount = 0;
+            let skippedCount = 0;
             const newClipsToAdd: any[] = [];
             const createdCategories = new Set<string>();
 
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 const clipName = file.name.replace(/\.[^/.]+$/, "");
+                const clipNameLower = clipName.toLowerCase().trim();
                 
                 // Trích xuất tên Folder chuẩn xác từ webkitRelativePath
                 const relPath = file.webkitRelativePath || file.name;
@@ -1105,13 +1124,41 @@ const VideoCreatorModal = (props?: any) => {
                     categoryName = pathParts[0];
                 }
 
-                // Tự động thêm Chuyên mục mới vào CSDL PostgreSQL nếu chưa tồn tại
+                const catNameLower = categoryName.toLowerCase().trim();
+
+                // KHỬ TRÙNG CLIP: Nếu clip cùng tên đã tồn tại trong Chuyên mục này -> Bỏ qua
+                if (existingSignatures.has(`${catNameLower}::${clipNameLower}`) || existingSignatures.has(clipNameLower)) {
+                    skippedCount++;
+                    continue;
+                }
+
+                if (p.showToastMsg) p.showToastMsg(`Đang tải file video [${addedCount + 1}/${files.length}] lên ổ cứng VPS: "${file.name}"...`, 'loading', 0);
+
+                // Tự động gộp Chuyên mục mới vào CSDL PostgreSQL nếu chưa tồn tại
                 if (!createdCategories.has(categoryName)) {
                     createdCategories.add(categoryName);
                     if (p.handleAddCustomCategory) {
-                        p.handleAddCustomCategory(categoryName, isPublic);
+                        await p.handleAddCustomCategory(categoryName, isPublic);
                     }
                 }
+
+                // 2. Upload file trực tiếp lên ổ cứng VPS Server (/api/upload/canh-quay)
+                let publicUrl = '';
+                let publicPoster = '';
+                try {
+                    const fd = new FormData();
+                    fd.append('file', file);
+                    const upRes = await fetch('/api/upload/canh-quay', { method: 'POST', body: fd });
+                    const upData = await upRes.json();
+                    if (upData.success && upData.url) {
+                        publicUrl = upData.url;
+                        publicPoster = upData.thumbnailUrl || upData.url;
+                    }
+                } catch (upErr) {
+                    console.warn(`Lỗi upload file ${file.name} lên VPS:`, upErr);
+                }
+
+                if (!publicUrl) continue;
 
                 const fileNameLower = file.name.toLowerCase();
                 let detectedRole = 'lao';
@@ -1123,78 +1170,55 @@ const VideoCreatorModal = (props?: any) => {
                 else if (fileNameLower.includes('sad') || fileNameLower.includes('buon')) detectedEmotion = 'sad';
                 else if (fileNameLower.includes('hook') || fileNameLower.includes('intro')) detectedEmotion = 'hook';
 
-                const idbKey = `ff_clip_${detectedRole}_${detectedEmotion}_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 4)}`;
-                // Lưu siêu tốc vào IndexedDB local mà KHÔNG gây đứng bộ nhớ
-                await idb.set(idbKey, file);
-
+                const clipId = `cq_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 4)}`;
                 const newClip = {
-                    id: idbKey,
+                    id: clipId,
                     name: clipName,
                     role: detectedRole,
                     emotion: detectedEmotion,
-                    url: `idb://${idbKey}`,
-                    idbKey: idbKey,
+                    url: publicUrl,
+                    poster: publicPoster,
                     category: categoryName,
                     userId: targetUserId,
                     isPublic
                 };
 
                 newClipsToAdd.push(newClip);
+                existingSignatures.add(`${catNameLower}::${clipNameLower}`);
                 addedCount++;
             }
 
-            // Đồng bộ ngay danh sách clip lên giao diện để người dùng thấy lập tức (0.5s)
-            const currentList = p.localFfClips || [];
-            const updatedList = [...currentList, ...newClipsToAdd];
-            if (p.setLocalFfClips) p.setLocalFfClips(updatedList);
-            localStorage.setItem('taman_local_ff_clips', JSON.stringify(updatedList.map(c => ({
-                id: c.id,
-                name: c.name,
-                role: c.role,
-                emotion: c.emotion,
-                idbKey: c.idbKey,
-                category: c.category,
-                url: c.url,
-                userId: c.userId
-            }))));
+            if (newClipsToAdd.length > 0) {
+                // 3. Đồng bộ danh sách Metadata clip lên CSDL PostgreSQL vĩnh viễn
+                await fetch('/api/user/canh-quay', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: targetUserId,
+                        canhQuay: newClipsToAdd
+                    })
+                });
 
-            // Đồng bộ thông tin metadata CanhQuay lên PostgreSQL CSDL
-            fetch('/api/user/canh-quay', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: targetUserId,
-                    canhQuay: newClipsToAdd.map(c => ({
-                        id: c.id,
-                        name: c.name,
-                        role: c.role,
-                        emotion: c.emotion,
-                        url: c.url,
-                        category: c.category
-                    }))
-                })
-            }).catch(err => console.warn("Lỗi lưu CanhQuay folder lên DB:", err));
-
-            // Upload ngầm các file video lên Server (không chặn UI)
-            (async () => {
-                for (let i = 0; i < files.length; i++) {
-                    try {
-                        const file = files[i];
-                        const clipObj = newClipsToAdd[i];
-                        if (!clipObj) continue;
-                        const fd = new FormData();
-                        fd.append('file', file);
-                        const upRes = await fetch('/api/upload/canh-quay', { method: 'POST', body: fd });
-                        const upData = await upRes.json();
-                        if (upData.success && upData.url) {
-                            clipObj.url = upData.url;
-                        }
-                    } catch (e) {}
+                // 4. Đọc lại danh sách chuẩn từ PostgreSQL CSDL
+                const updatedListFromDb = await fetch('/api/user/canh-quay').then(r => r.json()).catch(() => []);
+                if (Array.isArray(updatedListFromDb) && p.setLocalFfClips) {
+                    p.setLocalFfClips(updatedListFromDb.map((item: any) => ({
+                        id: item.id,
+                        name: item.name,
+                        url: item.url,
+                        poster: item.poster,
+                        role: item.role || 'lao',
+                        category: item.category || item.role || 'lao',
+                        emotion: item.emotion || 'calm',
+                        userId: item.userId || null,
+                        isPublic: item.isPublic !== false
+                    })));
                 }
-            })();
+            }
 
             setPendingFolderFiles([]);
-            if (p.showToastMsg) p.showToastMsg(`🎉 Nạp siêu tốc thành công ${addedCount} clip từ ${createdCategories.size} thư mục vào Kho ${isPublic ? 'Chung' : 'Riêng'}!`, 'success', 5000);
+            const msg = `🎉 Nạp thành công ${addedCount} clip mới vào Kho ${isPublic ? 'Chung' : 'Riêng'} trên VPS!` + (skippedCount > 0 ? ` (Đã bỏ qua ${skippedCount} clip trùng)` : '');
+            if (p.showToastMsg) p.showToastMsg(msg, 'success', 6000);
         } catch (err: any) {
             console.error('Lỗi nạp folder clip:', err);
             if (p.showToastMsg) p.showToastMsg('Có lỗi khi nạp các video từ thư mục!', 'error');
@@ -3135,37 +3159,6 @@ const LibraryClipCard = ({ clip, idx, globalIndex, isSelected, roleName, emotion
                 onClick={() => blobUrl && setPreviewVideoUrl(blobUrl)}
                 title="Click để xem thử clip video này"
             >
-                {/* DẤU CHECK CHỌN TỪNG CLIP TẠI GÓC TRÊN TRÁI CARD */}
-                <button
-                    type="button"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        handleStageClip({ ...clip, url: blobUrl || clip.url, name: displayName });
-                    }}
-                    className={`absolute top-2 left-2 z-20 w-6 h-6 rounded-lg flex items-center justify-center transition-all cursor-pointer shadow-lg ${
-                        isSelected 
-                            ? 'bg-emerald-500 text-white border-2 border-white scale-110 shadow-emerald-500/50' 
-                            : 'bg-black/60 text-slate-400 border border-white/30 hover:border-white hover:text-white hover:bg-black/80'
-                    }`}
-                    title={isSelected ? 'Bỏ chọn clip này' : 'Chọn clip này'}
-                >
-                    <Check size={14} className={isSelected ? 'stroke-[3]' : 'opacity-60'} />
-                </button>
-
-                {/* NÚT XÓA TỪNG CLIP TẠI GÓC TRÊN PHẢI CARD */}
-                <button
-                    type="button"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        if (onDeleteSingle) onDeleteSingle(clip);
-                    }}
-                    className="absolute top-2 right-2 z-20 w-6 h-6 rounded-lg flex items-center justify-center transition-all cursor-pointer bg-black/60 text-rose-400 border border-rose-500/30 hover:bg-rose-600 hover:text-white hover:border-rose-400 shadow-lg"
-                    title="Xóa clip video này khỏi kho"
-                >
-                    <Trash2 size={13} />
-                </button>
-
                 {poster ? (
                     <img src={poster} alt="thumbnail" className="w-full h-full object-cover" />
                 ) : (
@@ -3178,13 +3171,6 @@ const LibraryClipCard = ({ clip, idx, globalIndex, isSelected, roleName, emotion
                         <span className="text-[10px] font-extrabold tracking-wide uppercase opacity-90">{displayName}</span>
                     </div>
                 )}
-                {blobUrl && (
-                    <div className="absolute inset-0 bg-black/30 group-hover/thumb:bg-black/50 transition-colors flex items-center justify-center">
-                        <span className="p-2 bg-indigo-600/90 hover:bg-indigo-500 rounded-full text-white shadow-xl transform group-hover/thumb:scale-110 transition-transform flex items-center justify-center">
-                            <Play size={16} fill="white" className="ml-0.5" />
-                        </span>
-                    </div>
-                )}
             </div>
             <div className="flex flex-col gap-1">
                 <span className="text-[11px] font-bold text-white truncate" title={displayName}>{displayName}</span>
@@ -3195,13 +3181,47 @@ const LibraryClipCard = ({ clip, idx, globalIndex, isSelected, roleName, emotion
                     <span className="text-[9px] text-slate-300 font-semibold truncate bg-slate-800/80 px-1.5 py-0.5 rounded border border-white/5">{emotionName}</span>
                 </div>
             </div>
-            <button
-                type="button"
-                onClick={() => handleStageClip({ ...clip, url: blobUrl || clip.url, name: displayName })}
-                className={`w-full py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${isSinglePickerMode ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md' : (isSelected ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md' : 'bg-indigo-600/80 hover:bg-indigo-600 text-white shadow-sm')}`}
-            >
-                {isSinglePickerMode ? <Check size={12} /> : (isSelected ? <Check size={12} /> : <Plus size={12} />)} {isSinglePickerMode ? 'Chọn Clip Này' : (isSelected ? 'Đã Chọn' : 'Thêm')}
-            </button>
+
+            {/* HÀNG 3 NÚT THAO TÁC CÂN ĐỐI BÊN DƯỚI CARD (+ , PLAY , THÙNG RÁC) */}
+            <div className="flex items-center gap-1.5 mt-1">
+                {/* 1. NÚT THÊM / CHỌN (+) */}
+                <button
+                    type="button"
+                    onClick={() => handleStageClip({ ...clip, url: blobUrl || clip.url, name: displayName })}
+                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 shadow-sm ${
+                        isSelected 
+                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/50' 
+                            : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                    }`}
+                    title={isSelected ? 'Bỏ chọn clip này' : 'Thêm clip vào kịch bản (+)'}
+                >
+                    {isSelected ? <Check size={15} className="stroke-[2.5]" /> : <Plus size={15} className="stroke-[2.5]" />}
+                </button>
+
+                {/* 2. NÚT XEM THỬ PLAY (▶) */}
+                <button
+                    type="button"
+                    onClick={() => blobUrl && setPreviewVideoUrl(blobUrl)}
+                    className="flex-1 py-1.5 bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white rounded-xl border border-white/10 text-xs font-bold transition-all flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 shadow-sm"
+                    title="Xem thử video clip (▶)"
+                >
+                    <Play size={14} fill="currentColor" className="ml-0.5" />
+                </button>
+
+                {/* 3. NÚT XÓA THÙNG RÁC (🗑️) */}
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        if (onDeleteSingle) onDeleteSingle(clip);
+                    }}
+                    className="flex-1 py-1.5 bg-rose-950/60 hover:bg-rose-600 text-rose-400 hover:text-white rounded-xl border border-rose-500/30 hover:border-rose-500 text-xs font-bold transition-all flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 shadow-sm"
+                    title="Xóa clip này khỏi kho (🗑️)"
+                >
+                    <Trash2 size={14} />
+                </button>
+            </div>
         </div>
     );
 };

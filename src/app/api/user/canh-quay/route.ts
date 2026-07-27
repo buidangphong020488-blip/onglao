@@ -28,11 +28,20 @@ export async function GET(request: NextRequest) {
       } : { isPublic: true };
     }
 
-    const list = await prisma.canhQuay.findMany({
-      where: whereCondition,
-      orderBy: { createdAt: 'desc' },
-    });
-    return NextResponse.json(list);
+    try {
+      const list = await prisma.canhQuay.findMany({
+        where: whereCondition,
+        orderBy: { createdAt: 'desc' },
+      });
+      return NextResponse.json(list);
+    } catch (dbErr: any) {
+      // Fallback query if isPublic column is not queryable
+      const fallbackList = await prisma.canhQuay.findMany({
+        where: userId ? { userId } : {},
+        orderBy: { createdAt: 'desc' },
+      });
+      return NextResponse.json(fallbackList);
+    }
   } catch (error: any) {
     console.error('[/api/user/canh-quay] DB Error:', error?.message || error);
     return NextResponse.json([], { status: 200 });
@@ -56,6 +65,7 @@ export async function POST(req: NextRequest) {
           emotion: data.emotion ? String(data.emotion) : 'calm',
           url: data.url ? String(data.url) : null,
           poster: data.poster ? String(data.poster) : null,
+          isPublic: data.isPublic !== undefined ? Boolean(data.isPublic) : true,
           assetsNgang: data.assetsNgang || undefined,
           assetsDoc: data.assetsDoc || undefined,
         } as any,
@@ -69,6 +79,7 @@ export async function POST(req: NextRequest) {
           emotion: data.emotion ? String(data.emotion) : 'calm',
           url: data.url ? String(data.url) : null,
           poster: data.poster ? String(data.poster) : null,
+          isPublic: data.isPublic !== undefined ? Boolean(data.isPublic) : true,
           assetsNgang: data.assetsNgang || undefined,
           assetsDoc: data.assetsDoc || undefined,
         } as any
@@ -91,6 +102,7 @@ export async function POST(req: NextRequest) {
             emotion: item.emotion || 'calm',
             url: item.url || null,
             poster: item.poster || null,
+            isPublic: item.isPublic !== undefined ? Boolean(item.isPublic) : true,
             assetsNgang: item.assets?.ngang || item.assetsNgang || undefined,
             assetsDoc: item.assets?.doc || item.assetsDoc || undefined,
           },
@@ -104,6 +116,7 @@ export async function POST(req: NextRequest) {
             emotion: item.emotion || 'calm',
             url: item.url || null,
             poster: item.poster || null,
+            isPublic: item.isPublic !== undefined ? Boolean(item.isPublic) : true,
             assetsNgang: item.assets?.ngang || item.assetsNgang || undefined,
             assetsDoc: item.assets?.doc || item.assetsDoc || undefined,
           },
