@@ -15,6 +15,7 @@ import { useVideoExport } from "./hooks/useVideoExport";
 import { useLiveStreaming } from "./hooks/useLiveStreaming";
 import { createChatSessionAction, saveChatMessageAction, getChatMessagesAction, deleteChatSessionAction, togglePinChatSessionAction } from "@/actions/chat";
 import { idb } from "./constants";
+import { createManagedBlobUrl, autoReleaseRamMemory as autoReleaseRamMemoryUtil } from "./utils/ramManager";
 import { CheckCircle2, AlertTriangle, Sparkles, Loader2, X } from "lucide-react";
 const normalizeAudioUrl = (url: string | null | undefined): string | null => {
   if (!url) return null;
@@ -255,18 +256,29 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
     } catch (e) {}
   }, []);
 
-  const unlockAudio = React.useCallback(() => {
-    try {
-      if (typeof window !== 'undefined') {
+  // Tự động Unlock Audio khi người dùng nhấp hoặc tương tác bất kỳ trên trang
+  React.useEffect(() => {
+    const handleGlobalUnlock = () => {
+      try {
         if (!unlockedAudioRef.current) {
-          const audio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
-          audio.play().then(() => audio.pause()).catch(() => {});
-          unlockedAudioRef.current = audio;
+          const a = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
+          a.play().then(() => a.pause()).catch(() => {});
+          unlockedAudioRef.current = a;
         } else {
           unlockedAudioRef.current.play().then(() => unlockedAudioRef.current?.pause()).catch(() => {});
         }
-      }
-    } catch (e) {}
+      } catch (e) {}
+    };
+
+    window.addEventListener('click', handleGlobalUnlock, { capture: true });
+    window.addEventListener('touchstart', handleGlobalUnlock, { capture: true });
+    window.addEventListener('keydown', handleGlobalUnlock, { capture: true });
+
+    return () => {
+      window.removeEventListener('click', handleGlobalUnlock, { capture: true });
+      window.removeEventListener('touchstart', handleGlobalUnlock, { capture: true });
+      window.removeEventListener('keydown', handleGlobalUnlock, { capture: true });
+    };
   }, []);
 
   const audioCtxRef = React.useRef<AudioContext | null>(null);
@@ -298,7 +310,7 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
           const key = audioUrl.replace('idb://', '');
           const blob = await idb.get(key);
           if (blob) {
-            playSrc = URL.createObjectURL(blob);
+            playSrc = createManagedBlobUrl(blob);
           }
         } catch (e) {
           console.warn('Lỗi đọc audio idb:', e);
@@ -314,7 +326,7 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
             u8arr[n] = bstr.charCodeAt(n);
           }
           const blob = new Blob([u8arr], { type: mime });
-          playSrc = URL.createObjectURL(blob);
+          playSrc = createManagedBlobUrl(blob);
         } catch (e) {
           console.warn('Lỗi convert dataUrl sang Blob:', e);
         }
@@ -345,8 +357,13 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
       const p = audio.play();
       if (p !== undefined) {
         await p.catch((err) => {
-          console.warn('Autoplay catch:', err);
-          finishOnce();
+          console.warn('Autoplay catch error:', err);
+          const retryOnClick = () => {
+            audio.play().catch(() => {});
+            window.removeEventListener('click', retryOnClick);
+          };
+          window.addEventListener('click', retryOnClick, { once: true });
+          showToastMsg('Nhấp chuột bất kỳ vào trang để nghe giọng đọc của Lão!', 'info');
         });
       }
     } catch (err) {
@@ -581,6 +598,8 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
 
     if (audioUrl) {
       enqueueAudio(audioUrl, msgId);
+    } else if (msgObj && (msgObj.text || msgObj.content)) {
+      generateVoice(msgId, msgObj.text || msgObj.content, role || 'ai', currentSessionId, true);
     }
   }, [currentlyPlayingId, clearAudioQueue, enqueueAudio, poemDbState, currentSessionId, generateVoice, parseMessageParts, processAudioQueue]);
 
@@ -702,7 +721,11 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
   const handleSendMessage = async (text: string, emotion: string = 'calm') => {
     if (!text.trim()) return;
     autoReleaseRamMemory();
-    unlockAudio();
+    try {
+      if (unlockedAudioRef.current) {
+        unlockedAudioRef.current.play().then(() => unlockedAudioRef.current?.pause()).catch(() => {});
+      }
+    } catch (e) {}
 
     let activeSessionId = currentSessionId;
     if (!activeSessionId) {
@@ -941,10 +964,6 @@ YÊU CẦU: Lão đã cất lời mào đầu và đọc bài kệ trên cho ng�
       }
       return s;
     }));
-
-    if (poemDbState?.updateCurrentMessages && (!activeId || activeId === currentSessionId)) {
-      poemDbState.updateCurrentMessages(updater);
-    }
   };
 
   const handleCreateSession = React.useCallback(async () => {
@@ -982,23 +1001,9 @@ YÊU CẦU: Lão đã cất lời mào đầu và đọc bài kệ trên cho ng�
       showToastMsg('Đã tạo cuộc đàm đạo mới thành công!', 'success');
     } catch (err: any) {
       console.error('Lỗi handleCreateSession:', err);
-      const fallbackSession = {
-        id: `session_${Date.now()}`,
-        title: `Cuộc đàm đạo ${sessions.length + 1}`,
-        type: "chat",
-        isPinned: false,
-        messages: [],
-        messagesLoaded: true,
-        createdAt: new Date()
-      };
-      setSessions((prev: any[]) => [fallbackSession, ...prev]);
-      setCurrentSessionId(fallbackSession.id);
-      if (poemDbState?.updateCurrentMessages) {
-        poemDbState.updateCurrentMessages([]);
-      }
-      showToastMsg('Đã khởi tạo cuộc đàm đạo mới!', 'info');
+      showToastMsg(`Lỗi khởi tạo phiên đàm đạo CSDL: ${err.message || 'Thất bại'}`, 'warning');
     }
-  }, [sessions.length, authState.user, authState.currentUser, poemDbState, showToastMsg]);
+  }, [authState.user, authState.currentUser, showToastMsg]);
 
   const handleDeleteSession = React.useCallback(async (sessionId: string, e?: any) => {
     if (e) e.stopPropagation();
@@ -1055,6 +1060,61 @@ YÊU CẦU: Lão đã cất lời mào đầu và đọc bài kệ trên cho ng�
       authState.setShowAuthModal(val);
     }
   }, [authState]);
+
+  const [isRecording, setIsRecording] = React.useState(false);
+  const recognitionRef = React.useRef<any>(null);
+
+  const toggleMic = React.useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      showToastMsg('Trình duyệt của bạn chưa hỗ trợ nhận diện giọng nói WebSpeech API', 'warning');
+      return;
+    }
+
+    if (isRecording && recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (e) {}
+      setIsRecording(false);
+      showToastMsg('Đã dừng ghi âm mic', 'info');
+      return;
+    }
+
+    try {
+      const rec = new SpeechRecognition();
+      rec.lang = 'vi-VN';
+      rec.continuous = false;
+      rec.interimResults = true;
+
+      rec.onstart = () => {
+        setIsRecording(true);
+        showToastMsg('Đang lắng nghe lời thưa thỉnh của bạn...', 'info');
+      };
+
+      rec.onresult = (e: any) => {
+        const transcript = Array.from(e.results)
+          .map((r: any) => r[0].transcript)
+          .join('');
+        // Ghi chú: Cần setInputText nếu tồn tại trong component này
+      };
+
+      rec.onerror = (e: any) => {
+        console.warn('SpeechRecognition error:', e);
+        setIsRecording(false);
+        showToastMsg(`Lỗi mic: ${e.error || 'không thể ghi âm'}`, 'warning');
+      };
+
+      rec.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognitionRef.current = rec;
+      rec.start();
+    } catch (err: any) {
+      console.error('toggleMic error:', err);
+      setIsRecording(false);
+      showToastMsg('Lỗi khởi động Mic: ' + err.message, 'warning');
+    }
+  }, [isRecording, showToastMsg]);
 
   // Gộp state chung để truyền vào các component mô-đun
   const passProps = {

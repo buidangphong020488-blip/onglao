@@ -11,7 +11,8 @@ export async function GET() {
     });
     return NextResponse.json(list);
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('[/api/user/canh-quay/categories] DB Error:', error?.message || error);
+    return NextResponse.json([], { status: 200 });
   }
 }
 

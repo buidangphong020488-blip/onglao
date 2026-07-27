@@ -16,6 +16,8 @@ import {
   ChevronDown,
 } from "lucide-react";
 
+import { deleteChatSessionAction } from "@/actions/chat";
+
 export const SessionsSidebar = (props?: { p?: any }) => {
   const p = props?.p || {};
 
@@ -69,12 +71,17 @@ export const SessionsSidebar = (props?: { p?: any }) => {
     setEditingSessionId(null);
   });
 
-  const handleDeleteSession = p.handleDeleteSession || ((id: string, e?: any) => {
+  const handleDeleteSession = (id: string, e?: any) => {
     if (e) e.stopPropagation();
-    if (setSessions) {
-      setSessions((prev: any[]) => prev.filter((s: any) => s.id !== id));
+    if (typeof p.handleDeleteSession === 'function') {
+      p.handleDeleteSession(id, e);
+    } else {
+      if (setSessions) {
+        setSessions((prev: any[]) => prev.filter((s: any) => s.id !== id));
+      }
+      deleteChatSessionAction(id).catch(err => console.warn('Lỗi xóa session DB:', err));
     }
-  });
+  };
 
   if (!showSessions) return null;
 

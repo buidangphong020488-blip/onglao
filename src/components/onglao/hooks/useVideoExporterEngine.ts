@@ -508,12 +508,8 @@ export const useVideoExporterEngine = ({
           }
       }
 
-      // Fallback an toàn nếu hoàn toàn không tìm thấy thoại nào
       if (!validMessages || validMessages.length === 0) {
-          validMessages = [
-              { id: 'fallback_render_1', role: 'user', text: 'Con kính chào Lão! Hôm nay tâm con an nhiên.', emotion: 'joy' },
-              { id: 'fallback_render_2', role: 'ai', text: 'Chào con! Giữ vững tâm an, buông xả muộn phiền.', emotion: 'calm' }
-          ];
+          throw new Error('Không tìm thấy câu thoại nào trong CSDL để dựng video.');
       }
 
       // Chỉ dùng audio sẵn có trên ổ cứng/CSDL — không sinh TTS tự động

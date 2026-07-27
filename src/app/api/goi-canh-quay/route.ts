@@ -27,7 +27,8 @@ export async function GET(req: NextRequest) {
     });
     return NextResponse.json(list);
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('[/api/goi-canh-quay] DB Error:', error?.message || error);
+    return NextResponse.json({ success: false, message: `Lỗi CSDL PostgreSQL: ${error?.message}` }, { status: 500 });
   }
 }
 

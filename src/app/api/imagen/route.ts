@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSystemSettings } from '@/lib/settings';
+import { getSystemSettingsAsync, getApiKeyList, getRotatedApiKey } from '@/lib/settings';
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,10 +9,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Thiếu trường prompt.' }, { status: 400 });
     }
 
-    const settings = getSystemSettings();
-    const apiKey = settings.apiKey || process.env.GEMINI_API_KEY || '';
+    const settings = await getSystemSettingsAsync();
+    const apiKeyList = getApiKeyList(settings.apiKey);
+    const apiKey = getRotatedApiKey(settings.apiKey);
 
-    if (!apiKey) {
+    if (apiKeyList.length === 0) {
       return NextResponse.json(
         { message: 'Chưa cấu hình Gemini API Key trên hệ thống.' },
         { status: 401 }

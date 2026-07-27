@@ -8,10 +8,10 @@ export async function GET() {
         createdAt: 'desc',
       },
     });
-    
+
     return NextResponse.json(characters);
-  } catch (error) {
-    console.error('Error fetching characters:', error);
-    return NextResponse.json({ error: 'Failed to fetch characters' }, { status: 500 });
+  } catch (error: any) {
+    console.error('Error fetching characters from DB:', error);
+    return NextResponse.json({ message: `Lỗi truy vấn CSDL PostgreSQL: ${error.message}` }, { status: 500 });
   }
 }

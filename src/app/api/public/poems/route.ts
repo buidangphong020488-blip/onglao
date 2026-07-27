@@ -87,6 +87,6 @@ export async function GET() {
     return NextResponse.json({ success: true, data: poems });
   } catch (err: any) {
     console.error("Lỗi GET /api/public/poems:", err);
-    return NextResponse.json({ success: false, error: err.message || 'Lỗi server' }, { status: 500 });
+    return NextResponse.json({ success: false, message: `Lỗi CSDL PostgreSQL: ${err.message}` }, { status: 500 });
   }
 }

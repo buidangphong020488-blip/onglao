@@ -164,3 +164,19 @@ export function maskApiKey(key: string): string {
   if (key.length <= 10) return '******';
   return `${key.slice(0, 6)}...${key.slice(-4)}`;
 }
+
+let keyRotationIndex = 0;
+
+export function getApiKeyList(apiKeyString?: string): string[] {
+  const raw = apiKeyString || process.env.GEMINI_API_KEY || '';
+  if (!raw) return [];
+  return raw.split(',').map(k => k.trim()).filter(k => k.length > 0);
+}
+
+export function getRotatedApiKey(apiKeyString?: string): string {
+  const list = getApiKeyList(apiKeyString);
+  if (list.length === 0) return '';
+  const key = list[keyRotationIndex % list.length];
+  keyRotationIndex = (keyRotationIndex + 1) % list.length;
+  return key;
+}

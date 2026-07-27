@@ -11,9 +11,9 @@
  * Response: { audioUrl: string (/uploads/audio/xxx.wav), mimeType: string }
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { getSystemSettingsAsync } from '@/lib/settings';
 import fs from 'fs';
 import path from 'path';
+import { getSystemSettingsAsync, getApiKeyList, getRotatedApiKey } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,12 +26,13 @@ export async function POST(req: NextRequest) {
     const { text, voiceName, model, userId } = body;
 
     const systemSettings = await getSystemSettingsAsync();
-    const apiKey = systemSettings.apiKey || '';
+    const apiKeyList = getApiKeyList(systemSettings.apiKey);
+    const apiKey = getRotatedApiKey(systemSettings.apiKey);
 
     if (!text) {
       return NextResponse.json({ message: 'Thiếu trường bắt buộc: text.' }, { status: 400 });
     }
-    if (!apiKey) {
+    if (apiKeyList.length === 0) {
       return NextResponse.json(
         { message: 'Chưa cấu hình Gemini API Key. Vui lòng cấu hình trong trang Admin.' },
         { status: 401 }

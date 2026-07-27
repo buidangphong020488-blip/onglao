@@ -398,6 +398,10 @@ const VideoCreatorModal = (props?: any) => {
       }
   };
   const handleGenerateSingleAudio = async (msgId: string, text: string, role: string) => {
+      if (!text || !text.trim()) {
+          p.showToastMsg?.("Thiếu thông số: Nội dung câu thoại đang rỗng, không thể tạo tiếng đọc.", "warning");
+          return;
+      }
       if (generatingMsgIds[msgId]) return;
       setGeneratingMsgIds(prev => ({ ...prev, [msgId]: true }));
       try {
@@ -519,6 +523,26 @@ const VideoCreatorModal = (props?: any) => {
     const hasRedundant = Boolean(hasMessageScenes && p.ffScenes.some((s: any) => !s.msgId && s.role !== 'outro'));
 
     if (hasMessageScenes) {
+        // Tự động đồng bộ textSnippet & audioUrl nếu tin nhắn trong p.messages thay đổi
+        let hasTextOrAudioChange = false;
+        const syncedScenes = p.ffScenes.map((s: any) => {
+            if (!s.msgId) return s;
+            const targetMsg = p.messages.find((m: any) => String(m.id) === String(s.msgId));
+            if (!targetMsg) return s;
+            const newText = targetMsg.text || targetMsg.content || '';
+            const newAudio = targetMsg.audioUrl || null;
+            if (s.textSnippet !== newText || (newAudio && s.audioUrl !== newAudio)) {
+                hasTextOrAudioChange = true;
+                return { ...s, textSnippet: newText, audioUrl: newAudio || s.audioUrl };
+            }
+            return s;
+        });
+
+        if (hasTextOrAudioChange) {
+            p.setFfScenes(syncedScenes);
+            return;
+        }
+
         if (!isStale && !hasRedundant) return; // Đã sạch sẽ và đồng bộ rồi, không cần làm lại
         if (hasRedundant && !isStale) {
             // Lọc bỏ tất cả các scene dư thừa mà không reset lại URL của các scene hợp lệ

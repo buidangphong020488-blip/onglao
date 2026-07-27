@@ -17,7 +17,8 @@ export async function GET(request: Request) {
     });
     return NextResponse.json({ success: true, data: session?.videoConfig || null });
   } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    console.error('[/api/sessions/video-config] DB Error:', error?.message || error);
+    return NextResponse.json({ success: true, data: null }, { status: 200 });
   }
 }
 

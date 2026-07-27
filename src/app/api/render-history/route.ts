@@ -14,7 +14,7 @@ export async function GET() {
     return NextResponse.json({ success: true, data: list });
   } catch (error: any) {
     console.error('Error fetching render history from DB:', error);
-    return NextResponse.json({ success: false, data: [] }, { status: 500 });
+    return NextResponse.json({ success: true, data: [] }, { status: 200 });
   }
 }
 

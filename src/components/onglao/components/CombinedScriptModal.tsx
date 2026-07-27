@@ -74,7 +74,11 @@ const CombinedScriptModal = (p: CombinedScriptModalProps) => {
                     <button 
                         onClick={() => {
                             handleCloseModal();
-                            window.location.href = '/?modal=ai-director';
+                            if (typeof window !== 'undefined') {
+                                const url = new URL(window.location.href);
+                                url.searchParams.set('modal', 'ai-director');
+                                window.history.pushState({}, '', url.toString());
+                            }
                         }} 
                         className="px-3.5 py-2 bg-indigo-900/60 hover:bg-indigo-800 border border-indigo-500/30 text-indigo-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
                         title="Quay lại Danh sách Kịch bản"
@@ -84,7 +88,6 @@ const CombinedScriptModal = (p: CombinedScriptModalProps) => {
                     <button 
                         onClick={() => {
                             handleCloseModal();
-                            window.location.href = '/';
                         }} 
                         className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
                         title="Quay lại Thiền đường"

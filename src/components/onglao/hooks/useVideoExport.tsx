@@ -679,14 +679,14 @@ export const useVideoExport = ({
   
   // TÂM AN FIX: Thay đổi video khởi tạo mặc định thành Lão Hoa từ DB
   const [laoCustomVideos, setLaoCustomVideos] = useState({ 
-      idle: '/uploads/nghe_hoa_1783742959170.mp4',
-      talking: '/uploads/noi_hoa_1783742961845.mp4'
+      idle: '/lao_co_nen/laohoa/nghe_hoa.mp4',
+      talking: '/lao_co_nen/laohoa/noi_hoa.mp4'
   });
   
   // Video mặc định cho Khung Chat (Lão Hóa người thật)
   const [chatLaoVideos, setChatLaoVideos] = useState({ 
-      idle: '/uploads/nghe_hoa_1783742959170.mp4',
-      talking: '/uploads/noi_hoa_1783742961845.mp4'
+      idle: '/lao_co_nen/laohoa/nghe_hoa.mp4',
+      talking: '/lao_co_nen/laohoa/noi_hoa.mp4'
   });
   
   const laoExportVidRefs = useRef<any>({ idle: null, talking: null });
@@ -1059,8 +1059,8 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
                   role: 'lao',
                   visualType: 'video',
                   assets: {
-                      idle: vp.listenVideo || '/uploads/nghe_hoa_1783742959170.mp4',
-                      talking: vp.speakVideo || '/uploads/noi_hoa_1783742961845.mp4'
+                      idle: vp.listenVideo || '/lao_co_nen/laohoa/nghe_hoa.mp4',
+                      talking: vp.speakVideo || '/lao_co_nen/laohoa/noi_hoa.mp4'
                   },
                   chromaSettings: { mode: 'manual', chromaType: 'none', tolerance: 50, smoothness: 20 },
                   recommendedScale: 1.8,

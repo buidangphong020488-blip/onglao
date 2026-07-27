@@ -7,14 +7,35 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get('userId');
+  const isPublicParam = searchParams.get('isPublic');
 
   try {
+    let whereCondition: any;
+    if (isPublicParam !== null) {
+      const isPub = isPublicParam === 'true';
+      whereCondition = userId ? {
+        OR: [
+          { isPublic: isPub },
+          { userId: userId }
+        ]
+      } : { isPublic: isPub };
+    } else {
+      whereCondition = userId ? {
+        OR: [
+          { isPublic: true },
+          { userId: userId }
+        ]
+      } : { isPublic: true };
+    }
+
     const list = await prisma.canhQuay.findMany({
+      where: whereCondition,
       orderBy: { createdAt: 'desc' },
     });
     return NextResponse.json(list);
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('[/api/user/canh-quay] DB Error:', error?.message || error);
+    return NextResponse.json([], { status: 200 });
   }
 }
 
@@ -33,6 +54,7 @@ export async function POST(req: NextRequest) {
           phanMucId: data.phanMucId ? String(data.phanMucId) : undefined,
           role: data.role ? String(data.role) : 'lao',
           emotion: data.emotion ? String(data.emotion) : 'calm',
+          isPublic: data.isPublic !== undefined ? Boolean(data.isPublic) : true,
           url: data.url ? String(data.url) : null,
           poster: data.poster ? String(data.poster) : null,
           assetsNgang: data.assetsNgang || undefined,
@@ -46,6 +68,7 @@ export async function POST(req: NextRequest) {
           category: data.category ? String(data.category) : 'lao',
           role: data.role ? String(data.role) : 'lao',
           emotion: data.emotion ? String(data.emotion) : 'calm',
+          isPublic: data.isPublic !== undefined ? Boolean(data.isPublic) : true,
           url: data.url ? String(data.url) : null,
           poster: data.poster ? String(data.poster) : null,
           assetsNgang: data.assetsNgang || undefined,

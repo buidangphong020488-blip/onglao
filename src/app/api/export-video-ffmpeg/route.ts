@@ -11,6 +11,27 @@ const execAsync = promisify(exec);
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
+const MAX_CONCURRENT_RENDERS = 3;
+let activeRenderCount = 0;
+const renderTaskQueue: Array<() => Promise<void>> = [];
+
+async function enqueueRenderTask(taskFn: () => Promise<void>) {
+  if (activeRenderCount < MAX_CONCURRENT_RENDERS) {
+    activeRenderCount++;
+    try {
+      await taskFn();
+    } finally {
+      activeRenderCount--;
+      if (renderTaskQueue.length > 0) {
+        const nextTask = renderTaskQueue.shift();
+        if (nextTask) enqueueRenderTask(nextTask);
+      }
+    }
+  } else {
+    renderTaskQueue.push(taskFn);
+  }
+}
+
 // Hàm xử lý Render Video ngầm trên Server (Async Background Task)
 async function runFfmpegBackgroundProcess({
   taskId,
@@ -134,7 +155,7 @@ async function runFfmpegBackgroundProcess({
       ``,
       `[V4+ Styles]`,
       `Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding`,
-      `Style: Karaoke,Arial,36,&H0000FFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,3,1,2,30,30,55,1`,
+      `Style: Karaoke,Arial,52,&H0000FFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,4,2,2,40,40,65,1`,
       ``,
       `[Events]`,
       `Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
@@ -151,17 +172,28 @@ async function runFfmpegBackgroundProcess({
 
     for (let i = 0; i < scenes.length; i++) {
       const sc = scenes[i];
-      const clipDuration = Number(sc.duration) || 3.5;
+      // Khớp chính xác thời lượng clip theo audioDuration thoại của người nói (Tránh lệch cảnh Vấn đề 4)
+      const clipDuration = Number(sc.audioDuration) || Number(sc.duration) || 3.5;
       const text = (sc.textSnippet || sc.text || sc.content || '').trim();
       if (text) {
         const words = text.split(/\s+/).filter(Boolean);
         if (words.length > 0) {
-          const totalCs = Math.floor(clipDuration * 100);
-          const csPerWord = Math.max(5, Math.floor(totalCs / words.length));
-          const karaokeText = words.map((w: string) => `{\\kf${csPerWord}}${w}`).join(' ');
-          const startTimeStr = formatAssTime(currentTime);
-          const endTimeStr = formatAssTime(currentTime + clipDuration);
-          assLines.push(`Dialogue: 0,${startTimeStr},${endTimeStr},Karaoke,,0,0,0,,${karaokeText}`);
+          // Chia câu thoại dài thành từng vế ngắn 6 từ để phụ đề to rõ nét (Giải quyết Vấn đề 5)
+          const chunkSize = 6;
+          const chunkCount = Math.ceil(words.length / chunkSize);
+          const chunkDuration = clipDuration / chunkCount;
+
+          for (let c = 0; c < chunkCount; c++) {
+            const subWords = words.slice(c * chunkSize, (c + 1) * chunkSize);
+            const subStart = currentTime + c * chunkDuration;
+            const subEnd = subStart + chunkDuration;
+            const totalCs = Math.floor(chunkDuration * 100);
+            const csPerWord = Math.max(5, Math.floor(totalCs / subWords.length));
+            const karaokeText = subWords.map((w: string) => `{\\kf${csPerWord}}${w}`).join(' ');
+            const startTimeStr = formatAssTime(subStart);
+            const endTimeStr = formatAssTime(subEnd);
+            assLines.push(`Dialogue: 0,${startTimeStr},${endTimeStr},Karaoke,,0,0,0,,${karaokeText}`);
+          }
         }
       }
       currentTime += clipDuration;
@@ -375,8 +407,8 @@ export async function POST(req: NextRequest) {
       create: { id: taskId, title: title || 'Video Render (Đang xử lý...)', videoUrl: 'PROCESSING', sessionId: sessionId || undefined, aspectRatio: aspectRatio || '16:9' }
     });
 
-    // KHỞI CHẠY TÁC VỤ RENDER NGẦM BẤT ĐỒNG BỘ (Background Task - Trả về ngay trong 0.05s)
-    runFfmpegBackgroundProcess({
+    // KHỞI CHẠY TÁC VỤ RENDER NGẦM BẤT ĐỒNG BỘ (Bao bọc hàng chờ giới hạn Concurrency = 3)
+    enqueueRenderTask(() => runFfmpegBackgroundProcess({
       taskId,
       tmpDir,
       scenes,
@@ -391,7 +423,7 @@ export async function POST(req: NextRequest) {
       title,
       sessionId,
       ffmpegBin,
-    });
+    }));
 
     // Trả về kết quả ngay lập tức cho Trình duyệt
     return NextResponse.json({

@@ -119,7 +119,13 @@ const YouTubeLivePlayer = React.forwardRef(({ videoId, onEnded, onProgress, onEr
                 try { playerRef.current.destroy(); } catch (e) {}
             }
         };
-    }, []); // Bỏ videoId khỏi deps để tránh nạp lại Player gây kẹt hình
+    }, []);
+
+    useEffect(() => {
+        if (videoId && playerRef.current && playerRef.current.loadVideoById) {
+            try { playerRef.current.loadVideoById(videoId); } catch (e) {}
+        }
+    }, [videoId]);
 
     return (
         <div className="w-full h-full pointer-events-none bg-black flex items-center justify-center">

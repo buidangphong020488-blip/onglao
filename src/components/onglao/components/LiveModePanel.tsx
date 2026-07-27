@@ -550,6 +550,44 @@ const LiveModePanel = (props?: { p?: any }) => {
                           </div>
                       )}
                       
+                      {/* HÌNH TƯỚNG LÃI KHAI THỊ */}
+                      <div className="bg-slate-900/95 border border-cyan-500/30 p-3 rounded-xl shadow-2xl backdrop-blur-md flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-xs font-bold text-cyan-400 flex items-center gap-1.5"><Bot size={14}/> Hình Tướng Lão Khai Thị</h3>
+                          <button onClick={() => document.getElementById('upload-live-lao-avatar-file')?.click()} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded border border-white/10 text-[9px] font-bold flex items-center gap-1 transition-colors">
+                            <Upload size={10}/> Tải Avatar Video
+                          </button>
+                          <input type="file" id="upload-live-lao-avatar-file" className="hidden" accept="video/*" onChange={(e: any) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const url = URL.createObjectURL(file);
+                            if (typeof handleChangeChatLao === 'function') {
+                              handleChangeChatLao({ id: `custom_${Date.now()}`, name: file.name, listenVideo: url, speakVideo: url });
+                            }
+                            if (typeof showToastMsg === 'function') showToastMsg('Đã nạp video Hình Tướng mới vào Livestream!', 'success');
+                          }} />
+                        </div>
+                        <select
+                          className="w-full bg-slate-800 border border-white/10 text-xs px-2 py-2 rounded-lg outline-none text-white focus:border-cyan-500 cursor-pointer"
+                          value={currentLaoPresetId || ''}
+                          onChange={(e: any) => {
+                            const val = e.target.value;
+                            const found = (allCharacters || []).find((c: any) => c.id === val);
+                            if (found && typeof applyCharacterPreset === 'function') {
+                              applyCharacterPreset(found);
+                            }
+                          }}
+                        >
+                          {(allCharacters && allCharacters.length > 0 ? allCharacters : [
+                            { id: 'lao_hoa', name: 'Lão Hoa (Mặc Định)' },
+                            { id: 'lao_co', name: 'Lão Cổ Bích' },
+                            { id: 'lao_trang', name: 'Lão Bạch Y' }
+                          ]).map((char: any) => (
+                            <option key={char.id} value={char.id}>{char.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
                       <input type="file" multiple accept="video/*" id="upload-live-idle-input" className="hidden" onChange={(e: any) => {
                           const files = Array.from(e.target.files);
                           if (files.length === 0) return;

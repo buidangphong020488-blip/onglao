@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (count === 0) {
-      return NextResponse.json({ data: null, message: 'No opening phrase with audio available' });
+      return NextResponse.json({ data: null, message: 'Không có câu mào đầu nào trong CSDL' }, { status: 404 });
     }
 
     const skip = Math.floor(Math.random() * count);
@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ data: item });
   } catch (err: any) {
-    return NextResponse.json({ message: err.message }, { status: 500 });
+    console.error('[/api/opening-phrases/random] DB Error:', err?.message || err);
+    return NextResponse.json({ data: null, message: `Lỗi CSDL PostgreSQL: ${err.message}` }, { status: 500 });
   }
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSystemSettings } from '@/lib/settings';
+import { getSystemSettingsAsync } from '@/lib/settings';
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Thiếu mã kích hoạt.' }, { status: 400 });
     }
 
-    const settings = getSystemSettings();
+    const settings = await getSystemSettingsAsync();
     const codes = settings.subscribeCodes
       .split(',')
       .map(c => c.trim().toUpperCase())

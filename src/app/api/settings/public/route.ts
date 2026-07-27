@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSystemSettings } from '@/lib/settings';
+import { getSystemSettingsAsync } from '@/lib/settings';
 
 export async function GET(req: NextRequest) {
   try {
-    const settings = getSystemSettings();
+    const settings = await getSystemSettingsAsync();
     return NextResponse.json({
       modelName: settings.modelName,
       ttsModel: settings.ttsModel,

@@ -38,10 +38,13 @@ export async function saveChatMessageAction(
   emotion?: string | null
 ) {
   try {
-    let prismaRole: MessageRole;
-    if (role === "USER") prismaRole = MessageRole.USER;
-    else if (role === "ASSISTANT") prismaRole = MessageRole.ASSISTANT;
-    else prismaRole = MessageRole.SYSTEM;
+    let prismaRole: MessageRole = MessageRole.USER;
+    const rUpper = String(role || '').toUpperCase();
+    if (rUpper === 'USER') prismaRole = MessageRole.USER;
+    else if (rUpper === 'ASSISTANT' || rUpper === 'AI' || rUpper === 'LAO') prismaRole = MessageRole.ASSISTANT;
+    else if (rUpper === 'OUTRO') prismaRole = MessageRole.OUTRO;
+    else if (rUpper === 'SYSTEM') prismaRole = MessageRole.SYSTEM;
+    else prismaRole = MessageRole.USER;
 
     // Đảm bảo ChatSession tồn tại trước khi upsert ChatMessage
     const sessionExists = await prisma.chatSession.findUnique({ where: { id: sessionId } });
