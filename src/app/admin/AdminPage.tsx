@@ -1338,43 +1338,9 @@ export default function AdminPage() {
           )}
 
           {activeTab === 'kho_ke_phap' && (
-            <div className="flex flex-col gap-5 h-[82vh]">
-              {/* SUB-TABS */}
-              <div className="flex bg-slate-950 shrink-0 rounded-xl overflow-hidden p-1 gap-1 border border-white/5 w-full">
-                <button 
-                  onClick={() => setKePhapSubTab('poems')} 
-                  className={`flex-1 py-2 rounded-lg text-xs font-bold tracking-wider transition-all ${
-                    kePhapSubTab === 'poems' 
-                      ? 'bg-emerald-600 text-white shadow-lg' 
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                  }`}
-                >
-                  Kho Kệ Pháp
-                </button>
-                <button 
-                  onClick={() => setKePhapSubTab('greetings')} 
-                  className={`flex-1 py-2 rounded-lg text-xs font-bold tracking-wider transition-all ${
-                    kePhapSubTab === 'greetings' 
-                      ? 'bg-orange-600 text-white shadow-lg' 
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                  }`}
-                >
-                  Mào đầu (Tiếp đón)
-                </button>
-                <button 
-                  onClick={() => setKePhapSubTab('rag')} 
-                  className={`flex-1 py-2 rounded-lg text-xs font-bold tracking-wider transition-all ${
-                    kePhapSubTab === 'rag' 
-                      ? 'bg-indigo-600 text-white shadow-lg' 
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                  }`}
-                >
-                  Kho Trí Tuệ
-                </button>
-              </div>
-
-              {/* CONTENTS */}
-              <div className="flex-1 min-h-0 bg-slate-900/50 rounded-2xl border border-white/5 overflow-hidden p-2">
+            <div className="flex flex-col h-[85vh]">
+              {/* CONTENTS — PoemVaultModal đã có sẵn thanh Tab chuẩn nội bộ */}
+              <div className="flex-1 min-h-0 bg-slate-900/50 rounded-2xl border border-white/5 overflow-hidden">
                 <OngLaoProvider value={poemContextValue}>
                   <PoemVaultModal p={poemContextValue} isAdminMode={true} inline={true} />
                 </OngLaoProvider>
