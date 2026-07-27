@@ -3229,14 +3229,6 @@ const LibraryClipCard = ({ clip, idx, globalIndex, isSelected, roleName, emotion
 
                 {poster ? (
                     <img src={poster} alt="thumbnail" className="w-full h-full object-cover" onError={() => setPoster(null)} />
-                ) : (blobUrl || clip.url) ? (
-                    <video 
-                        src={blobUrl || (clip.url ? resolveClipUrl(clip.url) : '')} 
-                        muted 
-                        preload="metadata" 
-                        playsInline
-                        className="w-full h-full object-cover pointer-events-none" 
-                    />
                 ) : (
                     <div className={`w-full h-full flex flex-col items-center justify-center gap-1 p-2 text-center transition-all ${
                         isLaoRole 
