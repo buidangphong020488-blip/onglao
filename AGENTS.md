@@ -26,6 +26,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 5. **Giải Phóng Bộ Nhớ RAM & Garbage Collection Tự Động**:
    - Mọi tác vụ phải gọi `autoReleaseRamMemory()` thu hồi Blob URL (`URL.revokeObjectURL`) khi quá 5 tệp.
    - Giải phóng thẻ HTML `<video>` và dọn dẹp VRAM khi unmount.
+6. **Lập Kế Hoạch Minh Bạch Từng Chi Tiết UI & Thẩm Định Ảnh Bằng Chứng (Transparent Granular Planning & Screenshot Review)**:
+   - Trong `implementation_plan.md`, mọi chi tiết chỉnh sửa (thêm/bỏ nút, xóa dấu check, ẩn/hiện UI...) **BẮT BUỘC PHẢI LIỆT KÊ MINH BẠCH 100% TRONG KẾ HOẠCH**, tuyệt đối không tự ý xóa bỏ bất kỳ thành phần nào nếu chưa báo trước.
+   - Khi chụp ảnh kiểm thử Puppeteer, AI **BẮT BUỘC PHẢI DÙNG `view_file` TỰ REVIEW VÀ THẨM ĐỊNH LẠI ẢNH SCREENSHOT** để đảm bảo đúng 100% yêu cầu người dùng trước khi báo hoàn tất.
 
 ---
 
