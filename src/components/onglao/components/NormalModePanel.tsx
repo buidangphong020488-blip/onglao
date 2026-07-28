@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use client";
 import React from "react";
-import { Check, Loader2, XCircle, Info, Smile, Mic, Send, BookOpen, Film, Video, FileText, Sparkles, Sliders, Save, Maximize, Minimize, RefreshCw, X, ChevronDown, Archive, Volume2, Share as ShareIcon, Copy, Plus, Compass, Clock, SlidersHorizontal, Settings2, ShieldAlert, History, Edit, KeyRound, UserCheck, Play, Pause, Power, MessageSquare, Bot, HelpCircle, Activity, ArrowRight, Camera, Cloud, Download, FlipHorizontal, Image as ImageIcon, ListOrdered, Menu, MicOff, Music, Pencil, Pin, PlayCircle, RotateCcw, Smartphone, StopCircle, ThumbsDown, ThumbsUp, Trash2, Users, Volume1, VolumeX, Wand2, ChevronLeft, Home } from "lucide-react";
+import { Check, Loader2, XCircle, Info, Smile, Mic, Send, BookOpen, Film, Video, FileText, Sparkles, Sliders, Save, Maximize, Minimize, RefreshCw, X, ChevronDown, Archive, Volume2, Share as ShareIcon, Copy, Plus, Compass, Clock, SlidersHorizontal, Settings2, ShieldAlert, History, Edit, KeyRound, UserCheck, Play, Pause, Power, MessageSquare, Bot, HelpCircle, Activity, ArrowRight, Camera, Cloud, Download, FlipHorizontal, Image as ImageIcon, ListOrdered, Menu, MicOff, Music, Pencil, Pin, PlayCircle, RotateCcw, Smartphone, StopCircle, ThumbsDown, ThumbsUp, Trash2, Users, Volume1, VolumeX, Wand2, ChevronLeft, Home, Eye } from "lucide-react";
 import MiniLaoFace from "./MiniLaoFace";
 import AuthModal from "@/components/AuthModal";
 import CombinedScriptModal from "./CombinedScriptModal";
@@ -269,7 +269,7 @@ const NormalModePanel = (props?: { p?: any }) => {
       setUserVoiceStyle, setVideoResolution, shareCombinedAudioFile, shareTextContent, showAITopicModal, showAuthModal, showAutoPilotModal, showBackupOptionsModal,
       showChatLaoControls, showDownloadMenu, showHistory, showImportPoemModal, showLaoAura, showOldLinkModal, showPaymentModal, showPoemModal,
       showSavePackModal, showScriptModal, showSessions, showShareMenu, showToastMsg, showTutorial, showUserGuide, showVideoExportModal,
-      showAiManager, setShowAiManager,
+      showAiManager, setShowAiManager, autoPilotSubTab, setAutoPilotSubTab, batchJobsList,
       startAutoPilot, startVideoExport, stopAutoPilot, targetRect, tempEditText, toast = { show: false, message: '', type: 'info' }, toggleCamera, toggleFullscreen,
       toggleGlobalPlay, toggleMic, togglePin, toggleReaction, tutorialStep, txtPoemFileInputRef, updateCurrentMessages, uploadAudioProgress,
       user, userAge, userCallLao, userGender, userSelfCall, userVoice, userVoiceStyle, videoResolution,
@@ -279,6 +279,23 @@ const NormalModePanel = (props?: { p?: any }) => {
   const [inputEmotion, setInputEmotion] = React.useState('calm');
   const [showEmotionMenu, setShowEmotionMenu] = React.useState(false);
   const [localShowAuthModal, setLocalShowAuthModal] = React.useState(false);
+  const [internalAutoPilotTab, setInternalAutoPilotTab] = React.useState<'create' | 'history'>('create');
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('tab') === 'history') {
+        setInternalAutoPilotTab('history');
+      }
+    }
+  }, []);
+
+  const activeSubTab = internalAutoPilotTab;
+  const changeSubTab = (tab: 'create' | 'history') => {
+    setInternalAutoPilotTab(tab);
+    if (typeof setAutoPilotSubTab === 'function') setAutoPilotSubTab(tab);
+    if (typeof p?.setAutoPilotSubTab === 'function') p.setAutoPilotSubTab(tab);
+  };
   
   React.useEffect(() => {
     setLocalInputText(inputText || '');
@@ -614,7 +631,7 @@ const NormalModePanel = (props?: { p?: any }) => {
       {showAutoPilotModal && (
          <div className="fixed inset-0 z-[200] bg-slate-950 flex flex-col w-full h-full min-h-screen overflow-hidden animate-in fade-in duration-300">
             {/* Header Trang Quản Lý Xưởng Phim (Fullscreen Page Header) */}
-            <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-slate-900/90 backdrop-blur-md shrink-0 shadow-lg z-20">
+            <div className="px-6 py-4 border-b border-white/10 flex flex-wrap justify-between items-center bg-slate-900/90 backdrop-blur-md shrink-0 shadow-lg z-20 gap-4">
                 <div className="flex items-center gap-3">
                     <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-400">
                         <Bot size={22} />
@@ -626,6 +643,31 @@ const NormalModePanel = (props?: { p?: any }) => {
                         <p className="text-xs text-slate-400">Sản xuất video đàm đạo hàng loạt tự động từ danh sách chủ đề qua AI Giác Ngộ</p>
                     </div>
                 </div>
+
+                {/* THANH 2 TAB ĐIỀU HƯỚNG GLASSMORPHIC KHÔNG NÚT THỪA */}
+                <div className="flex items-center gap-1.5 bg-slate-950/80 p-1.5 rounded-2xl border border-white/10 shadow-inner">
+                    <button
+                        onClick={() => changeSubTab('create')}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                            activeSubTab === 'create'
+                                ? 'bg-gradient-to-r from-rose-600 to-amber-600 text-white shadow-lg border border-rose-400/30'
+                                : 'text-slate-400 hover:text-white hover:bg-slate-850'
+                        }`}
+                    >
+                        <Sparkles size={14} /> 🚀 Tạo Tiến Trình Mới
+                    </button>
+                    <button
+                        onClick={() => changeSubTab('history')}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                            activeSubTab === 'history'
+                                ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg border border-indigo-400/30'
+                                : 'text-slate-400 hover:text-white hover:bg-slate-850'
+                        }`}
+                    >
+                        <History size={14} /> 📜 Lịch Sử Batch Jobs ({p.batchJobsList?.length || batchJobsList?.length || 0})
+                    </button>
+                </div>
+
                 <div className="flex items-center gap-2">
                     {!apState.isRunning && (
                         <button
@@ -653,217 +695,353 @@ const NormalModePanel = (props?: { p?: any }) => {
 
             {/* Main Body Page Workspace */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 flex flex-col max-w-7xl w-full mx-auto">
-                <div className="bg-slate-900/80 border border-rose-500/20 rounded-3xl p-5 md:p-8 shadow-2xl backdrop-blur-xl flex-1 flex flex-col md:flex-row gap-6 min-h-[600px]">
-                    
-                    {/* BÊN TRÁI: CẤU HÌNH & NHẬP LIỆU */}
-                    <div className={`w-full md:w-1/2 p-2 flex flex-col gap-4 overflow-y-auto border-b md:border-b-0 md:border-r border-white/5 pr-0 md:pr-6 ${apState.isRunning ? 'opacity-50 pointer-events-none grayscale-[50%]' : ''}`}>
+                {/* TAB 1: FORM CẤU HÌNH VÀ TERMINAL LOG CHẠY LIVE */}
+                {activeSubTab === 'create' && (
+                    <div className="bg-slate-900/80 border border-rose-500/20 rounded-3xl p-5 md:p-8 shadow-2xl backdrop-blur-xl flex-1 flex flex-col md:flex-row gap-6 min-h-[600px]">
                         
-                        <div className="bg-rose-900/20 border border-rose-500/30 p-4 rounded-xl flex flex-col gap-2">
-                            <span className="text-xs font-bold text-rose-300 flex items-center gap-1.5"><ListOrdered size={16}/> Danh sách chủ đề cần sản xuất:</span>
-                            <textarea 
-                                value={apTopics}
-                                onChange={e => setApTopics(e.target.value)}
-                                placeholder="Nhập mỗi chủ đề 1 dòng..."
-                                className="w-full h-32 bg-slate-950 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-rose-500 outline-none resize-none font-mono"
-                            />
-                        </div>
-
-                        <div className="flex flex-col gap-3 mt-1">
-                            <span className="text-xs font-bold text-slate-300 border-b border-white/10 pb-1">Cấu hình xuất bản:</span>
+                        {/* BÊN TRÁI: CẤU HÌNH & NHẬP LIỆU */}
+                        <div className={`w-full md:w-1/2 p-2 flex flex-col gap-4 overflow-y-auto border-b md:border-b-0 md:border-r border-white/5 pr-0 md:pr-6 ${apState.isRunning ? 'opacity-50 pointer-events-none grayscale-[50%]' : ''}`}>
                             
-                            {/* KHỐI CẤU HÌNH GIỌNG ĐỌC & XƯNG HÔ CHO AUTO-PILOT */}
-                            <div className="flex flex-col gap-2 bg-slate-800/50 p-3 rounded-xl border border-white/5 mt-1">
-                                <span className="text-[11px] font-bold text-orange-400 flex items-center gap-1"><Users size={12}/> Thiết lập nhân vật:</span>
+                            <div className="bg-rose-900/20 border border-rose-500/30 p-4 rounded-xl flex flex-col gap-2">
+                                <span className="text-xs font-bold text-rose-300 flex items-center gap-1.5"><ListOrdered size={16}/> Danh sách chủ đề cần sản xuất:</span>
+                                <textarea 
+                                    value={apTopics}
+                                    onChange={e => setApTopics(e.target.value)}
+                                    placeholder="Nhập mỗi chủ đề 1 dòng..."
+                                    className="w-full h-32 bg-slate-950 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-rose-500 outline-none resize-none font-mono"
+                                />
+                            </div>
+
+                            <div className="flex flex-col gap-3 mt-1">
+                                <span className="text-xs font-bold text-slate-300 border-b border-white/10 pb-1">Cấu hình xuất bản:</span>
                                 
-                                <div className="flex flex-col gap-1.5 mt-1 border-b border-white/5 pb-2">
-                                   <div className="flex gap-2">
-                                      <input type="text" value={customLaoName} onChange={e=>setCustomLaoName(e.target.value)} placeholder="Tên Lão" className="flex-[1.5] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" title="Tên Lão" />
-                                      <input type="text" value={laoSelfCall} onChange={e=>setLaoSelfCall(e.target.value)} placeholder="Lão tự xưng" className="flex-[1] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" title="Lão tự xưng là gì" />
-                                      <input type="text" value={laoCallUser} onChange={e=>setLaoCallUser(e.target.value)} placeholder="Lão gọi kia" className="flex-[1] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" title="Lão gọi người hỏi là gì" />
-                                   </div>
-                                   <div className="flex gap-2">
-                                      <select value={laoVoice} onChange={e=>setLaoVoice(e.target.value)} className="flex-[1] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none">
-                                          <optgroup label="🎙️ Nam"><option value="Algieba">Algieba</option><option value="Puck">Puck</option><option value="Charon">Charon</option></optgroup>
-                                          <optgroup label="🎙️ Nữ"><option value="Aoede">Aoede</option><option value="Kore">Kore</option></optgroup>
-                                      </select>
-                                      <input type="text" value={laoVoiceStyle} onChange={e=>setLaoVoiceStyle(e.target.value)} placeholder="Phong cách Lão..." className="flex-[2] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" />
-                                   </div>
-                                </div>
-                                
-                                <div className="flex flex-col gap-1.5 mt-1">
-                                   <div className="flex gap-2">
-                                      <input type="text" value={customUserName} onChange={e=>setCustomUserName(e.target.value)} placeholder="Tên Con" className="flex-[1.5] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" title="Tên Người Hỏi" />
-                                      <input type="text" value={userSelfCall} onChange={e=>setUserSelfCall(e.target.value)} placeholder="Con tự xưng" className="flex-[1] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" title="Người hỏi tự xưng là gì" />
-                                      <input type="text" value={userCallLao} onChange={e=>setUserCallLao(e.target.value)} placeholder="Con gọi kia" className="flex-[1] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" title="Người hỏi gọi Lão là gì" />
-                                   </div>
-                                   <div className="flex gap-2">
-                                      <div className="flex-1 flex flex-col gap-0.5">
-                                          <span className="text-[9px] text-slate-400 font-bold">Giới tính:</span>
-                                          <select value={userGender || 'Khác'} onChange={e=>setUserGender?.(e.target.value)} className="bg-slate-950 border border-white/10 rounded-md px-2 py-1 text-[10px] text-white outline-none cursor-pointer">
-                                              <option value="Nam">Nam</option>
-                                              <option value="Nữ">Nữ</option>
-                                              <option value="Khác">Khác</option>
+                                {/* KHỐI CẤU HÌNH GIỌNG ĐỌC & XƯNG HÔ CHO AUTO-PILOT */}
+                                <div className="flex flex-col gap-2 bg-slate-800/50 p-3 rounded-xl border border-white/5 mt-1">
+                                    <span className="text-[11px] font-bold text-orange-400 flex items-center gap-1"><Users size={12}/> Thiết lập nhân vật:</span>
+                                    
+                                    <div className="flex flex-col gap-1.5 mt-1 border-b border-white/5 pb-2">
+                                       <div className="flex gap-2">
+                                          <input type="text" value={customLaoName} onChange={e=>setCustomLaoName(e.target.value)} placeholder="Tên Lão" className="flex-[1.5] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" title="Tên Lão" />
+                                          <input type="text" value={laoSelfCall} onChange={e=>setLaoSelfCall(e.target.value)} placeholder="Lão tự xưng" className="flex-[1] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" title="Lão tự xưng là gì" />
+                                          <input type="text" value={laoCallUser} onChange={e=>setLaoCallUser(e.target.value)} placeholder="Lão gọi kia" className="flex-[1] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" title="Lão gọi người hỏi là gì" />
+                                       </div>
+                                       <div className="flex gap-2">
+                                          <select value={laoVoice} onChange={e=>setLaoVoice(e.target.value)} className="flex-[1] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none">
+                                              <optgroup label="🎙️ Nam"><option value="Algieba">Algieba</option><option value="Puck">Puck</option><option value="Charon">Charon</option></optgroup>
+                                              <optgroup label="🎙️ Nữ"><option value="Aoede">Aoede</option><option value="Kore">Kore</option></optgroup>
                                           </select>
-                                      </div>
-                                      <div className="flex-1 flex flex-col gap-0.5">
-                                          <span className="text-[9px] text-slate-400 font-bold">Độ tuổi:</span>
-                                          <input type="number" min={1} max={120} value={userAge || 25} onChange={e=>setUserAge?.(Number(e.target.value))} placeholder="Độ tuổi" className="bg-slate-950 border border-white/10 rounded-md px-2 py-1 text-[10px] text-white outline-none" title="Độ tuổi của người hỏi" />
-                                      </div>
-                                   </div>
-                                   <div className="flex gap-2">
-                                      <select value={userVoice} onChange={e=>setUserVoice(e.target.value)} disabled={apSettings.charMode === 'random'} className="flex-[1] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none disabled:opacity-50">
-                                          <optgroup label="🎙️ Nữ"><option value="Aoede">Aoede</option><option value="Kore">Kore</option></optgroup>
-                                          <optgroup label="🎙️ Nam"><option value="Puck">Puck</option><option value="Charon">Charon</option></optgroup>
-                                      </select>
-                                      <input type="text" value={userVoiceStyle} onChange={e=>setUserVoiceStyle(e.target.value)} disabled={apSettings.charMode === 'random'} placeholder="Phong cách Con..." className="flex-[2] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none disabled:opacity-50" />
-                                   </div>
+                                          <input type="text" value={laoVoiceStyle} onChange={e=>setLaoVoiceStyle(e.target.value)} placeholder="Phong cách Lão..." className="flex-[2] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" />
+                                       </div>
+                                    </div>
+                                    
+                                    <div className="flex flex-col gap-1.5 mt-1">
+                                       <div className="flex gap-2">
+                                          <input type="text" value={customUserName} onChange={e=>setCustomUserName(e.target.value)} placeholder="Tên Con" className="flex-[1.5] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" title="Tên Người Hỏi" />
+                                          <input type="text" value={userSelfCall} onChange={e=>setUserSelfCall(e.target.value)} placeholder="Con tự xưng" className="flex-[1] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" title="Người hỏi tự xưng là gì" />
+                                          <input type="text" value={userCallLao} onChange={e=>setUserCallLao(e.target.value)} placeholder="Con gọi kia" className="flex-[1] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" title="Người hỏi gọi Lão là gì" />
+                                       </div>
+                                       <div className="flex gap-2">
+                                          <div className="flex-1 flex flex-col gap-0.5">
+                                              <span className="text-[9px] text-slate-400 font-bold">Giới tính:</span>
+                                              <select value={userGender || 'Khác'} onChange={e=>setUserGender?.(e.target.value)} className="bg-slate-950 border border-white/10 rounded-md px-2 py-1 text-[10px] text-white outline-none cursor-pointer">
+                                                  <option value="Nam">Nam</option>
+                                                  <option value="Nữ">Nữ</option>
+                                                  <option value="Khác">Khác</option>
+                                              </select>
+                                          </div>
+                                          <div className="flex-1 flex flex-col gap-0.5">
+                                              <span className="text-[9px] text-slate-400 font-bold">Độ tuổi:</span>
+                                              <input type="number" min={1} max={120} value={userAge || 25} onChange={e=>setUserAge?.(Number(e.target.value))} placeholder="Độ tuổi" className="bg-slate-950 border border-white/10 rounded-md px-2 py-1 text-[10px] text-white outline-none" title="Độ tuổi của người hỏi" />
+                                          </div>
+                                       </div>
+                                       <div className="flex gap-2">
+                                          <select value={userVoice} onChange={e=>setUserVoice(e.target.value)} disabled={apSettings.charMode === 'random'} className="flex-[1] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none disabled:opacity-50">
+                                              <optgroup label="🎙️ Nữ"><option value="Aoede">Aoede</option><option value="Kore">Kore</option></optgroup>
+                                              <optgroup label="🎙️ Nam"><option value="Puck">Puck</option><option value="Charon">Charon</option></optgroup>
+                                          </select>
+                                          <input type="text" value={userVoiceStyle} onChange={e=>setUserVoiceStyle(e.target.value)} disabled={apSettings.charMode === 'random'} placeholder="Phong cách Con..." className="flex-[2] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none disabled:opacity-50" />
+                                       </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col gap-2 bg-slate-800/50 p-3 rounded-xl border border-white/5 mt-1">
+                                    <label className="text-[11px] font-bold text-slate-400">Tỉ lệ Khung Hình Video:</label>
+                                    <div className="flex gap-2">
+                                        <label className={`flex-1 flex items-center justify-center gap-2 p-2.5 rounded-xl cursor-pointer transition-all border ${apSettings.orientation === '16x9' ? 'bg-rose-600/20 border-rose-500 text-rose-300 shadow-md font-bold' : 'border-white/10 text-slate-400 hover:bg-slate-700'}`}>
+                                            <input type="radio" className="hidden" checked={apSettings.orientation === '16x9'} onChange={() => setApSettings(p => ({...p, orientation: '16x9'}))} />
+                                            <Video size={15}/> 💻 Ngang (16:9)
+                                        </label>
+                                        <label className={`flex-1 flex items-center justify-center gap-2 p-2.5 rounded-xl cursor-pointer transition-all border ${apSettings.orientation === '9x16' ? 'bg-rose-600/20 border-rose-500 text-rose-300 shadow-md font-bold' : 'border-white/10 text-slate-400 hover:bg-slate-700'}`}>
+                                            <input type="radio" className="hidden" checked={apSettings.orientation === '9x16'} onChange={() => setApSettings(p => ({...p, orientation: '9x16'}))} />
+                                            <Smartphone size={15}/> 📱 Dọc (9:16)
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col gap-2 bg-slate-800/50 p-3 rounded-xl border border-white/5 mt-1">
+                                    <label className="text-[11px] font-bold text-slate-400">Độ dài kịch bản:</label>
+                                    <select 
+                                        value={apSettings.scriptLength} 
+                                        onChange={e => setApSettings(p => ({...p, scriptLength: e.target.value}))} 
+                                        className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-lg outline-none text-xs focus:border-rose-500"
+                                    >
+                                        <option value="Chính xác 4 câu (2 Lão, 2 Con)">Ngắn 4 câu (2 Lão, 2 Con)</option>
+                                        <option value="Khoảng 4-6 câu">Ngắn (Khoảng 4-6 câu)</option>
+                                        <option value="Khoảng 6-10 câu">Vừa (Khoảng 6-10 câu)</option>
+                                        <option value="Khoảng 10-15 câu">Dài (Khoảng 10-15 câu)</option>
+                                        <option value="Khoảng 15-21 câu">Rất dài (Khoảng 15-21 câu)</option>
+                                    </select>
+                                </div>
+
+                                <div className="flex flex-col gap-2 bg-slate-800/50 p-3 rounded-xl border border-white/5">
+                                    <label className="text-[11px] font-bold text-slate-400 flex items-center gap-1.5"><Sparkles size={14}/> Hiệu ứng chuyển cảnh (Transitions):</label>
+                                    <select 
+                                        value={apSettings.transition} 
+                                        onChange={e => setApSettings(p => ({...p, transition: e.target.value}))} 
+                                        className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-lg outline-none text-xs focus:border-rose-500"
+                                    >
+                                        <option value="none">Cắt cứng (Mặc định, Tắt hiệu ứng)</option>
+                                        <option value="fade_black">Mờ đen (Dip to black)</option>
+                                        <option value="fade_white">Chớp trắng (Flash)</option>
+                                        <option value="blur">Lóa sáng tâm linh</option>
+                                        <option value="random">Ngẫu nhiên tự động</option>
+                                    </select>
+                                    {apSettings.transition !== 'none' && (
+                                        <div className="flex flex-col gap-1 mt-1 animate-in fade-in bg-slate-900 p-2.5 rounded-lg border border-white/5">
+                                            <span className="text-[10px] text-slate-300 flex justify-between font-bold">Thời gian kéo dài: <span className="text-white">{apSettings.transitionDuration}s</span></span>
+                                            <input type="range" min="0.1" max="2.0" step="0.1" value={apSettings.transitionDuration} onChange={e => setApSettings(p => ({...p, transitionDuration: Number(e.target.value)}))} className="accent-rose-500" />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
-
-                            <div className="flex flex-col gap-2 bg-slate-800/50 p-3 rounded-xl border border-white/5 mt-1">
-                                <label className="text-[11px] font-bold text-slate-400">Độ dài kịch bản:</label>
-                                <select 
-                                    value={apSettings.scriptLength} 
-                                    onChange={e => setApSettings(p => ({...p, scriptLength: e.target.value}))} 
-                                    className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-lg outline-none text-xs focus:border-rose-500"
-                                >
-                                    <option value="Khoảng 4-6 câu">Ngắn (Khoảng 4-6 câu)</option>
-                                    <option value="Khoảng 6-10 câu">Vừa (Khoảng 6-10 câu)</option>
-                                    <option value="Khoảng 10-15 câu">Dài (Khoảng 10-15 câu)</option>
-                                    <option value="Khoảng 15-21 câu">Rất dài (Khoảng 15-21 câu)</option>
-                                </select>
-                            </div>
-
-                            <div className="flex flex-col gap-2 bg-slate-800/50 p-3 rounded-xl border border-white/5">
-                                <label className="text-[11px] font-bold text-slate-400 flex items-center gap-1.5"><Sparkles size={14}/> Hiệu ứng chuyển cảnh (Transitions):</label>
-                                <select 
-                                    value={apSettings.transition} 
-                                    onChange={e => setApSettings(p => ({...p, transition: e.target.value}))} 
-                                    className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-lg outline-none text-xs focus:border-rose-500"
-                                >
-                                    <option value="none">Cắt cứng (Mặc định, Tắt hiệu ứng)</option>
-                                    <option value="fade_black">Mờ đen (Dip to black)</option>
-                                    <option value="fade_white">Chớp trắng (Flash)</option>
-                                    <option value="blur">Lóa sáng tâm linh</option>
-                                    <option value="random">Ngẫu nhiên tự động</option>
-                                </select>
-                                {apSettings.transition !== 'none' && (
-                                    <div className="flex flex-col gap-1 mt-1 animate-in fade-in bg-slate-900 p-2.5 rounded-lg border border-white/5">
-                                        <span className="text-[10px] text-slate-300 flex justify-between font-bold">Thời gian kéo dài: <span className="text-white">{apSettings.transitionDuration}s</span></span>
-                                        <input type="range" min="0.1" max="2.0" step="0.1" value={apSettings.transitionDuration} onChange={e => setApSettings(p => ({...p, transitionDuration: Number(e.target.value)}))} className="accent-rose-500" />
-                                    </div>
+                            <div className="mt-auto pt-4">
+                                {!apState.isRunning ? (
+                                    <button onClick={startAutoPilot} className="w-full bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-black py-4 rounded-xl shadow-[0_0_25px_rgba(225,29,72,0.4)] transition-all hover:scale-[1.02] flex items-center justify-center gap-2 text-sm uppercase tracking-wider cursor-pointer">
+                                        <PlayCircle size={20}/> Bắt Đầu Sản Xuất Hàng Loạt
+                                    </button>
+                                ) : (
+                                    <button onClick={stopAutoPilot} className="w-full bg-slate-700 hover:bg-slate-600 text-white font-black py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wider cursor-pointer">
+                                        <StopCircle size={20} className="text-rose-400"/> Dừng Khẩn Cấp
+                                    </button>
                                 )}
                             </div>
-
-                            <div className="flex flex-col gap-2 bg-slate-800/50 p-3 rounded-xl border border-white/5">
-                                <label className="text-[11px] font-bold text-slate-400">Chế độ sản xuất Video:</label>
-                                <div className="flex gap-2">
-                                    <label className={`flex-1 flex items-center justify-center text-center gap-1.5 p-2 rounded-lg cursor-pointer transition-all border ${apSettings.renderMode === 'fullframe' ? 'bg-rose-600/20 border-rose-500 text-rose-300' : 'border-white/10 text-slate-400 hover:bg-slate-700'}`}>
-                                        <input type="radio" className="hidden" checked={apSettings.renderMode === 'fullframe'} onChange={() => setApSettings(p => ({...p, renderMode: 'fullframe'}))} />
-                                        <span className="text-[10px] font-bold">Dựng Sẵn<br/><span className="font-normal text-[9px]">(Video Toàn Cảnh)</span></span>
-                                    </label>
-                                    <label className={`flex-1 flex items-center justify-center text-center gap-1.5 p-2 rounded-lg cursor-pointer transition-all border ${apSettings.renderMode === '3d' ? 'bg-rose-600/20 border-rose-500 text-rose-300' : 'border-white/10 text-slate-400 hover:bg-slate-700'}`}>
-                                        <input type="radio" className="hidden" checked={apSettings.renderMode === '3d'} onChange={() => setApSettings(p => ({...p, renderMode: '3d'}))} />
-                                        <span className="text-[10px] font-bold">Cách Cũ<br/><span className="font-normal text-[9px]">(Phông Xanh 3D)</span></span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col gap-2 bg-slate-800/50 p-3 rounded-xl border border-white/5">
-                                <label className="text-[11px] font-bold text-slate-400">Tỉ lệ Video:</label>
-                                <div className="flex gap-2">
-                                    <label className={`flex-1 flex items-center justify-center gap-2 p-2 rounded-lg cursor-pointer transition-all border ${apSettings.orientation === '9x16' ? 'bg-rose-600/20 border-rose-500 text-rose-300' : 'border-white/10 text-slate-400 hover:bg-slate-700'}`}>
-                                        <input type="radio" className="hidden" checked={apSettings.orientation === '9x16'} onChange={() => setApSettings(p => ({...p, orientation: '9x16'}))} />
-                                        <Smartphone size={14}/> Dọc (9:16)
-                                    </label>
-                                    <label className={`flex-1 flex items-center justify-center gap-2 p-2 rounded-lg cursor-pointer transition-all border ${apSettings.orientation === '16x9' ? 'bg-rose-600/20 border-rose-500 text-rose-300' : 'border-white/10 text-slate-400 hover:bg-slate-700'}`}>
-                                        <input type="radio" className="hidden" checked={apSettings.orientation === '16x9'} onChange={() => setApSettings(p => ({...p, orientation: '16x9'}))} />
-                                        <Video size={14}/> Ngang (16:9)
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col gap-2 bg-slate-800/50 p-3 rounded-xl border border-white/5">
-                                <label className="text-[11px] font-bold text-slate-400">Thiết lập nhân vật Người Hỏi:</label>
-                                <div className="flex gap-2">
-                                    <label className={`flex-1 flex items-center justify-center text-center gap-1.5 p-2 rounded-lg cursor-pointer transition-all border ${apSettings.charMode === 'match' ? 'bg-emerald-600/20 border-emerald-500 text-emerald-300' : 'border-white/10 text-slate-400 hover:bg-slate-700'}`}>
-                                        <input type="radio" className="hidden" checked={apSettings.charMode === 'match'} onChange={() => setApSettings(p => ({...p, charMode: 'match'}))} />
-                                        <span className="text-[10px]">Giữ cố định<br/>(Theo Hồ sơ)</span>
-                                    </label>
-                                    <label className={`flex-1 flex items-center justify-center text-center gap-1.5 p-2 rounded-lg cursor-pointer transition-all border ${apSettings.charMode === 'random' ? 'bg-emerald-600/20 border-emerald-500 text-emerald-300' : 'border-white/10 text-slate-400 hover:bg-slate-700'}`}>
-                                        <input type="radio" className="hidden" checked={apSettings.charMode === 'random'} onChange={() => setApSettings(p => ({...p, charMode: 'random'}))} />
-                                        <span className="text-[10px]">Đổi ngẫu nhiên<br/>(Ẩn danh)</span>
-                                    </label>
-                                </div>
-                                <p className="text-[9px] text-slate-500 mt-1 italic leading-relaxed">
-                                    * Lão và Bối cảnh sẽ luôn được tự động xoay tua ngẫu nhiên để video không bị nhàm chán.
-                                </p>
-                            </div>
                         </div>
 
-                        <div className="mt-auto pt-4">
-                            {!apState.isRunning ? (
-                                <button onClick={startAutoPilot} className="w-full bg-rose-600 hover:bg-rose-500 text-white font-black py-4 rounded-xl shadow-[0_0_20px_rgba(225,29,72,0.4)] transition-all hover:scale-[1.02] flex items-center justify-center gap-2 text-sm uppercase tracking-wider cursor-pointer">
-                                    <PlayCircle size={20}/> Khởi Động Xưởng Phim
-                                </button>
-                            ) : (
-                                <button onClick={stopAutoPilot} className="w-full bg-slate-700 hover:bg-slate-600 text-white font-black py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wider cursor-pointer">
-                                    <StopCircle size={20} className="text-rose-400"/> Dừng Khẩn Cấp
-                                </button>
-                            )}
+                        {/* BÊN PHẢI: LOGS & STATUS MONITOR */}
+                        <div className="w-full md:w-1/2 bg-black rounded-2xl border border-white/5 flex flex-col overflow-hidden">
+                            <div className="p-3 bg-slate-900 border-b border-white/5 flex items-center justify-between">
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tiến trình hoạt động Live</span>
+                                {apState.isRunning && (
+                                    <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Đang chạy
+                                    </span>
+                                )}
+                            </div>
+                            
+                            <div className="flex-1 p-4 overflow-y-auto font-mono text-[11px] leading-relaxed flex flex-col gap-2 scrollbar-hide">
+                                {apState.logs.length === 0 ? (
+                                    <div className="text-slate-600 italic text-center mt-10">Hệ thống đang chờ lệnh...</div>
+                                ) : (
+                                    apState.logs.map((log: any, idx: any) => {
+                                        let textColor = "text-slate-300";
+                                        if (log.includes("--- BẮT ĐẦU")) textColor = "text-rose-400 font-bold";
+                                        if (log.includes("✅")) textColor = "text-emerald-400 font-bold";
+                                        if (log.includes("❌")) textColor = "text-red-400 font-bold";
+                                        if (log.includes("Render")) textColor = "text-orange-300";
+                                        
+                                        return (
+                                            <div key={idx} className={`border-b border-white/5 pb-1 ${textColor}`}>
+                                                {log}
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
                         </div>
                     </div>
+                )}
 
-                    {/* BÊN PHẢI: LOGS & STATUS MONITOR */}
-                    <div className="w-full md:w-1/2 bg-black rounded-2xl border border-white/5 flex flex-col overflow-hidden">
-                        <div className="p-3 bg-slate-900 border-b border-white/5 flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tiến trình hoạt động</span>
-                            {apState.isRunning && (
-                                <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Đang chạy
-                                </span>
-                            )}
+                {/* TAB 2: BẢNG LỊCH SỬ TIẾN TRÌNH BATCH JOBS */}
+                {activeSubTab === 'history' && (
+                    <div className="bg-slate-900/80 border border-indigo-500/20 rounded-3xl p-5 md:p-8 shadow-2xl backdrop-blur-xl flex-1 flex flex-col gap-5">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/5 pb-4">
+                            <div>
+                                <h2 className="text-lg font-black text-white flex items-center gap-2">
+                                    <History className="text-indigo-400" size={20} /> Danh Sách Các Đợt Sản Xuất Batch Jobs
+                                </h2>
+                                <p className="text-xs text-slate-400">Theo dõi tiến độ % realtime, tải video MP4 và điều khiển dừng/chạy đợt cũ & mới</p>
+                            </div>
+                            <button
+                                onClick={() => changeSubTab('create')}
+                                className="px-4 py-2 bg-gradient-to-r from-rose-600 to-amber-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md hover:scale-105 transition-all cursor-pointer"
+                            >
+                                <Plus size={15} /> Tạo Đợt Mới
+                            </button>
                         </div>
-                        
-                        <div className="flex-1 p-4 overflow-y-auto font-mono text-[11px] leading-relaxed flex flex-col gap-2 scrollbar-hide">
-                            {apState.logs.length === 0 ? (
-                                <div className="text-slate-600 italic text-center mt-10">Hệ thống đang chờ lệnh...</div>
-                            ) : (
-                                apState.logs.map((log: any, idx: any) => {
-                                    let textColor = "text-slate-300";
-                                    if (log.includes("--- BẮT ĐẦU")) textColor = "text-rose-400 font-bold";
-                                    if (log.includes("✅")) textColor = "text-emerald-400 font-bold";
-                                    if (log.includes("❌")) textColor = "text-red-400 font-bold";
-                                    if (log.includes("Render")) textColor = "text-orange-300";
-                                    
+
+                        {(!p.batchJobsList || p.batchJobsList.length === 0) ? (
+                            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
+                                <div className="p-4 bg-slate-800/50 rounded-full text-slate-500 mb-3">
+                                    <Bot size={36} />
+                                </div>
+                                <h3 className="text-base font-bold text-slate-300 mb-1">Chưa có lịch sử đợt tiến trình nào</h3>
+                                <p className="text-xs text-slate-500 max-w-sm mb-4">Nhập danh sách chủ đề ở Tab Tạo Tiến Trình Mới để khởi chạy đợt sản xuất video tự động hàng loạt.</p>
+                                <button
+                                    onClick={() => changeSubTab('create')}
+                                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs shadow-lg transition-all cursor-pointer"
+                                >
+                                    Khởi Tạo Ngay
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 gap-4 overflow-y-auto max-h-[650px] pr-1">
+                                {p.batchJobsList.map((job: any) => {
+                                    const isRunning = job.status === 'running';
+                                    const isPaused = job.status === 'paused';
+                                    const isCompleted = job.status === 'completed';
+                                    const hasFailed = job.topics?.some((t: any) => t.status === 'failed');
+
                                     return (
-                                        <div key={idx} className={`border-b border-white/5 pb-1 ${textColor}`}>
-                                            {log}
+                                        <div key={job.id} className="bg-slate-950/80 border border-white/10 hover:border-indigo-500/40 p-5 rounded-2xl transition-all shadow-lg flex flex-col gap-4">
+                                            {/* Header THẺ BATCH */}
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`p-2 rounded-xl text-xs font-black ${isCompleted ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : isRunning ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 animate-pulse' : 'bg-slate-800 text-slate-400'}`}>
+                                                        {job.settings?.orientation === '9x16' ? '📱 Dọc (9:16)' : '💻 Ngang (16:9)'}
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                                                            {job.title}
+                                                            <span className="text-[10px] font-mono font-bold text-slate-500">({job.id})</span>
+                                                        </h3>
+                                                        <span className="text-[11px] text-slate-400 font-mono">Tạo lúc: {new Date(job.createdAt).toLocaleString('vi-VN')}</span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Badge Status */}
+                                                <div className="flex items-center gap-2">
+                                                    {isCompleted && <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full text-xs font-bold">🟢 Hoàn Thành 100%</span>}
+                                                    {isRunning && <span className="px-3 py-1 bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 rounded-full text-xs font-bold animate-pulse">🔵 Đang Sản Xuất ({job.progressPercent || 0}%)</span>}
+                                                    {isPaused && <span className="px-3 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-full text-xs font-bold">⏸️ Tạm Dừng</span>}
+                                                    {hasFailed && <span className="px-3 py-1 bg-rose-500/10 border border-rose-500/30 text-rose-400 rounded-full text-xs font-bold">🔴 Có Lỗi</span>}
+                                                </div>
+                                            </div>
+
+                                            {/* Progress Bar */}
+                                            <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden border border-white/5">
+                                                <div 
+                                                    className={`h-full transition-all duration-500 ${isCompleted ? 'bg-emerald-500' : 'bg-gradient-to-r from-rose-500 via-amber-500 to-indigo-500'}`}
+                                                    style={{ width: `${job.progressPercent || 0}%` }}
+                                                ></div>
+                                            </div>
+
+                                            {/* Danh sách các chủ đề trong Batch */}
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                                                {job.topics?.map((topic: any, tIdx: number) => (
+                                                    <div key={topic.id || tIdx} className="bg-slate-900/60 p-3 rounded-xl border border-white/5 flex flex-col justify-between gap-2">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <span className="text-xs text-slate-200 font-semibold line-clamp-2">
+                                                                #{tIdx + 1}. {topic.title}
+                                                            </span>
+                                                            {topic.status === 'completed' && <span className="text-[10px] font-bold text-emerald-400 shrink-0">🟢</span>}
+                                                            {topic.status === 'running' && <span className="text-[10px] font-bold text-indigo-400 shrink-0 animate-pulse">🔵</span>}
+                                                            {topic.status === 'failed' && <span className="text-[10px] font-bold text-rose-400 shrink-0">🔴</span>}
+                                                            {topic.status === 'pending' && <span className="text-[10px] text-slate-500 shrink-0">⚪</span>}
+                                                        </div>
+
+                                                        {topic.status === 'completed' && (
+                                                            <div className="flex items-center gap-1.5 mt-1 pt-2 border-t border-white/5">
+                                                                {topic.videoUrl && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            if (p.setRenderedVideoUrl) p.setRenderedVideoUrl(topic.videoUrl);
+                                                                            if (p.setShowVideoExportModal) p.setShowVideoExportModal(true);
+                                                                            if (setShowAutoPilotModal) setShowAutoPilotModal(false);
+                                                                        }}
+                                                                        className="px-2 py-1 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                                                                    >
+                                                                        <Play size={10} /> Xem Video
+                                                                    </button>
+                                                                )}
+                                                                {topic.scriptId && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            if (setShowAutoPilotModal) setShowAutoPilotModal(false);
+                                                                            if (setShowAiManager) setShowAiManager(true);
+                                                                            if (p.setShowAiManager) p.setShowAiManager(true);
+                                                                            if (p.setShowAITopicModal) p.setShowAITopicModal(true);
+                                                                            if (typeof window !== 'undefined') {
+                                                                                const url = new URL(window.location.href);
+                                                                                url.searchParams.set('modal', 'ai-director');
+                                                                                if (topic.scriptId) url.searchParams.set('id', String(topic.scriptId));
+                                                                                window.history.pushState({}, '', url.toString());
+                                                                            }
+                                                                        }}
+                                                                        className="px-2 py-1 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                                                                    >
+                                                                        📝 Kịch Bản
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {/* BỘ NÚT ĐIỀU KHIỂN ĐỢT BATCH */}
+                                            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/5">
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            if (p.setActiveBatchJobId) p.setActiveBatchJobId(job.id);
+                                                            if (p.syncBatchIdToUrl) p.syncBatchIdToUrl(job.id);
+                                                            changeSubTab('create');
+                                                        }}
+                                                        className="px-3.5 py-1.5 bg-indigo-900/40 hover:bg-indigo-800/60 text-indigo-300 border border-indigo-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                                                    >
+                                                        <Eye size={14} /> Xem Terminal Log
+                                                    </button>
+                                                    {hasFailed && (
+                                                        <button
+                                                            onClick={() => {
+                                                                if (p.retryFailedTopics) p.retryFailedTopics(job.id);
+                                                                else if (retryFailedTopics) retryFailedTopics(job.id);
+                                                            }}
+                                                            className="px-3.5 py-1.5 bg-amber-900/40 hover:bg-amber-800/60 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                                                        >
+                                                            <RefreshCw size={14} /> 🔄 Chạy Lại Bài Lỗi
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => {
+                                                            if (p.restartAutoPilot) p.restartAutoPilot(job.id);
+                                                            else if (restartAutoPilot) restartAutoPilot(job.id);
+                                                        }}
+                                                        className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-white/10 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                                                    >
+                                                        <RotateCcw size={14} /> ⏮️ Chạy Lại Từ Đầu
+                                                    </button>
+                                                </div>
+
+                                                <button
+                                                    onClick={() => {
+                                                        if (p.deleteBatchJob) p.deleteBatchJob(job.id);
+                                                        else if (deleteBatchJob) deleteBatchJob(job.id);
+                                                    }}
+                                                    className="px-3 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 border border-rose-500/20 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                                                    title="Xóa đợt batch này"
+                                                >
+                                                    <Trash2 size={13} /> Xóa Batch
+                                                </button>
+                                            </div>
                                         </div>
                                     );
-                                })
-                            )}
-                            <div ref={(el) => { if(el) el.scrollIntoView({ behavior: "smooth" }) }}></div>
-                        </div>
-
-                        {apState.isRunning && (
-                            <div className="p-4 bg-slate-900/80 border-t border-white/5 shrink-0 flex items-center gap-3">
-                                <Loader2 size={18} className="text-rose-500 animate-spin shrink-0"/>
-                                <div className="flex flex-col w-full">
-                                    <span className="text-[10px] text-slate-400 font-bold">Chủ đề {apState.currentIndex + 1} / {apTopics.split('\n').filter((t: any) =>t.trim()).length}</span>
-                                    <div className="w-full bg-slate-800 h-1.5 rounded-full mt-1 overflow-hidden">
-                                        <div 
-                                            className="bg-rose-500 h-full transition-all duration-500" 
-                                            style={{ width: `${(apState.currentIndex / Math.max(1, apTopics.split('\n').filter((t: any) =>t.trim()).length)) * 100}%` }}
-                                        ></div>
-                                    </div>
-                                </div>
+                                })}
                             </div>
                         )}
                     </div>
-
-                </div>
+                )}
             </div>
          </div>
       )}

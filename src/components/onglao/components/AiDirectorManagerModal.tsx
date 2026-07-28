@@ -1861,11 +1861,14 @@ const AiDirectorManagerModal = (props: any) => {
                                     )}
                                     <button 
                                         onClick={() => {
+                                            if (typeof p?.setShowAiManager === 'function') p.setShowAiManager(false);
+                                            if (typeof props?.setShowAiManager === 'function') props.setShowAiManager(false);
                                             if (typeof p?.setShowAutoPilotModal === 'function') {
                                                 p.setShowAutoPilotModal(true);
                                             } else if (typeof props?.setShowAutoPilotModal === 'function') {
                                                 props.setShowAutoPilotModal(true);
-                                            } else {
+                                            }
+                                            if (typeof window !== 'undefined') {
                                                 const url = new URL(window.location.href);
                                                 url.searchParams.set('modal', 'auto-pilot');
                                                 window.history.pushState({}, '', url.toString());

@@ -28,7 +28,14 @@ export const useAuth = (props: Partial<UseAuthProps> = {}) => {
   useEffect(() => {
     selectedAiConfigIdRef.current = selectedAiConfigId;
   }, [selectedAiConfigId]);
-  const [hasEntered, setHasEntered] = useState(false);
+
+  const [hasEntered, setHasEntered] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const modal = new URLSearchParams(window.location.search).get('modal');
+      if (modal === 'auto-pilot' || modal === 'ai-director') return true;
+    }
+    return false;
+  });
   const [isProfileCompleted, setIsProfileCompleted] = useState(false);
   const [userName, setUserName] = useState('');
 

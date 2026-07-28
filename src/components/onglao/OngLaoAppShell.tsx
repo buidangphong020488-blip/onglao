@@ -652,6 +652,20 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
     voicePersonas,
   });
 
+  // Đọc query parameter modal=auto-pilot / modal=ai-director từ URL để tự động mở Xưởng Phim Tự Động (F5 Persistence)
+  const setShowAutoPilotModalFn = videoExportState?.setShowAutoPilotModal;
+  const setHasEnteredFn = poemDbState?.setHasEntered;
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const modal = params.get('modal');
+      if (modal === 'auto-pilot' || modal === 'ai-director') {
+        if (setShowAutoPilotModalFn) setShowAutoPilotModalFn(true);
+        if (setHasEnteredFn) setHasEnteredFn(true);
+      }
+    }
+  }, [setShowAutoPilotModalFn, setHasEnteredFn]);
+
   // Live Streaming state
   const liveStreamingState = useLiveStreaming({
     user: authState.user,
@@ -701,9 +715,10 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
       const urlParams = new URLSearchParams(window.location.search);
       const modalParam = urlParams.get('modal');
       const modeParam = urlParams.get('mode');
-      setShowAiManager(modalParam === 'ai-director' || urlParams.get('showAITopicModal') === 'true');
+      const isAutoPilot = modalParam === 'auto-pilot';
+      setShowAiManager(!isAutoPilot && (modalParam === 'ai-director' || urlParams.get('showAITopicModal') === 'true'));
       setShowPoemModal(modalParam === 'poem-vault' || urlParams.get('poem') === 'vault');
-      setShowAutoPilotModal(modalParam === 'auto-pilot');
+      setShowAutoPilotModal(isAutoPilot);
       if (typeof liveStreamingState?.setIsLiveMode === 'function') {
         liveStreamingState.setIsLiveMode(modeParam === 'live' || urlParams.get('live') === 'true');
       }
@@ -1181,8 +1196,11 @@ YÊU CẦU: Lão đã cất lời mào đầu và đọc bài kệ trên cho ng�
     setShowAiManager,
     showAITopicModal: showAiManager,
     setShowAITopicModal: setShowAiManager,
-    showAutoPilotModal,
-    setShowAutoPilotModal,
+    showAutoPilotModal: showAutoPilotModal || videoExportState?.showAutoPilotModal,
+    setShowAutoPilotModal: (val: boolean) => {
+      setShowAutoPilotModal(val);
+      if (videoExportState?.setShowAutoPilotModal) videoExportState.setShowAutoPilotModal(val);
+    },
     showPoemModal,
     setShowPoemModal,
     showUserGuide,
@@ -1243,17 +1261,12 @@ YÊU CẦU: Lão đã cất lời mào đầu và đọc bài kệ trên cho ng�
         <LoginPage onLogin={passProps.handleLogin} />
       ) : (
         <>
-          {!passProps.hasEntered ? (
+          {!passProps.hasEntered && !passProps.showAutoPilotModal && !showAiManager && !passProps.showAITopicModal ? (
             <WelcomeScreen p={passProps} />
           ) : passProps.showVideoExportModal ? (
             <VideoCreatorModal p={passProps} />
           ) : passProps.showAutoPilotModal ? (
-            <>
-              {showAiManager || passProps.showAITopicModal ? (
-                <AiDirectorManagerModal p={{ ...passProps, show: true, onClose: () => { setShowAiManager(false); if (passProps.setShowAITopicModal) passProps.setShowAITopicModal(false); } }} />
-              ) : null}
-              <NormalModePanel p={passProps} />
-            </>
+            <NormalModePanel p={passProps} />
           ) : showAiManager || passProps.showAITopicModal ? (
             <AiDirectorManagerModal p={{ ...passProps, show: true, onClose: () => { setShowAiManager(false); if (passProps.setShowAITopicModal) passProps.setShowAITopicModal(false); } }} />
           ) : passProps.showPoemModal ? (

@@ -1,12 +1,6 @@
 /**
  * POST /api/giacngo/chat
  * Chat với AI từ GiacNgo (JSON response)
- *
- * Body: {
- *   aiConfigId: number,
- *   message: string,
- *   language?: string  // 'vi' | 'en' | ...
- * }
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { giacNgoChat, GiacNgoApiError } from '@/lib/giacngo';
@@ -21,7 +15,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     let { aiConfigId, message, language = 'vi', spaceId } = body;
 
-    // Fallback nếu Client bị mất aiConfigId (VD: do chưa lấy được public-ais từ .env chưa nạp)
     if (!aiConfigId) {
       aiConfigId = process.env.GIACNGO_DEFAULT_AI_CONFIG_ID || 1;
     }
@@ -33,27 +26,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let token = getToken(req);
-    let result: any;
-    try {
-      result = await giacNgoChat.sendJson(aiConfigId, message, token, language, undefined, spaceId ? Number(spaceId) : undefined);
-      if ((result?.message === 'Authentication required.' || result?.message === 'Unauthorized') && token) {
-        result = await giacNgoChat.sendJson(aiConfigId, message, undefined, language, undefined, spaceId ? Number(spaceId) : undefined);
-      }
-    } catch (err: any) {
-      if (token) {
-        console.warn('[/api/giacngo/chat] User token error, retrying with Service Token:', err?.message);
-        result = await giacNgoChat.sendJson(aiConfigId, message, undefined, language, undefined, spaceId ? Number(spaceId) : undefined);
-      } else {
-        throw err;
-      }
-    }
+    const token = getToken(req);
+    // Gọi trực tiếp API Giác Ngộ, nếu có lỗi thì throw trực tiếp để báo lỗi minh bạch
+    const result = await giacNgoChat.sendJson(aiConfigId, message, token, language, undefined, spaceId ? Number(spaceId) : undefined);
+
     return NextResponse.json(result);
-  } catch (err) {
+  } catch (err: any) {
     if (err instanceof GiacNgoApiError) {
-      return NextResponse.json({ message: err.message }, { status: err.status });
+      console.error('[/api/giacngo/chat error]', err.status, err.message);
+      return NextResponse.json({ message: err.message, error: 'GiacNgoApiError', status: err.status }, { status: err.status });
     }
-    console.error('[/api/giacngo/chat]', err);
-    return NextResponse.json({ message: 'Lỗi khi gọi AI.' }, { status: 500 });
+    console.error('[/api/giacngo/chat error]', err);
+    return NextResponse.json({ message: err?.message || 'Lỗi khi gọi AI Giác Ngộ.', error: String(err) }, { status: 500 });
   }
 }
