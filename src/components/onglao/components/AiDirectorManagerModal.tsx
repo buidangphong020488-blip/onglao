@@ -124,8 +124,8 @@ const CustomDateInput = ({ value, onChange, placeholder = "dd/mm/yyyy", title }:
 };
 
 const AiDirectorManagerModal = (props: any) => {
-    const p = props.p || props;
-    const isVisible = props.show ?? p.show;
+    const p = props?.p || props || {};
+    const isVisible = props?.show ?? p?.show;
 
     const toast = (msg: string, type?: string, duration?: number) => {
         if (typeof p?.showToastMsg === 'function') {
@@ -322,35 +322,30 @@ const AiDirectorManagerModal = (props: any) => {
 
 
     // Tự động khôi phục đúng Form (Tạo mới thủ công / Tạo mới AI / Chỉnh sửa) khi mở modal hoặc ấn F5
-    const restoredFromUrlRef = useRef(false);
+    const restoredFromUrlRef = useRef<string | null>(null);
     useEffect(() => {
         if (typeof window !== 'undefined' && p.show) {
             const url = new URL(window.location.href);
-            const modalParam = url.searchParams.get('modal');
             const actionParam = url.searchParams.get('action');
-            const typeParam = url.searchParams.get('type');
             const idParam = url.searchParams.get('id');
 
-            if (modalParam === 'ai-director' && !restoredFromUrlRef.current) {
+            if (p.sessions && p.sessions.length > 0) {
                 if (actionParam === 'insert') {
                     if (!selectedScript) handleCreateAIScript();
                     if (p.setShowScriptModal) p.setShowScriptModal(false);
-                    restoredFromUrlRef.current = true;
-                } else if (idParam && (actionParam === 'update' || actionParam === 'edit')) {
-                    if (p.sessions.length > 0) {
-                        const script = p.sessions.find((s: any) => s.id === idParam);
-                        if (script) {
-                            if (selectedScript?.id !== idParam) handleStartEdit(script);
-                            restoredFromUrlRef.current = true;
-                        }
+                } else if (idParam && idParam !== restoredFromUrlRef.current) {
+                    const script = p.sessions.find((s: any) => s.id === idParam);
+                    if (script) {
+                        handleStartEdit(script);
+                        restoredFromUrlRef.current = idParam;
                     }
                 }
             }
         }
         if (!p.show) {
-            restoredFromUrlRef.current = false;
+            restoredFromUrlRef.current = null;
         }
-    }, [p.show, p.sessions, view, showCreator, selectedScript?.id]);
+    }, [p.show, p.sessions]);
 
     const preloadedRef = useRef(false);
     // Tự động tải tin nhắn cho tất cả kịch bản khi mở modal để tránh race condition khi nghe thử/tạo video
@@ -366,24 +361,40 @@ const AiDirectorManagerModal = (props: any) => {
             try {
                 const res = await getScriptSessionsAction(p.user?.id);
                 if (res.success && res.data) {
-                    const loadedScriptMap = new Map();
-                    res.data.forEach((s: any) => {
-                        const mappedMsgs = (s.messages || []).map((m: any) => ({
+                    const dbScriptSessions = res.data.map((s: any) => ({
+                        id: s.id,
+                        title: s.title,
+                        type: s.type || 'script',
+                        createdAt: s.createdAt,
+                        updatedAt: s.updatedAt,
+                        isPinned: s.isPinned || false,
+                        laoVoice: s.laoVoice || 'Algieba',
+                        laoVoiceStyle: s.laoVoiceStyle,
+                        userVoice: s.userVoice || 'Kore',
+                        userVoiceStyle: s.userVoiceStyle,
+                        messages: (s.messages || []).map((m: any) => ({
                             id: m.id || m.msgId || Date.now(),
                             role: m.role === 'ASSISTANT' ? 'ai' : (m.role === 'OUTRO' ? 'outro' : 'user'),
                             text: m.content,
                             timestamp: m.createdAt ? new Date(m.createdAt) : new Date(),
                             audioUrl: m.audioUrl || null,
                             emotion: m.emotion || 'calm'
-                        }));
-                        loadedScriptMap.set(s.id, mappedMsgs);
-                    });
-                    p.setSessions((prev: any[]) => prev.map((x: any) => {
-                        if (loadedScriptMap.has(x.id)) {
-                            return { ...x, messages: loadedScriptMap.get(x.id), messagesLoaded: true };
-                        }
-                        return x;
+                        })),
+                        messagesLoaded: true
                     }));
+
+                    p.setSessions((prev: any[]) => {
+                        const dbMap = new Map(dbScriptSessions.map((s: any) => [s.id, s]));
+                        const updatedPrev = (prev || []).map((x: any) => {
+                            if (dbMap.has(x.id)) {
+                                const dbObj = dbMap.get(x.id);
+                                dbMap.delete(x.id);
+                                return dbObj;
+                            }
+                            return x;
+                        });
+                        return [...updatedPrev, ...Array.from(dbMap.values())];
+                    });
                 }
             } catch (e: any) {
                 console.error("Failed to load script sessions:", e);
@@ -858,6 +869,7 @@ const AiDirectorManagerModal = (props: any) => {
         setShowCreator(false);
         if (p.setShowScriptModal) p.setShowScriptModal(false);
         setSelectedScript(null);
+        if (typeof p.setCurrentSessionId === 'function') p.setCurrentSessionId(null);
         setEditingMessages([]);
         setEditingRawText('');
         if (typeof window !== 'undefined') {
@@ -865,6 +877,7 @@ const AiDirectorManagerModal = (props: any) => {
             url.searchParams.set('modal', 'ai-director');
             url.searchParams.delete('action');
             url.searchParams.delete('id');
+            url.searchParams.delete('session_id');
             url.searchParams.delete('type');
             url.searchParams.delete('slug');
             window.history.replaceState(null, '', url.pathname + '?' + url.searchParams.toString());
@@ -1796,9 +1809,13 @@ const AiDirectorManagerModal = (props: any) => {
                             onClick={() => {
                                 setView('list');
                                 setSelectedScript(null);
+                                restoredFromUrlRef.current = 'VIEW_LIST';
+                                if (p.setCurrentSessionId) p.setCurrentSessionId(null);
                                 if (typeof window !== 'undefined') {
                                     const url = new URL(window.location.href);
                                     url.searchParams.delete('id');
+                                    url.searchParams.delete('action');
+                                    url.searchParams.delete('type');
                                     window.history.replaceState(null, '', url.toString());
                                 }
                             }}
@@ -1824,7 +1841,7 @@ const AiDirectorManagerModal = (props: any) => {
             {/* Main Body Page - Danh Sách Kịch Bản */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 flex flex-col max-w-7xl w-full mx-auto">
                 {/* VIEW 1: Scripts List - Được bao bọc trong Card Container cao cấp */}
-                <div className="bg-slate-900/80 border border-indigo-500/20 rounded-3xl p-5 md:p-8 shadow-2xl backdrop-blur-xl flex-1 flex flex-col gap-5 min-h-[550px] justify-between">
+                <div className="bg-slate-900/80 border border-indigo-500/20 rounded-3xl p-5 md:p-8 shadow-2xl backdrop-blur-xl w-full flex flex-col gap-5 min-h-[550px] justify-between mb-8">
                     <div className="flex-1 flex flex-col gap-5">
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                 <div className="flex items-center gap-3">
@@ -1861,19 +1878,7 @@ const AiDirectorManagerModal = (props: any) => {
                                     )}
                                     <button 
                                         onClick={() => {
-                                            if (typeof p?.setShowAiManager === 'function') p.setShowAiManager(false);
-                                            if (typeof props?.setShowAiManager === 'function') props.setShowAiManager(false);
-                                            if (typeof p?.setShowAutoPilotModal === 'function') {
-                                                p.setShowAutoPilotModal(true);
-                                            } else if (typeof props?.setShowAutoPilotModal === 'function') {
-                                                props.setShowAutoPilotModal(true);
-                                            }
-                                            if (typeof window !== 'undefined') {
-                                                const url = new URL(window.location.href);
-                                                url.searchParams.set('modal', 'auto-pilot');
-                                                window.history.pushState({}, '', url.toString());
-                                                window.dispatchEvent(new Event('popstate'));
-                                            }
+                                            window.location.href = '/xuong-phim';
                                         }} 
                                         className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 hover:from-amber-500 hover:to-orange-500 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg border border-amber-400/40 hover:scale-105 cursor-pointer"
                                     >

@@ -84,8 +84,8 @@ async function runServerBackgroundAudioGeneration(sessionId: string, forceAll: b
 
     const ttsModel = settings.ttsModel || DEFAULT_MODEL;
     const sessionDB = await prisma.chatSession.findUnique({ where: { id: sessionId } }).catch(() => null);
-    const activeLaoVoice = laoVoice || sessionDB?.laoVoice || settings.laoVoiceName;
-    const activeUserVoice = userVoice || sessionDB?.userVoice;
+    const activeLaoVoice = laoVoice || sessionDB?.laoVoice || settings.laoVoiceName || 'Algieba';
+    const activeUserVoice = userVoice || sessionDB?.userVoice || settings.userVoiceName || 'Kore';
 
     if (!activeLaoVoice || !activeLaoVoice.trim()) {
       const missingErr = 'ERROR: Chưa chọn/cấu hình Giọng đọc của Lão! Vui lòng mở Cấu Hình Kịch Bản để chọn giọng.';

@@ -67,3 +67,6 @@ OngLao.zip
 *.m4v
 *.avi
 *.mkv
+
+# Proof test screenshots
+proof_*.png

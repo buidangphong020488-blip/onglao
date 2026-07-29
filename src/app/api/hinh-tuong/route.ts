@@ -11,7 +11,7 @@ export async function GET() {
 
     return NextResponse.json(characters);
   } catch (error: any) {
-    console.error('Error fetching characters from DB:', error);
-    return NextResponse.json({ message: `Lỗi truy vấn CSDL PostgreSQL: ${error.message}` }, { status: 500 });
+    console.error('Error fetching characters from DB (fallback to empty array):', error);
+    return NextResponse.json([]);
   }
 }

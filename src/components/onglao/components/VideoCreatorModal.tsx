@@ -149,11 +149,7 @@ const SceneThumbnailItem = React.memo(({ scene, setFfScenes }: { scene: any; set
     };
 
     const getStockFallback = (role: string, em: string) => {
-        if (role === 'lao') return '/uploads/lao_vui_1784102050032.mp4';
-        if (role === 'outro') return '/uploads/outro_1784102050469.mp4';
-        if (em === 'sad') return '/uploads/con_buon_1784102048315.mp4';
-        if (em === 'joy') return '/uploads/con_vui_1784102049237.mp4';
-        return '/uploads/con_binhthuong_1784102047613.mp4';
+        return '';
     };
 
     React.useEffect(() => {
@@ -260,15 +256,7 @@ const SceneThumbnailItem = React.memo(({ scene, setFfScenes }: { scene: any; set
             {activeUrl && !hasError ? (
                 poster ? (
                     <div className="w-full h-full relative group">
-                        <img src={poster} alt="thumbnail" className="w-full h-full object-cover" onError={() => setPoster(null)} />
-                ) : (blobUrl || clip.url) ? (
-                    <video 
-                        src={blobUrl || (clip.url ? resolveClipUrl(clip.url) : '')} 
-                        muted 
-                        preload="metadata" 
-                        playsInline
-                        className="w-full h-full object-cover pointer-events-none" 
-                    />
+                        <img src={poster} alt="thumbnail" className="w-full h-full object-cover" onError={() => setPoster('')} />
                         <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors flex items-center justify-center">
                             <Film size={14} className="text-white/80 drop-shadow" />
                         </div>
@@ -292,7 +280,7 @@ const SceneThumbnailItem = React.memo(({ scene, setFfScenes }: { scene: any; set
 });
 const VideoCreatorModal = (props?: any) => {
   const ctx = typeof useOngLaoContext === 'function' ? useOngLaoContext() : null;
-  const p = (props && props.p) ? props.p : ((props && Object.keys(props).length > 0) ? props : ctx);
+  const p = (props && props.p) ? props.p : ((props && Object.keys(props).length > 0) ? props : ctx) || {};
   const previewVideoRef = React.useRef(null);
   const [selectedFfPackId, setSelectedFfPackId] = React.useState('');
   // States and Handlers for inline text/audio editing within VideoCreatorModal
@@ -450,7 +438,7 @@ const VideoCreatorModal = (props?: any) => {
     if (urlVideoId && p.renderHistory?.length > 0) {
       const matchedVideo = p.renderHistory.find((v: any) => v.id === urlVideoId && v.sessionId === p.currentSessionId);
       if (matchedVideo) {
-        p.setRenderedVideoUrl(matchedVideo.url);
+        p.setRenderedVideoUrl?.(matchedVideo.url);
         p.setRenderedVideoBlob?.(matchedVideo.blob || null);
         return;
       }
@@ -460,7 +448,7 @@ const VideoCreatorModal = (props?: any) => {
       const sessionVideos = p.renderHistory.filter((v: any) => v.sessionId === p.currentSessionId);
       if (sessionVideos.length > 0) {
         const latestVideo = sessionVideos[0];
-        p.setRenderedVideoUrl(latestVideo.url);
+        p.setRenderedVideoUrl?.(latestVideo.url);
         p.setRenderedVideoBlob?.(latestVideo.blob || null);
         if (typeof window !== 'undefined') {
           const url = new URL(window.location.href);
@@ -471,7 +459,7 @@ const VideoCreatorModal = (props?: any) => {
       }
     }
     // Nếu không khớp videoid và không có video nào đã render cho kịch bản này
-    p.setRenderedVideoUrl(null);
+    p.setRenderedVideoUrl?.(null);
     p.setRenderedVideoBlob?.(null);
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);

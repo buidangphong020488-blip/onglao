@@ -4133,7 +4133,10 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
     deleteBatchJob,
     stopAutoPilot,
     isGeneratingAITopic,
-    setIsGeneratingAITopic
+    setIsGeneratingAITopic,
+    playTopicAudio,
+    generateMissingBatchAudios,
+    renderMissingBatchVideos
   } = useAutopilot({
     user,
     currentUser,
@@ -4384,6 +4387,9 @@ const [presetBackgrounds, setPresetBackgrounds] = useState<any[]>(INITIAL_PRESET
     updateAutoPilotConfig,
     deleteBatchJob,
     stopAutoPilot,
+    playTopicAudio,
+    generateMissingBatchAudios,
+    renderMissingBatchVideos,
     togglePin,
     isGeneratingAITopic,
     setIsGeneratingAITopic,

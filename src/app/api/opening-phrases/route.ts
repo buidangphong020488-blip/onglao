@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     });
     return NextResponse.json(items);
   } catch (err: any) {
-    console.error('[/api/opening-phrases] DB Error:', err?.message || err);
-    return NextResponse.json({ message: `Lỗi CSDL PostgreSQL: ${err.message}` }, { status: 500 });
+    console.error('[/api/opening-phrases] DB Error (fallback to empty array):', err?.message || err);
+    return NextResponse.json([]);
   }
 }

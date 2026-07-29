@@ -27,7 +27,13 @@ const normalizeAudioUrl = (url: string | null | undefined): string | null => {
   return '/' + trimmed;
 };
 
-export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: any[] }) {
+export default function OngLaoAppShell({
+  initialPoems = [],
+  pageRoute
+}: {
+  initialPoems?: any[];
+  pageRoute?: 'home' | 'livestream' | 'ke-phap' | 'xuong-phim' | 'kich-ban' | 'tao-video';
+}) {
   // Global Sessions & Sidebar UI States
   const [sessions, setSessions] = React.useState<any[]>([]);
   const [currentSessionId, setCurrentSessionId] = React.useState<string | null>(null);
@@ -120,7 +126,8 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
 
     if (typeof window !== 'undefined' && window.history && window.history.pushState) {
       const url = new URL(window.location.href);
-      if (url.searchParams.get('id') !== currentSessionId && url.searchParams.get('session_id') !== currentSessionId) {
+      const isAiDirectorList = url.searchParams.get('modal') === 'ai-director' && !url.searchParams.has('action');
+      if (!isAiDirectorList && url.searchParams.get('id') !== currentSessionId && url.searchParams.get('session_id') !== currentSessionId) {
         url.searchParams.set('id', currentSessionId);
         window.history.pushState({}, '', url.toString());
       }
@@ -716,13 +723,19 @@ export default function OngLaoAppShell({ initialPoems = [] }: { initialPoems?: a
       const modalParam = urlParams.get('modal');
       const modeParam = urlParams.get('mode');
       const isAutoPilot = modalParam === 'auto-pilot';
-      setShowAiManager(!isAutoPilot && (modalParam === 'ai-director' || urlParams.get('showAITopicModal') === 'true'));
+      const isAiDirector = modalParam === 'ai-director' || urlParams.get('showAITopicModal') === 'true';
+      setShowAiManager(!isAutoPilot && isAiDirector);
       setShowPoemModal(modalParam === 'poem-vault' || urlParams.get('poem') === 'vault');
       setShowAutoPilotModal(isAutoPilot);
       if (typeof liveStreamingState?.setIsLiveMode === 'function') {
-        liveStreamingState.setIsLiveMode(modeParam === 'live' || urlParams.get('live') === 'true');
+        if (isAutoPilot || isAiDirector) {
+          liveStreamingState.setIsLiveMode(false);
+        } else if (modeParam === 'live' || urlParams.get('live') === 'true') {
+          liveStreamingState.setIsLiveMode(true);
+        }
       }
     };
+    syncModalsFromUrl();
     window.addEventListener('popstate', syncModalsFromUrl);
     return () => window.removeEventListener('popstate', syncModalsFromUrl);
   }, [liveStreamingState?.setIsLiveMode]);
@@ -1261,20 +1274,36 @@ YÊU CẦU: Lão đã cất lời mào đầu và đọc bài kệ trên cho ng�
         <LoginPage onLogin={passProps.handleLogin} />
       ) : (
         <>
-          {!passProps.hasEntered && !passProps.showAutoPilotModal && !showAiManager && !passProps.showAITopicModal ? (
-            <WelcomeScreen p={passProps} />
-          ) : passProps.showVideoExportModal ? (
-            <VideoCreatorModal p={passProps} />
-          ) : passProps.showAutoPilotModal ? (
-            <NormalModePanel p={passProps} />
-          ) : showAiManager || passProps.showAITopicModal ? (
-            <AiDirectorManagerModal p={{ ...passProps, show: true, onClose: () => { setShowAiManager(false); if (passProps.setShowAITopicModal) passProps.setShowAITopicModal(false); } }} />
-          ) : passProps.showPoemModal ? (
-            <PoemVaultModal p={passProps} />
-          ) : !passProps.isLiveMode ? (
-            <NormalModePanel p={passProps} />
+          {pageRoute === 'livestream' ? (
+            <LiveModePanel p={{ ...passProps, isLiveMode: true }} />
+          ) : pageRoute === 'ke-phap' ? (
+            <PoemVaultModal p={{ ...passProps, showPoemModal: true }} inline={true} />
+          ) : pageRoute === 'xuong-phim' ? (
+            <NormalModePanel p={{ ...passProps, showAutoPilotModal: true }} />
+          ) : pageRoute === 'kich-ban' ? (
+            <AiDirectorManagerModal p={{ ...passProps, show: true, onClose: () => { window.location.href = '/'; } }} />
+          ) : pageRoute === 'tao-video' ? (
+            <VideoCreatorModal p={{ ...passProps, showVideoExportModal: true }} />
           ) : (
-            <LiveModePanel p={passProps} />
+            <>
+              {(showAiManager || passProps.showAITopicModal) && (
+                <AiDirectorManagerModal p={{ ...passProps, show: true, onClose: () => { setShowAiManager(false); if (passProps.setShowAITopicModal) passProps.setShowAITopicModal(false); } }} />
+              )}
+
+              {!passProps.hasEntered && !passProps.showAutoPilotModal && !showAiManager && !passProps.showAITopicModal ? (
+                <WelcomeScreen p={passProps} />
+              ) : passProps.showVideoExportModal ? (
+                <VideoCreatorModal p={passProps} />
+              ) : passProps.showAutoPilotModal ? (
+                <NormalModePanel p={passProps} />
+              ) : passProps.showPoemModal ? (
+                <PoemVaultModal p={passProps} />
+              ) : !passProps.isLiveMode ? (
+                <NormalModePanel p={passProps} />
+              ) : (
+                <LiveModePanel p={passProps} />
+              )}
+            </>
           )}
         </>
       )}

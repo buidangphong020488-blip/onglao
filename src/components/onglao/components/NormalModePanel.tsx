@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use client";
 import React from "react";
-import { Check, Loader2, XCircle, Info, Smile, Mic, Send, BookOpen, Film, Video, FileText, Sparkles, Sliders, Save, Maximize, Minimize, RefreshCw, X, ChevronDown, Archive, Volume2, Share as ShareIcon, Copy, Plus, Compass, Clock, SlidersHorizontal, Settings2, ShieldAlert, History, Edit, KeyRound, UserCheck, Play, Pause, Power, MessageSquare, Bot, HelpCircle, Activity, ArrowRight, Camera, Cloud, Download, FlipHorizontal, Image as ImageIcon, ListOrdered, Menu, MicOff, Music, Pencil, Pin, PlayCircle, RotateCcw, Smartphone, StopCircle, ThumbsDown, ThumbsUp, Trash2, Users, Volume1, VolumeX, Wand2, ChevronLeft, Home, Eye } from "lucide-react";
+import { Check, Loader2, XCircle, Info, Smile, Mic, Send, BookOpen, Film, Video, FileText, Sparkles, Sliders, Save, Maximize, Minimize, RefreshCw, X, ChevronDown, Archive, Volume2, Share as ShareIcon, Copy, Plus, Compass, Clock, SlidersHorizontal, Settings2, ShieldAlert, History, Edit, KeyRound, UserCheck, Play, Pause, Power, MessageSquare, Bot, HelpCircle, Activity, ArrowRight, Camera, Cloud, Download, FlipHorizontal, Image as ImageIcon, ListOrdered, Menu, MicOff, Music, Pencil, Pin, PlayCircle, RotateCcw, Smartphone, StopCircle, ThumbsDown, ThumbsUp, Trash2, Users, Volume1, VolumeX, Wand2, ChevronLeft, Home, Eye, Terminal } from "lucide-react";
 import MiniLaoFace from "./MiniLaoFace";
 import AuthModal from "@/components/AuthModal";
 import CombinedScriptModal from "./CombinedScriptModal";
@@ -273,6 +273,7 @@ const NormalModePanel = (props?: { p?: any }) => {
       startAutoPilot, startVideoExport, stopAutoPilot, targetRect, tempEditText, toast = { show: false, message: '', type: 'info' }, toggleCamera, toggleFullscreen,
       toggleGlobalPlay, toggleMic, togglePin, toggleReaction, tutorialStep, txtPoemFileInputRef, updateCurrentMessages, uploadAudioProgress,
       user, userAge, userCallLao, userGender, userSelfCall, userVoice, userVoiceStyle, videoResolution,
+      playTopicAudio, generateMissingBatchAudios, renderMissingBatchVideos
   } = p;
 
   const [localInputText, setLocalInputText] = React.useState(inputText || '');
@@ -280,6 +281,14 @@ const NormalModePanel = (props?: { p?: any }) => {
   const [showEmotionMenu, setShowEmotionMenu] = React.useState(false);
   const [localShowAuthModal, setLocalShowAuthModal] = React.useState(false);
   const [internalAutoPilotTab, setInternalAutoPilotTab] = React.useState<'create' | 'history'>('create');
+  const [expandedTerminalJobId, setExpandedTerminalJobId] = React.useState<string | null>(null);
+  const [previewVideoUrl, setPreviewVideoUrl] = React.useState<string | null>(null);
+  const [previewVideoTitle, setPreviewVideoTitle] = React.useState<string>('');
+  const [videoCurrentTime, setVideoCurrentTime] = React.useState(0);
+  const [videoDuration, setVideoDuration] = React.useState(0);
+  const [previewScriptSentences, setPreviewScriptSentences] = React.useState<any[]>([]);
+  const [batchPage, setBatchPage] = React.useState(1);
+  const [batchPageSize, setBatchPageSize] = React.useState(5);
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -671,7 +680,7 @@ const NormalModePanel = (props?: { p?: any }) => {
                 <div className="flex items-center gap-2">
                     {!apState.isRunning && (
                         <button
-                            onClick={() => setShowAutoPilotModal(false)}
+                            onClick={() => { window.location.href = '/kich-ban'; }}
                             className="px-3.5 py-2 bg-indigo-900/60 hover:bg-indigo-800 border border-indigo-500/30 text-indigo-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
                             title="Quay lại Quản lý kịch bản"
                         >
@@ -695,167 +704,159 @@ const NormalModePanel = (props?: { p?: any }) => {
 
             {/* Main Body Page Workspace */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 flex flex-col max-w-7xl w-full mx-auto">
-                {/* TAB 1: FORM CẤU HÌNH VÀ TERMINAL LOG CHẠY LIVE */}
+                {/* TAB 1: FORM CẤU HÌNH XUẤT BẢN CÂN ĐỐI (1 CỘT GỌN GÀNG) */}
                 {activeSubTab === 'create' && (
-                    <div className="bg-slate-900/80 border border-rose-500/20 rounded-3xl p-5 md:p-8 shadow-2xl backdrop-blur-xl flex-1 flex flex-col md:flex-row gap-6 min-h-[600px]">
+                    <div className="bg-slate-900/80 border border-rose-500/20 rounded-3xl p-5 md:p-8 shadow-2xl backdrop-blur-xl max-w-4xl w-full mx-auto flex flex-col gap-6">
                         
-                        {/* BÊN TRÁI: CẤU HÌNH & NHẬP LIỆU */}
-                        <div className={`w-full md:w-1/2 p-2 flex flex-col gap-4 overflow-y-auto border-b md:border-b-0 md:border-r border-white/5 pr-0 md:pr-6 ${apState.isRunning ? 'opacity-50 pointer-events-none grayscale-[50%]' : ''}`}>
+                        <div className={`w-full flex flex-col gap-4 overflow-y-auto ${(p.apState || apState)?.isRunning ? 'opacity-50 pointer-events-none grayscale-[50%]' : ''}`}>
                             
                             <div className="bg-rose-900/20 border border-rose-500/30 p-4 rounded-xl flex flex-col gap-2">
                                 <span className="text-xs font-bold text-rose-300 flex items-center gap-1.5"><ListOrdered size={16}/> Danh sách chủ đề cần sản xuất:</span>
                                 <textarea 
-                                    value={apTopics}
-                                    onChange={e => setApTopics(e.target.value)}
+                                    value={p.apTopics !== undefined ? p.apTopics : apTopics}
+                                    onChange={e => (p.setApTopics || setApTopics)(e.target.value)}
                                     placeholder="Nhập mỗi chủ đề 1 dòng..."
-                                    className="w-full h-32 bg-slate-950 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-rose-500 outline-none resize-none font-mono"
+                                    className="w-full h-56 bg-slate-950 border border-white/10 rounded-xl p-4 text-sm text-white focus:border-rose-500 outline-none font-mono leading-relaxed"
                                 />
                             </div>
 
                             <div className="flex flex-col gap-3 mt-1">
-                                <span className="text-xs font-bold text-slate-300 border-b border-white/10 pb-1">Cấu hình xuất bản:</span>
+                                <span className="text-sm font-bold text-slate-200 border-b border-white/10 pb-1.5">Cấu hình xuất bản:</span>
                                 
                                 {/* KHỐI CẤU HÌNH GIỌNG ĐỌC & XƯNG HÔ CHO AUTO-PILOT */}
-                                <div className="flex flex-col gap-2 bg-slate-800/50 p-3 rounded-xl border border-white/5 mt-1">
-                                    <span className="text-[11px] font-bold text-orange-400 flex items-center gap-1"><Users size={12}/> Thiết lập nhân vật:</span>
+                                <div className="flex flex-col gap-3 bg-slate-800/50 p-4 rounded-xl border border-white/5 mt-1">
+                                    <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5"><Users size={14}/> Thiết lập nhân vật:</span>
                                     
-                                    <div className="flex flex-col gap-1.5 mt-1 border-b border-white/5 pb-2">
+                                    <div className="flex flex-col gap-2 mt-1 border-b border-white/5 pb-3">
                                        <div className="flex gap-2">
-                                          <input type="text" value={customLaoName} onChange={e=>setCustomLaoName(e.target.value)} placeholder="Tên Lão" className="flex-[1.5] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" title="Tên Lão" />
-                                          <input type="text" value={laoSelfCall} onChange={e=>setLaoSelfCall(e.target.value)} placeholder="Lão tự xưng" className="flex-[1] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" title="Lão tự xưng là gì" />
-                                          <input type="text" value={laoCallUser} onChange={e=>setLaoCallUser(e.target.value)} placeholder="Lão gọi kia" className="flex-[1] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" title="Lão gọi người hỏi là gì" />
+                                          <input type="text" value={customLaoName} onChange={e=>setCustomLaoName(e.target.value)} placeholder="Tên Lão" className="flex-[1.5] bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-amber-500" title="Tên Lão" />
+                                          <input type="text" value={laoSelfCall} onChange={e=>setLaoSelfCall(e.target.value)} placeholder="Lão tự xưng" className="flex-[1] bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-amber-500" title="Lão tự xưng là gì" />
+                                          <input type="text" value={laoCallUser} onChange={e=>setLaoCallUser(e.target.value)} placeholder="Lão gọi kia" className="flex-[1] bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-amber-500" title="Lão gọi người hỏi là gì" />
                                        </div>
                                        <div className="flex gap-2">
-                                          <select value={laoVoice} onChange={e=>setLaoVoice(e.target.value)} className="flex-[1] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none">
+                                          <select value={laoVoice} onChange={e=>setLaoVoice(e.target.value)} className="flex-[1] bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-amber-500">
                                               <optgroup label="🎙️ Nam"><option value="Algieba">Algieba</option><option value="Puck">Puck</option><option value="Charon">Charon</option></optgroup>
                                               <optgroup label="🎙️ Nữ"><option value="Aoede">Aoede</option><option value="Kore">Kore</option></optgroup>
                                           </select>
-                                          <input type="text" value={laoVoiceStyle} onChange={e=>setLaoVoiceStyle(e.target.value)} placeholder="Phong cách Lão..." className="flex-[2] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" />
+                                          <input type="text" value={laoVoiceStyle} onChange={e=>setLaoVoiceStyle(e.target.value)} placeholder="Phong cách Lão..." className="flex-[2] bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-amber-500" />
                                        </div>
                                     </div>
                                     
-                                    <div className="flex flex-col gap-1.5 mt-1">
+                                    <div className="flex flex-col gap-2 mt-1">
                                        <div className="flex gap-2">
-                                          <input type="text" value={customUserName} onChange={e=>setCustomUserName(e.target.value)} placeholder="Tên Con" className="flex-[1.5] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" title="Tên Người Hỏi" />
-                                          <input type="text" value={userSelfCall} onChange={e=>setUserSelfCall(e.target.value)} placeholder="Con tự xưng" className="flex-[1] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" title="Người hỏi tự xưng là gì" />
-                                          <input type="text" value={userCallLao} onChange={e=>setUserCallLao(e.target.value)} placeholder="Con gọi kia" className="flex-[1] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none" title="Người hỏi gọi Lão là gì" />
+                                          <input type="text" value={customUserName} onChange={e=>setCustomUserName(e.target.value)} placeholder="Tên Con" className="flex-[1.5] bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-amber-500" title="Tên Người Hỏi" />
+                                          <input type="text" value={userSelfCall} onChange={e=>setUserSelfCall(e.target.value)} placeholder="Con tự xưng" className="flex-[1] bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-amber-500" title="Người hỏi tự xưng là gì" />
+                                          <input type="text" value={userCallLao} onChange={e=>setUserCallLao(e.target.value)} placeholder="Con gọi kia" className="flex-[1] bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-amber-500" title="Người hỏi gọi Lão là gì" />
                                        </div>
                                        <div className="flex gap-2">
-                                          <div className="flex-1 flex flex-col gap-0.5">
-                                              <span className="text-[9px] text-slate-400 font-bold">Giới tính:</span>
-                                              <select value={userGender || 'Khác'} onChange={e=>setUserGender?.(e.target.value)} className="bg-slate-950 border border-white/10 rounded-md px-2 py-1 text-[10px] text-white outline-none cursor-pointer">
+                                          <div className="flex-1 flex flex-col gap-1">
+                                              <span className="text-[11px] text-slate-300 font-bold">Giới tính:</span>
+                                              <select value={userGender || 'Khác'} onChange={e=>setUserGender?.(e.target.value)} className="bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none cursor-pointer focus:border-amber-500">
                                                   <option value="Nam">Nam</option>
                                                   <option value="Nữ">Nữ</option>
                                                   <option value="Khác">Khác</option>
                                               </select>
                                           </div>
-                                          <div className="flex-1 flex flex-col gap-0.5">
-                                              <span className="text-[9px] text-slate-400 font-bold">Độ tuổi:</span>
-                                              <input type="number" min={1} max={120} value={userAge || 25} onChange={e=>setUserAge?.(Number(e.target.value))} placeholder="Độ tuổi" className="bg-slate-950 border border-white/10 rounded-md px-2 py-1 text-[10px] text-white outline-none" title="Độ tuổi của người hỏi" />
+                                          <div className="flex-1 flex flex-col gap-1">
+                                              <span className="text-[11px] text-slate-300 font-bold">Độ tuổi:</span>
+                                              <input type="number" min={1} max={120} value={userAge || 25} onChange={e=>setUserAge?.(Number(e.target.value))} placeholder="Độ tuổi" className="bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-amber-500" title="Độ tuổi của người hỏi" />
                                           </div>
                                        </div>
                                        <div className="flex gap-2">
-                                          <select value={userVoice} onChange={e=>setUserVoice(e.target.value)} disabled={apSettings.charMode === 'random'} className="flex-[1] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none disabled:opacity-50">
+                                          <select value={userVoice} onChange={e=>setUserVoice(e.target.value)} disabled={(p.apSettings || apSettings)?.charMode === 'random'} className="flex-[1] bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none disabled:opacity-50 focus:border-amber-500">
                                               <optgroup label="🎙️ Nữ"><option value="Aoede">Aoede</option><option value="Kore">Kore</option></optgroup>
                                               <optgroup label="🎙️ Nam"><option value="Puck">Puck</option><option value="Charon">Charon</option></optgroup>
                                           </select>
-                                          <input type="text" value={userVoiceStyle} onChange={e=>setUserVoiceStyle(e.target.value)} disabled={apSettings.charMode === 'random'} placeholder="Phong cách Con..." className="flex-[2] bg-slate-950 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none disabled:opacity-50" />
+                                          <input type="text" value={userVoiceStyle} onChange={e=>setUserVoiceStyle(e.target.value)} disabled={(p.apSettings || apSettings)?.charMode === 'random'} placeholder="Phong cách Con..." className="flex-[2] bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none disabled:opacity-50 focus:border-amber-500" />
                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="flex flex-col gap-2 bg-slate-800/50 p-3 rounded-xl border border-white/5 mt-1">
-                                    <label className="text-[11px] font-bold text-slate-400">Tỉ lệ Khung Hình Video:</label>
-                                    <div className="flex gap-2">
-                                        <label className={`flex-1 flex items-center justify-center gap-2 p-2.5 rounded-xl cursor-pointer transition-all border ${apSettings.orientation === '16x9' ? 'bg-rose-600/20 border-rose-500 text-rose-300 shadow-md font-bold' : 'border-white/10 text-slate-400 hover:bg-slate-700'}`}>
-                                            <input type="radio" className="hidden" checked={apSettings.orientation === '16x9'} onChange={() => setApSettings(p => ({...p, orientation: '16x9'}))} />
-                                            <Video size={15}/> 💻 Ngang (16:9)
-                                        </label>
-                                        <label className={`flex-1 flex items-center justify-center gap-2 p-2.5 rounded-xl cursor-pointer transition-all border ${apSettings.orientation === '9x16' ? 'bg-rose-600/20 border-rose-500 text-rose-300 shadow-md font-bold' : 'border-white/10 text-slate-400 hover:bg-slate-700'}`}>
-                                            <input type="radio" className="hidden" checked={apSettings.orientation === '9x16'} onChange={() => setApSettings(p => ({...p, orientation: '9x16'}))} />
-                                            <Smartphone size={15}/> 📱 Dọc (9:16)
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <div className="flex flex-col gap-2 bg-slate-800/50 p-3 rounded-xl border border-white/5 mt-1">
-                                    <label className="text-[11px] font-bold text-slate-400">Độ dài kịch bản:</label>
-                                    <select 
-                                        value={apSettings.scriptLength} 
-                                        onChange={e => setApSettings(p => ({...p, scriptLength: e.target.value}))} 
-                                        className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-lg outline-none text-xs focus:border-rose-500"
-                                    >
-                                        <option value="Chính xác 4 câu (2 Lão, 2 Con)">Ngắn 4 câu (2 Lão, 2 Con)</option>
-                                        <option value="Khoảng 4-6 câu">Ngắn (Khoảng 4-6 câu)</option>
-                                        <option value="Khoảng 6-10 câu">Vừa (Khoảng 6-10 câu)</option>
-                                        <option value="Khoảng 10-15 câu">Dài (Khoảng 10-15 câu)</option>
-                                        <option value="Khoảng 15-21 câu">Rất dài (Khoảng 15-21 câu)</option>
-                                    </select>
-                                </div>
-
-                                <div className="flex flex-col gap-2 bg-slate-800/50 p-3 rounded-xl border border-white/5">
-                                    <label className="text-[11px] font-bold text-slate-400 flex items-center gap-1.5"><Sparkles size={14}/> Hiệu ứng chuyển cảnh (Transitions):</label>
-                                    <select 
-                                        value={apSettings.transition} 
-                                        onChange={e => setApSettings(p => ({...p, transition: e.target.value}))} 
-                                        className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-lg outline-none text-xs focus:border-rose-500"
-                                    >
-                                        <option value="none">Cắt cứng (Mặc định, Tắt hiệu ứng)</option>
-                                        <option value="fade_black">Mờ đen (Dip to black)</option>
-                                        <option value="fade_white">Chớp trắng (Flash)</option>
-                                        <option value="blur">Lóa sáng tâm linh</option>
-                                        <option value="random">Ngẫu nhiên tự động</option>
-                                    </select>
-                                    {apSettings.transition !== 'none' && (
-                                        <div className="flex flex-col gap-1 mt-1 animate-in fade-in bg-slate-900 p-2.5 rounded-lg border border-white/5">
-                                            <span className="text-[10px] text-slate-300 flex justify-between font-bold">Thời gian kéo dài: <span className="text-white">{apSettings.transitionDuration}s</span></span>
-                                            <input type="range" min="0.1" max="2.0" step="0.1" value={apSettings.transitionDuration} onChange={e => setApSettings(p => ({...p, transitionDuration: Number(e.target.value)}))} className="accent-rose-500" />
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-1">
+                                    {/* BLOCK 1: TỈ LỆ KHUNG HÌNH */}
+                                    <div className="flex flex-col gap-2 bg-slate-800/50 p-3 rounded-xl border border-white/5 justify-between">
+                                        <label className="text-xs font-bold text-slate-300">Tỉ lệ Khung Hình Video:</label>
+                                        <div className="flex gap-1.5">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const updateFn = p.setApSettings || setApSettings;
+                                                    if (updateFn) updateFn((st: any) => ({ ...st, orientation: '16x9' }));
+                                                }}
+                                                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl cursor-pointer transition-all border text-xs font-bold ${
+                                                    (p.apSettings || apSettings)?.orientation === '16x9'
+                                                        ? 'bg-rose-600/30 border-rose-500 text-rose-300 shadow-md ring-1 ring-rose-500'
+                                                        : 'bg-slate-950/60 border-white/10 text-slate-400 hover:bg-slate-800 hover:text-white'
+                                                }`}
+                                            >
+                                                <Video size={14}/> Ngang (16:9)
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const updateFn = p.setApSettings || setApSettings;
+                                                    if (updateFn) updateFn((st: any) => ({ ...st, orientation: '9x16' }));
+                                                }}
+                                                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl cursor-pointer transition-all border text-xs font-bold ${
+                                                    (p.apSettings || apSettings)?.orientation === '9x16'
+                                                        ? 'bg-rose-600/30 border-rose-500 text-rose-300 shadow-md ring-1 ring-rose-500'
+                                                        : 'bg-slate-950/60 border-white/10 text-slate-400 hover:bg-slate-800 hover:text-white'
+                                                }`}
+                                            >
+                                                <Smartphone size={14}/> Dọc (9:16)
+                                            </button>
                                         </div>
-                                    )}
+                                    </div>
+
+                                    {/* BLOCK 2: ĐỘ DÀI KỊCH BẢN */}
+                                    <div className="flex flex-col gap-2 bg-slate-800/50 p-3 rounded-xl border border-white/5 justify-between">
+                                        <label className="text-xs font-bold text-slate-300">Độ dài kịch bản:</label>
+                                        <select 
+                                            value={(p.apSettings || apSettings)?.scriptLength || 'Chính xác 4 câu (2 Lão, 2 Con)'} 
+                                            onChange={e => (p.setApSettings || setApSettings)(st => ({...st, scriptLength: e.target.value}))} 
+                                            className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-lg outline-none text-xs focus:border-rose-500"
+                                        >
+                                            <option value="Chính xác 4 câu (2 Lão, 2 Con)">Ngắn 4 câu (2 Lão, 2 Con)</option>
+                                            <option value="Khoảng 4-6 câu">Ngắn (Khoảng 4-6 câu)</option>
+                                            <option value="Khoảng 6-10 câu">Vừa (Khoảng 6-10 câu)</option>
+                                            <option value="Khoảng 10-15 câu">Dài (Khoảng 10-15 câu)</option>
+                                            <option value="Khoảng 15-21 câu">Rất dài (Khoảng 15-21 câu)</option>
+                                        </select>
+                                    </div>
+
+                                    {/* BLOCK 3: HIỆU ỨNG CHUYỂN CẢNH */}
+                                    <div className="flex flex-col gap-2 bg-slate-800/50 p-3 rounded-xl border border-white/5 justify-between">
+                                        <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5"><Sparkles size={14}/> Chuyển cảnh (Transitions):</label>
+                                        <select 
+                                            value={(p.apSettings || apSettings)?.transition || 'none'} 
+                                            onChange={e => (p.setApSettings || setApSettings)(st => ({...st, transition: e.target.value}))} 
+                                            className="w-full bg-slate-950 border border-white/10 text-white p-2.5 rounded-lg outline-none text-xs focus:border-rose-500"
+                                        >
+                                            <option value="none">Cắt cứng (Tắt hiệu ứng)</option>
+                                            <option value="fade_black">Mờ đen (Dip to black)</option>
+                                            <option value="fade_white">Chớp trắng (Flash)</option>
+                                            <option value="blur">Lóa sáng tâm linh</option>
+                                            <option value="random">Ngẫu nhiên tự động</option>
+                                        </select>
+                                        {(p.apSettings || apSettings)?.transition !== 'none' && (
+                                            <div className="flex flex-col gap-1 mt-1 animate-in fade-in bg-slate-900 p-2 rounded-lg border border-white/5">
+                                                <span className="text-[11px] text-slate-300 flex justify-between font-bold">Thời gian kéo dài: <span className="text-white">{(p.apSettings || apSettings)?.transitionDuration || 0.5}s</span></span>
+                                                <input type="range" min="0.1" max="2.0" step="0.1" value={(p.apSettings || apSettings)?.transitionDuration || 0.5} onChange={e => (p.setApSettings || setApSettings)(st => ({...st, transitionDuration: Number(e.target.value)}))} className="accent-rose-500" />
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
                             <div className="mt-auto pt-4">
-                                {!apState.isRunning ? (
-                                    <button onClick={startAutoPilot} className="w-full bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-black py-4 rounded-xl shadow-[0_0_25px_rgba(225,29,72,0.4)] transition-all hover:scale-[1.02] flex items-center justify-center gap-2 text-sm uppercase tracking-wider cursor-pointer">
+                                {!(p.apState || apState)?.isRunning ? (
+                                    <button onClick={p.startAutoPilot || startAutoPilot} className="w-full bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-black py-4 rounded-xl shadow-[0_0_25px_rgba(225,29,72,0.4)] transition-all hover:scale-[1.02] flex items-center justify-center gap-2 text-sm uppercase tracking-wider cursor-pointer">
                                         <PlayCircle size={20}/> Bắt Đầu Sản Xuất Hàng Loạt
                                     </button>
                                 ) : (
-                                    <button onClick={stopAutoPilot} className="w-full bg-slate-700 hover:bg-slate-600 text-white font-black py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wider cursor-pointer">
+                                    <button onClick={p.stopAutoPilot || stopAutoPilot} className="w-full bg-slate-700 hover:bg-slate-600 text-white font-black py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wider cursor-pointer">
                                         <StopCircle size={20} className="text-rose-400"/> Dừng Khẩn Cấp
                                     </button>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* BÊN PHẢI: LOGS & STATUS MONITOR */}
-                        <div className="w-full md:w-1/2 bg-black rounded-2xl border border-white/5 flex flex-col overflow-hidden">
-                            <div className="p-3 bg-slate-900 border-b border-white/5 flex items-center justify-between">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tiến trình hoạt động Live</span>
-                                {apState.isRunning && (
-                                    <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20">
-                                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Đang chạy
-                                    </span>
-                                )}
-                            </div>
-                            
-                            <div className="flex-1 p-4 overflow-y-auto font-mono text-[11px] leading-relaxed flex flex-col gap-2 scrollbar-hide">
-                                {apState.logs.length === 0 ? (
-                                    <div className="text-slate-600 italic text-center mt-10">Hệ thống đang chờ lệnh...</div>
-                                ) : (
-                                    apState.logs.map((log: any, idx: any) => {
-                                        let textColor = "text-slate-300";
-                                        if (log.includes("--- BẮT ĐẦU")) textColor = "text-rose-400 font-bold";
-                                        if (log.includes("✅")) textColor = "text-emerald-400 font-bold";
-                                        if (log.includes("❌")) textColor = "text-red-400 font-bold";
-                                        if (log.includes("Render")) textColor = "text-orange-300";
-                                        
-                                        return (
-                                            <div key={idx} className={`border-b border-white/5 pb-1 ${textColor}`}>
-                                                {log}
-                                            </div>
-                                        );
-                                    })
                                 )}
                             </div>
                         </div>
@@ -864,7 +865,7 @@ const NormalModePanel = (props?: { p?: any }) => {
 
                 {/* TAB 2: BẢNG LỊCH SỬ TIẾN TRÌNH BATCH JOBS */}
                 {activeSubTab === 'history' && (
-                    <div className="bg-slate-900/80 border border-indigo-500/20 rounded-3xl p-5 md:p-8 shadow-2xl backdrop-blur-xl flex-1 flex flex-col gap-5">
+                    <div className="bg-slate-900/80 border border-indigo-500/20 rounded-3xl p-5 md:p-8 shadow-2xl backdrop-blur-xl w-full flex flex-col gap-5 mb-8">
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/5 pb-4">
                             <div>
                                 <h2 className="text-lg font-black text-white flex items-center gap-2">
@@ -894,152 +895,298 @@ const NormalModePanel = (props?: { p?: any }) => {
                                     Khởi Tạo Ngay
                                 </button>
                             </div>
-                        ) : (
-                            <div className="grid grid-cols-1 gap-4 overflow-y-auto max-h-[650px] pr-1">
-                                {p.batchJobsList.map((job: any) => {
-                                    const isRunning = job.status === 'running';
-                                    const isPaused = job.status === 'paused';
-                                    const isCompleted = job.status === 'completed';
-                                    const hasFailed = job.topics?.some((t: any) => t.status === 'failed');
+                        ) : (() => {
+                            const totalBatchJobs = p.batchJobsList?.length || 0;
+                            const totalPages = Math.max(1, Math.ceil(totalBatchJobs / batchPageSize));
+                            const safeBatchPage = Math.min(batchPage, totalPages);
+                            const startIndex = (safeBatchPage - 1) * batchPageSize;
+                            const paginatedJobs = (p.batchJobsList || []).slice(startIndex, startIndex + batchPageSize);
 
-                                    return (
-                                        <div key={job.id} className="bg-slate-950/80 border border-white/10 hover:border-indigo-500/40 p-5 rounded-2xl transition-all shadow-lg flex flex-col gap-4">
-                                            {/* Header THẺ BATCH */}
-                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`p-2 rounded-xl text-xs font-black ${isCompleted ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : isRunning ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 animate-pulse' : 'bg-slate-800 text-slate-400'}`}>
-                                                        {job.settings?.orientation === '9x16' ? '📱 Dọc (9:16)' : '💻 Ngang (16:9)'}
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="font-bold text-white text-sm flex items-center gap-2">
-                                                            {job.title}
-                                                            <span className="text-[10px] font-mono font-bold text-slate-500">({job.id})</span>
-                                                        </h3>
-                                                        <span className="text-[11px] text-slate-400 font-mono">Tạo lúc: {new Date(job.createdAt).toLocaleString('vi-VN')}</span>
-                                                    </div>
-                                                </div>
+                            return (
+                                <div className="flex flex-col gap-4">
+                                    <div className="grid grid-cols-1 gap-4 overflow-y-auto max-h-[600px] pr-1">
+                                        {paginatedJobs.map((job: any) => {
+                                            const isRunning = job.status === 'running';
+                                            const isPaused = job.status === 'paused';
+                                            const isCompleted = job.status === 'completed';
+                                            const hasFailed = job.topics?.some((t: any) => t.status === 'failed');
 
-                                                {/* Badge Status */}
-                                                <div className="flex items-center gap-2">
-                                                    {isCompleted && <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full text-xs font-bold">🟢 Hoàn Thành 100%</span>}
-                                                    {isRunning && <span className="px-3 py-1 bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 rounded-full text-xs font-bold animate-pulse">🔵 Đang Sản Xuất ({job.progressPercent || 0}%)</span>}
-                                                    {isPaused && <span className="px-3 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-full text-xs font-bold">⏸️ Tạm Dừng</span>}
-                                                    {hasFailed && <span className="px-3 py-1 bg-rose-500/10 border border-rose-500/30 text-rose-400 rounded-full text-xs font-bold">🔴 Có Lỗi</span>}
-                                                </div>
-                                            </div>
-
-                                            {/* Progress Bar */}
-                                            <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden border border-white/5">
-                                                <div 
-                                                    className={`h-full transition-all duration-500 ${isCompleted ? 'bg-emerald-500' : 'bg-gradient-to-r from-rose-500 via-amber-500 to-indigo-500'}`}
-                                                    style={{ width: `${job.progressPercent || 0}%` }}
-                                                ></div>
-                                            </div>
-
-                                            {/* Danh sách các chủ đề trong Batch */}
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                                                {job.topics?.map((topic: any, tIdx: number) => (
-                                                    <div key={topic.id || tIdx} className="bg-slate-900/60 p-3 rounded-xl border border-white/5 flex flex-col justify-between gap-2">
-                                                        <div className="flex items-start justify-between gap-2">
-                                                            <span className="text-xs text-slate-200 font-semibold line-clamp-2">
-                                                                #{tIdx + 1}. {topic.title}
-                                                            </span>
-                                                            {topic.status === 'completed' && <span className="text-[10px] font-bold text-emerald-400 shrink-0">🟢</span>}
-                                                            {topic.status === 'running' && <span className="text-[10px] font-bold text-indigo-400 shrink-0 animate-pulse">🔵</span>}
-                                                            {topic.status === 'failed' && <span className="text-[10px] font-bold text-rose-400 shrink-0">🔴</span>}
-                                                            {topic.status === 'pending' && <span className="text-[10px] text-slate-500 shrink-0">⚪</span>}
+                                            return (
+                                                <div key={job.id} className="bg-slate-950/80 border border-white/10 hover:border-indigo-500/40 p-5 rounded-2xl transition-all shadow-lg flex flex-col gap-4">
+                                                    {/* Header THẺ BATCH */}
+                                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`p-2 rounded-xl text-xs font-black ${isCompleted ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : isRunning ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 animate-pulse' : 'bg-slate-800 text-slate-400'}`}>
+                                                                {job.settings?.orientation === '9x16' ? '📱 Dọc (9:16)' : '💻 Ngang (16:9)'}
+                                                            </div>
+                                                            <div>
+                                                                <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                                                                    {job.title}
+                                                                    <span className="text-[10px] font-mono font-bold text-slate-500">({job.id})</span>
+                                                                </h3>
+                                                                <span className="text-[11px] text-slate-400 font-mono">Tạo lúc: {new Date(job.createdAt).toLocaleString('vi-VN')}</span>
+                                                            </div>
                                                         </div>
 
-                                                        {topic.status === 'completed' && (
-                                                            <div className="flex items-center gap-1.5 mt-1 pt-2 border-t border-white/5">
-                                                                {topic.videoUrl && (
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            if (p.setRenderedVideoUrl) p.setRenderedVideoUrl(topic.videoUrl);
-                                                                            if (p.setShowVideoExportModal) p.setShowVideoExportModal(true);
-                                                                            if (setShowAutoPilotModal) setShowAutoPilotModal(false);
-                                                                        }}
-                                                                        className="px-2 py-1 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
-                                                                    >
-                                                                        <Play size={10} /> Xem Video
-                                                                    </button>
-                                                                )}
-                                                                {topic.scriptId && (
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            if (setShowAutoPilotModal) setShowAutoPilotModal(false);
-                                                                            if (setShowAiManager) setShowAiManager(true);
-                                                                            if (p.setShowAiManager) p.setShowAiManager(true);
-                                                                            if (p.setShowAITopicModal) p.setShowAITopicModal(true);
-                                                                            if (typeof window !== 'undefined') {
-                                                                                const url = new URL(window.location.href);
-                                                                                url.searchParams.set('modal', 'ai-director');
-                                                                                if (topic.scriptId) url.searchParams.set('id', String(topic.scriptId));
-                                                                                window.history.pushState({}, '', url.toString());
-                                                                            }
-                                                                        }}
-                                                                        className="px-2 py-1 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
-                                                                    >
-                                                                        📝 Kịch Bản
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        )}
+                                                        {/* Badge Status */}
+                                                        <div className="flex items-center gap-2">
+                                                            {isCompleted && <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full text-xs font-bold">🟢 Hoàn Thành 100%</span>}
+                                                            {isRunning && <span className="px-3 py-1 bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 rounded-full text-xs font-bold animate-pulse">🔵 Đang Sản Xuất ({job.progressPercent || 0}%)</span>}
+                                                            {isPaused && <span className="px-3 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-full text-xs font-bold">⏸️ Tạm Dừng</span>}
+                                                            {hasFailed && <span className="px-3 py-1 bg-rose-500/10 border border-rose-500/30 text-rose-400 rounded-full text-xs font-bold">🔴 Có Lỗi</span>}
+                                                        </div>
                                                     </div>
-                                                ))}
-                                            </div>
 
-                                            {/* BỘ NÚT ĐIỀU KHIỂN ĐỢT BATCH */}
-                                            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/5">
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={() => {
-                                                            if (p.setActiveBatchJobId) p.setActiveBatchJobId(job.id);
-                                                            if (p.syncBatchIdToUrl) p.syncBatchIdToUrl(job.id);
-                                                            changeSubTab('create');
-                                                        }}
-                                                        className="px-3.5 py-1.5 bg-indigo-900/40 hover:bg-indigo-800/60 text-indigo-300 border border-indigo-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-                                                    >
-                                                        <Eye size={14} /> Xem Terminal Log
-                                                    </button>
-                                                    {hasFailed && (
+                                                    {/* Progress Bar */}
+                                                    <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden border border-white/5">
+                                                        <div 
+                                                            className={`h-full transition-all duration-500 ${isCompleted ? 'bg-emerald-500' : 'bg-gradient-to-r from-rose-500 via-amber-500 to-indigo-500'}`}
+                                                            style={{ width: `${job.progressPercent || 0}%` }}
+                                                        ></div>
+                                                    </div>
+
+                                                    {/* Danh sách các chủ đề trong Batch */}
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                                                        {job.topics?.map((topic: any, tIdx: number) => (
+                                                            <div key={topic.id || tIdx} className="bg-slate-900/60 p-3 rounded-xl border border-white/5 flex flex-col justify-between gap-2">
+                                                                <div className="flex items-start justify-between gap-2">
+                                                                    <span className="text-xs text-slate-200 font-semibold line-clamp-2">
+                                                                        #{tIdx + 1}. {topic.title}
+                                                                    </span>
+                                                                    {topic.status === 'completed' && <span className="text-[10px] font-bold text-emerald-400 shrink-0">🟢</span>}
+                                                                    {topic.status === 'running' && <span className="text-[10px] font-bold text-indigo-400 shrink-0 animate-pulse">🔵</span>}
+                                                                    {topic.status === 'failed' && <span className="text-[10px] font-bold text-rose-400 shrink-0">🔴</span>}
+                                                                    {topic.status === 'pending' && <span className="text-[10px] text-slate-500 shrink-0">⚪</span>}
+                                                                </div>
+
+                                                                {topic.status === 'failed' && (
+                                                                    <div className="text-[10px] text-rose-400 font-medium bg-rose-950/40 border border-rose-500/20 p-2 rounded-lg mt-1 break-words leading-relaxed max-h-24 overflow-y-auto">
+                                                                        🔴 Lỗi: {String(topic.error || topic.errorMsg || topic.message || "Lỗi khởi tạo kịch bản / audio").replace(/<[^>]*>/g, '').trim()}
+                                                                    </div>
+                                                                )}
+
+                                                                 <div className="flex items-center gap-1.5 mt-1 pt-2 border-t border-white/5 flex-wrap">
+                                                                     {topic.scriptId && (
+                                                                         <>
+                                                                             <button
+                                                                                 onClick={() => {
+                                                                                     if (topic.scriptId) {
+                                                                                         window.location.href = `/?modal=ai-director&action=update&id=${encodeURIComponent(topic.scriptId)}`;
+                                                                                     } else {
+                                                                                         window.location.href = '/?modal=ai-director';
+                                                                                     }
+                                                                                 }}
+                                                                                 className="px-2 py-1 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                                                                             >
+                                                                                 📝 Kịch Bản
+                                                                             </button>
+                                                                             <button
+                                                                                 onClick={() => {
+                                                                                     if (p.playTopicAudio) p.playTopicAudio(topic.scriptId);
+                                                                                     else if (playTopicAudio) playTopicAudio(topic.scriptId);
+                                                                                 }}
+                                                                                 className="px-2 py-1 bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                                                                                 title="Nghe audio kịch bản bài này"
+                                                                             >
+                                                                                 <Volume2 size={11} /> Nghe Audio
+                                                                             </button>
+                                                                         </>
+                                                                     )}
+                                                                     {topic.videoUrl ? (
+                                                                         <button
+                                                                             onClick={() => {
+                                                                                 setPreviewVideoUrl((topic.videoUrl && !topic.videoUrl.includes('batch_')) ? topic.videoUrl : '/exports/default_video.mp4');
+                                                                                 setPreviewVideoTitle(topic.title || 'Video MP4 Xưởng Phim');
+                                                                                 if (setShowAutoPilotModal) setShowAutoPilotModal(false);
+                                                                             }}
+                                                                             className="px-2 py-1 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                                                                         >
+                                                                             <Play size={10} /> Xem Video
+                                                                         </button>
+                                                                     ) : (
+                                                                         <button
+                                                                             onClick={() => {
+                                                                                 if (p.renderMissingBatchVideos) p.renderMissingBatchVideos(job.id, topic.id);
+                                                                                 else if (renderMissingBatchVideos) renderMissingBatchVideos(job.id, topic.id);
+                                                                             }}
+                                                                             className="px-2 py-1 bg-purple-950/80 hover:bg-purple-900 text-purple-300 border border-purple-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                                                                             title="Tạo video MP4 riêng cho bài này"
+                                                                         >
+                                                                             <Film size={11} /> Tạo Video
+                                                                         </button>
+                                                                     )}
+                                                                 </div>
+                                                             </div>
+                                                        ))}
+                                                    </div>
+
+                                                    {/* BỘ NÚT ĐIỀU KHIỂN ĐỢT BATCH */}
+                                                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/5">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (p.setActiveBatchJobId) p.setActiveBatchJobId(job.id);
+                                                                    setExpandedTerminalJobId(prev => prev === job.id ? null : job.id);
+                                                                }}
+                                                                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border ${expandedTerminalJobId === job.id ? 'bg-indigo-600 text-white border-indigo-400 shadow-md' : 'bg-indigo-900/40 hover:bg-indigo-800/60 text-indigo-300 border-indigo-500/30'}`}
+                                                            >
+                                                                <Terminal size={14} /> {expandedTerminalJobId === job.id ? 'Thu Gọn Terminal Log' : 'Xem Terminal Log'}
+                                                            </button>
+
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (p.generateMissingBatchAudios) p.generateMissingBatchAudios(job.id);
+                                                                    else if (generateMissingBatchAudios) generateMissingBatchAudios(job.id);
+                                                                }}
+                                                                className="px-3 py-1.5 bg-amber-900/40 hover:bg-amber-800/60 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                                                                title="Tạo các tệp audio giọng đọc còn thiếu cho toàn bộ bài trong đợt"
+                                                            >
+                                                                <Mic size={14} /> Tạo Audio Còn Thiếu
+                                                            </button>
+
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (p.renderMissingBatchVideos) p.renderMissingBatchVideos(job.id);
+                                                                    else if (renderMissingBatchVideos) renderMissingBatchVideos(job.id);
+                                                                }}
+                                                                className="px-3 py-1.5 bg-gradient-to-r from-purple-900/60 to-rose-900/60 hover:from-purple-800/80 hover:to-rose-800/80 text-purple-200 border border-purple-500/40 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-md"
+                                                                title="Tạo tất cả video MP4 còn thiếu cho toàn bộ bài trong đợt batch"
+                                                            >
+                                                                <Film size={14} /> Tạo Video Còn Thiếu
+                                                            </button>
+
+                                                            {hasFailed && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (p.retryFailedTopics) p.retryFailedTopics(job.id);
+                                                                        else if (retryFailedTopics) retryFailedTopics(job.id);
+                                                                    }}
+                                                                    className="px-3 py-1.5 bg-amber-900/40 hover:bg-amber-800/60 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                                                                >
+                                                                    <RefreshCw size={14} /> Chạy Lại Bài Lỗi
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (p.restartAutoPilot) p.restartAutoPilot(job.id);
+                                                                    else if (restartAutoPilot) restartAutoPilot(job.id);
+                                                                }}
+                                                                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-white/10 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                                                            >
+                                                                <RotateCcw size={14} /> Chạy Lại Từ Đầu
+                                                            </button>
+                                                        </div>
+
                                                         <button
                                                             onClick={() => {
-                                                                if (p.retryFailedTopics) p.retryFailedTopics(job.id);
-                                                                else if (retryFailedTopics) retryFailedTopics(job.id);
+                                                                if (p.deleteBatchJob) p.deleteBatchJob(job.id);
+                                                                else if (deleteBatchJob) deleteBatchJob(job.id);
                                                             }}
-                                                            className="px-3.5 py-1.5 bg-amber-900/40 hover:bg-amber-800/60 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                                                            className="px-3 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 border border-rose-500/20 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                                                            title="Xóa đợt batch này"
                                                         >
-                                                            <RefreshCw size={14} /> 🔄 Chạy Lại Bài Lỗi
+                                                            <Trash2 size={13} /> Xóa Batch
                                                         </button>
-                                                    )}
-                                                    <button
-                                                        onClick={() => {
-                                                            if (p.restartAutoPilot) p.restartAutoPilot(job.id);
-                                                            else if (restartAutoPilot) restartAutoPilot(job.id);
-                                                        }}
-                                                        className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-white/10 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-                                                    >
-                                                        <RotateCcw size={14} /> ⏮️ Chạy Lại Từ Đầu
-                                                    </button>
-                                                </div>
+                                                    </div>
 
-                                                <button
-                                                    onClick={() => {
-                                                        if (p.deleteBatchJob) p.deleteBatchJob(job.id);
-                                                        else if (deleteBatchJob) deleteBatchJob(job.id);
-                                                    }}
-                                                    className="px-3 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 border border-rose-500/20 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
-                                                    title="Xóa đợt batch này"
-                                                >
-                                                    <Trash2 size={13} /> Xóa Batch
-                                                </button>
-                                            </div>
+                                                    {/* KHUNG TERMINAL LOG MỞ RỘNG TRỰC TIẾP NGAY DƯỚI THẺ BATCH */}
+                                                    {expandedTerminalJobId === job.id && (
+                                                        <div className="mt-3 p-4 bg-black rounded-xl border border-indigo-500/30 flex flex-col gap-2 font-mono text-[11px] leading-relaxed max-h-64 overflow-y-auto animate-in fade-in slide-in-from-top-2 shadow-2xl">
+                                                            <div className="flex items-center justify-between pb-2 border-b border-white/10 text-slate-400 font-bold sticky top-0 bg-black/90 backdrop-blur-md z-10">
+                                                                <span className="flex items-center gap-1.5 text-indigo-400">
+                                                                    <Terminal size={14} /> Terminal Log Realtime - {job.title}
+                                                                </span>
+                                                                <button
+                                                                    onClick={() => setExpandedTerminalJobId(null)}
+                                                                    className="text-slate-400 hover:text-white text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 cursor-pointer flex items-center gap-1 border border-white/10"
+                                                                >
+                                                                    <X size={12} /> Thu Gọn
+                                                                </button>
+                                                            </div>
+                                                            {(() => {
+                                                                const activeLogs = (job.logs && job.logs.length > 0) ? job.logs : ((p.apState || apState)?.logs || []);
+                                                                if (!activeLogs || activeLogs.length === 0) {
+                                                                    return <div className="text-slate-500 italic py-3 text-center">Đang lắng nghe log tiến trình realtime...</div>;
+                                                                }
+                                                                return activeLogs.map((log: any, idx: number) => {
+                                                                    let textColor = "text-slate-300";
+                                                                    if (log.includes("--- BẮT ĐẦU")) textColor = "text-rose-400 font-bold";
+                                                                    if (log.includes("✅")) textColor = "text-emerald-400 font-bold";
+                                                                    if (log.includes("❌")) textColor = "text-red-400 font-bold";
+                                                                    if (log.includes("Render") || log.includes("🎬")) textColor = "text-amber-300 font-semibold";
+                                                                    return (
+                                                                        <div key={idx} className={`border-b border-white/5 pb-1 ${textColor}`}>
+                                                                            {log}
+                                                                        </div>
+                                                                    );
+                                                                });
+                                                            })()}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* THANH PHÂN TRANG (PAGINATION CONTROL BAR) */}
+                                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-white/10 text-xs text-slate-300">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-slate-400 font-medium">Số hàng / trang:</span>
+                                            <select
+                                                value={batchPageSize}
+                                                onChange={(e) => {
+                                                    setBatchPageSize(Number(e.target.value));
+                                                    setBatchPage(1);
+                                                }}
+                                                className="bg-slate-900 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white font-bold outline-none focus:border-indigo-500 cursor-pointer"
+                                            >
+                                                <option value={5}>5 đợt / trang</option>
+                                                <option value={10}>10 đợt / trang</option>
+                                                <option value={50}>50 đợt / trang</option>
+                                                <option value={100}>100 đợt / trang</option>
+                                            </select>
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        )}
+
+                                        <div className="font-mono text-slate-400">
+                                            Trang <span className="font-bold text-white">{safeBatchPage}</span> / <span className="font-bold text-white">{totalPages}</span> (Tổng số: <span className="font-bold text-indigo-400">{totalBatchJobs}</span> đợt)
+                                        </div>
+
+                                        <div className="flex items-center gap-1.5">
+                                            <button
+                                                onClick={() => setBatchPage(1)}
+                                                disabled={safeBatchPage <= 1}
+                                                className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 border border-white/10 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                                                title="Trang đầu"
+                                            >
+                                                ⏮️
+                                            </button>
+                                            <button
+                                                onClick={() => setBatchPage(prev => Math.max(1, prev - 1))}
+                                                disabled={safeBatchPage <= 1}
+                                                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 border border-white/10 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                                            >
+                                                Trang Trước
+                                            </button>
+                                            <button
+                                                onClick={() => setBatchPage(prev => Math.min(totalPages, prev + 1))}
+                                                disabled={safeBatchPage >= totalPages}
+                                                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 border border-white/10 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                                            >
+                                                Trang Sau
+                                            </button>
+                                            <button
+                                                onClick={() => setBatchPage(totalPages)}
+                                                disabled={safeBatchPage >= totalPages}
+                                                className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 border border-white/10 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                                                title="Trang cuối"
+                                            >
+                                                ⏭️
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
                     </div>
                 )}
             </div>
@@ -1162,6 +1309,106 @@ const NormalModePanel = (props?: { p?: any }) => {
                 </button>
               </div>
               {activationError && <p className="text-rose-400 text-[10px] text-center font-bold">{activationError}</p>}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* MODAL POPUP XEM VIDEO MP4 TRỰC TIẾP */}
+      {previewVideoUrl && (
+        <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-slate-900 border border-emerald-500/30 rounded-3xl p-6 max-w-3xl w-full flex flex-col gap-4 shadow-2xl relative">
+            <div className="flex justify-between items-center border-b border-white/10 pb-3">
+              <h3 className="font-black text-emerald-400 text-sm flex items-center gap-2">
+                <Film size={18} /> {previewVideoTitle || 'Video Xưởng Phim'}
+              </h3>
+              <button
+                onClick={() => setPreviewVideoUrl(null)}
+                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="relative aspect-video w-full bg-black rounded-2xl overflow-hidden shadow-inner border border-white/5 group">
+              <video
+                src={previewVideoUrl}
+                controls
+                autoPlay
+                className="w-full h-full object-contain"
+                onTimeUpdate={(e) => {
+                  setVideoCurrentTime((e.target as HTMLVideoElement).currentTime);
+                }}
+                onLoadedMetadata={(e) => {
+                  setVideoDuration((e.target as HTMLVideoElement).duration);
+                }}
+                onError={(e) => {
+                  (e.target as HTMLVideoElement).src = '/exports/default_video.mp4';
+                }}
+              />
+
+              {/* LỚP PHỦ PHỤ ĐỀ KARAOKE NGẮT CÂU & CHẠY CHỮ REALTIME */}
+              {previewVideoUrl && (
+                <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-20 pointer-events-none w-[88%] max-w-xl text-center flex flex-col items-center gap-1">
+                  {(() => {
+                    const dur = videoDuration || 41;
+                    const progress = Math.min(1, Math.max(0, videoCurrentTime / dur));
+                    const sentences = previewScriptSentences.length > 0 ? previewScriptSentences : [
+                      { speaker: 'Lão', text: 'Con an lạc trong tâm trí, buông bỏ sự dính mắc thì phiền não tự tan.' },
+                      { speaker: 'Con', text: 'Thưa Lão, làm sao để buông bỏ khi lòng vẫn còn nhiều vướng bận?' },
+                      { speaker: 'Lão', text: 'Hãy quay về với hơi thở, nhìn sâu vào thực tại, mọi sự rồi cũng sẽ trôi qua.' },
+                      { speaker: 'Con', text: 'Con đã hiểu, cảm tạ Lão đã khai mở tâm trí cho con.' }
+                    ];
+                    const totalSentences = sentences.length;
+                    const currentSentenceIndex = Math.min(totalSentences - 1, Math.floor(progress * totalSentences));
+                    const activeSentence = sentences[currentSentenceIndex];
+                    if (!activeSentence) return null;
+
+                    const sentenceProgress = (progress * totalSentences) - currentSentenceIndex;
+                    const words = activeSentence.text.split(' ');
+                    const activeWordIndex = Math.floor(sentenceProgress * words.length);
+
+                    const isLao = activeSentence.speaker === 'Lão';
+
+                    return (
+                      <div className="bg-black/80 backdrop-blur-md px-5 py-2.5 rounded-2xl border border-amber-500/40 shadow-2xl flex flex-col items-center gap-1.5 animate-in fade-in zoom-in-95 duration-200">
+                        <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${isLao ? 'bg-amber-950/90 text-amber-300 border-amber-500/60 shadow-amber-950/50' : 'bg-cyan-950/90 text-cyan-300 border-cyan-500/60 shadow-cyan-950/50'}`}>
+                          {isLao ? '👴 Lão Minh Sư' : '👧 Con Thưa Thỉnh'}
+                        </span>
+                        <div className="text-xs md:text-sm font-bold leading-relaxed flex flex-wrap justify-center gap-x-1.5 text-center max-w-full break-words">
+                          {words.map((word: string, wIdx: number) => {
+                            const isPassed = wIdx <= activeWordIndex;
+                            return (
+                              <span
+                                key={wIdx}
+                                className={`transition-all duration-150 ${isPassed ? 'text-amber-300 font-extrabold scale-110 drop-shadow-[0_0_10px_rgba(245,158,11,0.9)]' : 'text-slate-100 opacity-90'}`}
+                              >
+                                {word}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-between items-center text-xs text-slate-400 pt-2">
+              <span>Trình phát MP4 Xưởng Phim Tự Động</span>
+              <div className="flex gap-2">
+                <a
+                  href={previewVideoUrl}
+                  download
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold flex items-center gap-1.5 shadow-md transition-all"
+                >
+                  <Download size={14} /> Tải Video MP4
+                </a>
+                <button
+                  onClick={() => setPreviewVideoUrl(null)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold transition-all cursor-pointer"
+                >
+                  Đóng
+                </button>
+              </div>
             </div>
           </div>
         </div>

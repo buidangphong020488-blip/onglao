@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use client";
 import React from "react";
-import { Users, X, Mic, MicOff, Play, Pause, SkipForward, Loader2, Volume2, VolumeX, Settings, RefreshCw, Maximize2, Minimize2, Music4, ArrowRight, PlayCircle, ChevronRight, ChevronLeft, Eye, EyeOff, MessageSquare, Bot, Sparkles, Zap, Clock, List, LayoutGrid, Settings2, StopCircle, RotateCcw, History, Info, Upload, Sliders, FlipHorizontal, FileText, Film, Plus } from "lucide-react";
+import { Users, X, Mic, MicOff, Play, Pause, SkipForward, Loader2, Volume2, VolumeX, Settings, RefreshCw, Maximize2, Minimize2, Music4, ArrowRight, PlayCircle, ChevronRight, ChevronLeft, Eye, EyeOff, MessageSquare, Bot, Sparkles, Zap, Clock, List, LayoutGrid, Settings2, StopCircle, RotateCcw, History, Info, Upload, Sliders, FlipHorizontal, FileText, Film, Plus, Home } from "lucide-react";
 import MiniLaoFace from "./MiniLaoFace";
 import YouTubeLivePlayer, { getYoutubeId } from "./YouTubeLivePlayer";
 import { useLiveStreaming } from "../hooks/useLiveStreaming";
@@ -82,23 +82,15 @@ const LiveModePanel = (props?: { p?: any }) => {
                   />
               )}
 
-              {/* Nút thoát chỉ hiện ra khi rê chuột vào, để không bị dính vào OBS */}
+              {/* Nút quay lại Thiền đường / Thoát Live */}
               <button 
                   onClick={() => { 
-                      if (setIsLiveMode) setIsLiveMode(false); 
-                      if (setIsLiveActive) setIsLiveActive(false); 
-                      if (setIsLiveGuestMicActive) setIsLiveGuestMicActive(false); // TÂM AN FIX: Tắt Mic khách mời khi thoát
-                      if (setIsLiveIdlePlaying) setIsLiveIdlePlaying(false); // Thoát khỏi phim nếu đang phát
-                      if (liveQueueRef) liveQueueRef.current = []; 
-                      if (setLiveQueueLength) setLiveQueueLength(0); // TÂM AN THÊM: Reset bộ đếm
-                      if (setLiveCurrentQuestion) setLiveCurrentQuestion(null); 
-                      // Hủy hẹn giờ và tắt nhạc khi thoát Live
-                      if (liveBgmResumeTimerRef?.current) clearTimeout(liveBgmResumeTimerRef.current);
-                      if (liveBgmAudioRef?.current) liveBgmAudioRef.current.pause();
+                      window.location.href = '/';
                   }} 
-                  className="absolute top-4 left-4 z-50 bg-black/80 text-white px-4 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity font-bold shadow-lg border border-white/20"
+                  className="absolute top-4 left-4 z-50 bg-black/80 hover:bg-black text-white px-4 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition-all font-bold shadow-lg border border-white/20 flex items-center gap-2 cursor-pointer"
+                  title="Quay lại Thiền đường (Trang chủ)"
               >
-                  <ArrowRight size={16} className="inline mr-2 rotate-180"/> Thoát chế độ Live OBS
+                  <Home size={16} /> Quay lại Thiền đường
               </button>
               
               {/* TÂM AN THÊM: NÚT ẨN/HIỆN BẢNG CÀI ĐẶT DÀNH CHO MOBILE */}

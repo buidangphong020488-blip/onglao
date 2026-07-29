@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
   }
   try {
     const body = await req.json();
-    const { text, audioUrl, category, isActive } = body;
+    const { text, audioUrl, category, tags, isActive } = body;
 
     if (!text?.trim()) {
       return NextResponse.json({ message: 'text is required' }, { status: 400 });
@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
         text: text.trim(),
         audioUrl: audioUrl || null,
         category: category || null,
+        tags: Array.isArray(tags) ? tags.map((t: string) => String(t).trim()).filter(Boolean) : [],
         isActive: isActive !== false,
       },
     });

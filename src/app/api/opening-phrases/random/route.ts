@@ -1,36 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
-// GET: Lấy 1 câu mào đầu random đã có audio khớp với category (public — không cần auth)
+// GET: Lấy 1 câu mào đầu random có audio khớp với tag hoặc category
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const category = searchParams.get('category');
+    const tag = searchParams.get('tag');
 
-    const whereClause: any = { isActive: true, audioUrl: { not: null } };
-    if (category) {
-      whereClause.category = category;
+    const baseWhere: any = { isActive: true, audioUrl: { not: null } };
+    let candidateItems: any[] = [];
+
+    // 1. Ưu tiên tìm theo Tag nếu có
+    if (tag) {
+      const cleanTag = tag.toLowerCase().trim();
+      try {
+        candidateItems = await prisma.openingPhrase.findMany({
+          where: {
+            ...baseWhere,
+            tags: { has: cleanTag }
+          }
+        });
+      } catch {
+        const all = await prisma.openingPhrase.findMany({ where: baseWhere });
+        candidateItems = all.filter((i: any) => 
+          (i.tags || []).some((t: string) => String(t).toLowerCase().includes(cleanTag)) ||
+          (i.text || '').toLowerCase().includes(cleanTag)
+        );
+      }
     }
 
-    let count = await prisma.openingPhrase.count({ where: whereClause });
-    let finalWhere = { ...whereClause };
-
-    // Nếu không có câu nào trong category này -> Lùi về tìm câu mào đầu bất kỳ có audio
-    if (count === 0 && category) {
-      delete finalWhere.category;
-      count = await prisma.openingPhrase.count({ where: finalWhere });
+    // 2. Nếu không tìm thấy theo Tag và có category -> tìm theo category
+    if (candidateItems.length === 0 && category) {
+      candidateItems = await prisma.openingPhrase.findMany({
+        where: {
+          ...baseWhere,
+          category
+        }
+      });
     }
 
-    if (count === 0) {
+    // 3. Fallback: Lấy danh sách tất cả câu mào đầu có audio
+    if (candidateItems.length === 0) {
+      candidateItems = await prisma.openingPhrase.findMany({
+        where: baseWhere
+      });
+    }
+
+    if (candidateItems.length === 0) {
       return NextResponse.json({ data: null, message: 'Không có câu mào đầu nào trong CSDL' }, { status: 404 });
     }
 
-    const skip = Math.floor(Math.random() * count);
-    const item = await prisma.openingPhrase.findFirst({
-      where: finalWhere,
-      skip,
-    });
-
+    const item = candidateItems[Math.floor(Math.random() * candidateItems.length)];
     return NextResponse.json({ data: item });
   } catch (err: any) {
     console.error('[/api/opening-phrases/random] DB Error:', err?.message || err);

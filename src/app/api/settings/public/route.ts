@@ -17,9 +17,9 @@ export async function GET(req: NextRequest) {
       defaultAiConfigId: settings.defaultAiConfigId || '1',
       characterStates: settings.characterStates || '[]',
       laoVoiceName: settings.laoVoiceName || 'Algieba',
-      laoVoiceStyle: settings.laoVoiceStyle || 'Trầm ấm, từ hòa, thong dong, minh triết, từ tốn, ngắt nhịp rõ ràng',
+      laoVoiceStyle: settings.laoVoiceStyle || 'Giọng ấm áp, mạnh mẽ, dứt khoát, miền nam việt nam, đúng chính tả, ngắt nhịp rõ ràng giữa các câu',
       userVoiceName: settings.userVoiceName || 'Kore',
-      userVoiceStyle: settings.userVoiceStyle || 'Lắng đọng, kính cẩn, chân thành, nhẹ nhàng, tìm cầu đạo lý',
+      userVoiceStyle: settings.userVoiceStyle || 'giọng thanh niên, phong cách đọc tỏ vẻ rối rắm, thắc mắc, chuẩn giọng miền Nam Việt Nam, đúng chính tả',
     });
   } catch (err: any) {
     return NextResponse.json({ message: err.message }, { status: 500 });

@@ -454,7 +454,13 @@ const PoemVaultModal = ({ isAdminMode = false, inline = false, p: propP }: { isA
           {inline && (
               <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-800 rounded-t-2xl shrink-0">
                   <h2 className="font-black text-emerald-400 tracking-widest flex items-center gap-2"><BookOpen size={18}/> Kho Tàng Pháp Bảo</h2>
-                  <button onClick={() => setShowPoemModal(false)} className="text-slate-400 hover:text-white"><X size={20}/></button>
+                  <button 
+                    onClick={() => { window.location.href = '/'; }} 
+                    className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                    title="Quay lại Thiền đường (Trang chủ)"
+                  >
+                    <Home size={15} /> Quay lại Thiền đường
+                  </button>
               </div>
           )}
 

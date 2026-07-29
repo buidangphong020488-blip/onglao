@@ -14,13 +14,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const { id } = await params;
     const body = await req.json();
-    const { text, audioUrl, category, isActive } = body;
+    const { text, audioUrl, category, tags, isActive } = body;
     const item = await prisma.openingPhrase.update({
       where: { id },
       data: {
         ...(text !== undefined && { text: text.trim() }),
         ...(audioUrl !== undefined && { audioUrl: audioUrl || null }),
         ...(category !== undefined && { category: category || null }),
+        ...(tags !== undefined && { tags: Array.isArray(tags) ? tags.map((t: string) => String(t).trim()).filter(Boolean) : [] }),
         ...(isActive !== undefined && { isActive }),
       },
     });

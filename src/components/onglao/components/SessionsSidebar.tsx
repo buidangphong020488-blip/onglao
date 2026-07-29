@@ -13,6 +13,7 @@ import {
   Pencil,
   Trash2,
   BookOpen,
+  Film,
   ChevronDown,
 } from "lucide-react";
 
@@ -106,47 +107,46 @@ export const SessionsSidebar = (props?: { p?: any }) => {
           <Plus size={18} /> Tạo cuộc trò chuyện mới
         </button>
 
-
-
-        {/* NÚT BẬT CHẾ ĐỘ LIVE OBS */}
+        {/* NÚT ĐIỀU HƯỚNG SANG CÁC TRANG ĐỘC LẬP */}
         <button
           onClick={() => {
-            if (typeof setIsLiveMode === 'function') setIsLiveMode(true);
-            const laoHoaChar = (allCharacters || []).find(
-              (c: any) => c.id === "char_lao_hoa",
-            );
-            if (laoHoaChar) {
-              if (typeof applyCharacterPreset === 'function') applyCharacterPreset(laoHoaChar, "lao", true);
-              if (typeof handleChangeChatLao === 'function') handleChangeChatLao(laoHoaChar.id);
-              if (typeof setLaoIsFullScreen === 'function') {
-                setLaoIsFullScreen(
-                  laoHoaChar.defaultLiveFullScreen !== undefined
-                    ? laoHoaChar.defaultLiveFullScreen
-                    : false,
-                );
-              }
-            }
             if (typeof setShowSessions === 'function') setShowSessions(false);
+            window.location.href = '/livestream';
           }}
-          className="w-full py-2.5 rounded-xl bg-emerald-700/80 hover:bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-emerald-500/50 mt-1"
+          className="w-full py-2.5 rounded-xl bg-emerald-700/80 hover:bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-emerald-500/50 mt-1 cursor-pointer"
         >
           <Video size={16} /> Bật chế độ Livestream Obs
         </button>
 
-        <a
-          href="/?modal=ai-director"
+        <button
+          onClick={() => {
+            if (typeof setShowSessions === 'function') setShowSessions(false);
+            window.location.href = '/xuong-phim';
+          }}
+          className="w-full py-2.5 rounded-xl bg-purple-700/80 hover:bg-purple-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-purple-500/50 mt-1 cursor-pointer"
+        >
+          <Film size={16} /> Xưởng Phim Tự Động
+        </button>
+
+        <button
+          onClick={() => {
+            if (typeof setShowSessions === 'function') setShowSessions(false);
+            window.location.href = '/kich-ban';
+          }}
           className="w-full py-2.5 rounded-xl bg-cyan-700/80 hover:bg-cyan-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-cyan-500/50 mt-1 cursor-pointer"
         >
           <FileText size={16} /> Quản lý Kịch bản Đạo diễn
-        </a>
+        </button>
 
-        {/* NÚT MỞ QUẢN LÝ KHO KỆ PHÁP */}
-        <a
-          href="/?modal=poem-vault"
+        <button
+          onClick={() => {
+            if (typeof setShowSessions === 'function') setShowSessions(false);
+            window.location.href = '/ke-phap';
+          }}
           className="w-full py-2.5 rounded-xl bg-amber-700/80 hover:bg-amber-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-amber-500/50 mt-1 cursor-pointer"
         >
           <BookOpen size={16} /> Kho Kệ Pháp
-        </a>
+        </button>
 
         {/* NÚT CHỌN LÃO TRONG KHI CHAT */}
         <div className="w-full rounded-xl bg-slate-900 border border-amber-500/30 mt-1 flex flex-col relative z-20">

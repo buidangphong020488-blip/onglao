@@ -14,16 +14,17 @@ export const fetchWithRetry = async (url: string, options?: any, retries: number
         await new Promise(res => setTimeout(res, waitMs));
         return fetchWithRetry(url, options, retries - 1, delay);
       }
+      let cleanText = text;
+      if (text.includes('<!DOCTYPE') || text.includes('<html') || text.includes('<head')) {
+        cleanText = `Đường dẫn API (${url}) không tồn tại hoặc phản hồi trang lỗi HTML (Mã ${response.status}).`;
+      }
       if (response.status === 401) {
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('onglao_auth_expired'));
         }
-        throw new Error(`HTTP Error 401: ${text}`);
+        throw new Error(`HTTP Error 401: ${cleanText}`);
       }
-      if (response.status >= 400 && response.status < 500 && response.status !== 429) {
-        throw new Error(`HTTP Error ${response.status}: ${text}`);
-      }
-      throw new Error(`HTTP Error ${response.status}: ${text}`);
+      throw new Error(`HTTP Error ${response.status}: ${cleanText}`);
     }
     
     try {

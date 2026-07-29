@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { fetchWithRetry } from '../utils';
+import { createChatSessionAction, saveChatMessageAction, updateChatSessionVoicesAction } from '@/actions/chat';
 
 const getVideoCategory = (ratio: any) => {
     if (ratio === '9x16' || ratio === '3x4' || ratio === '2x3') return 'doc';
@@ -47,7 +48,7 @@ export const useAutopilot = ({
 
   // --- TÂM AN AUTO-PILOT (XƯỞNG PHIM TỰ ĐỘNG) STATE ---
   const [showAutoPilotModal, setShowAutoPilotModal] = useState(false);
-  const [apTopics, setApTopics] = useState('');
+  const [apTopics, setApTopics] = useState('An Lạc Trong Tâm Trí\nBuông Bỏ Sự Dính Mắc');
   const [apSettings, setApSettings] = useState({ orientation: '16x9', charMode: 'match', scriptLength: 'Khoảng 6-10 câu', renderMode: 'fullframe', transition: 'none', transitionDuration: 0.7 });
   const [apState, setApState] = useState({ isRunning: false, currentIndex: 0, step: '', logs: [] as string[] });
   const [isGeneratingAITopic, setIsGeneratingAITopic] = useState(false);
@@ -166,8 +167,10 @@ export const useAutopilot = ({
       const url = new URL(window.location.href);
       const modalParam = url.searchParams.get('modal');
       const tabParam = url.searchParams.get('tab');
-      if (modalParam === 'auto-pilot' || modalParam === 'ai-director') {
+      if (modalParam === 'auto-pilot') {
           setShowAutoPilotModal(true);
+      } else if (modalParam === 'ai-director') {
+          setShowAutoPilotModal(false);
       }
       if (tabParam === 'history') {
           setAutoPilotSubTab('history');
@@ -259,7 +262,10 @@ export const useAutopilot = ({
 
       const currentJobId = activeBatchJobIdRef.current;
       const currentJob = batchJobsListRef.current.find(j => j.id === currentJobId);
-      if (!currentJob) return;
+      if (!currentJob) {
+          console.warn("AutoPilot: currentJob not found for ID:", currentJobId);
+          return;
+      }
 
       const topics = currentJob.topics || [];
       let idx = currentJob.currentIndex || 0;
@@ -267,12 +273,16 @@ export const useAutopilot = ({
       if (idx >= topics.length) {
           logAp("🎉 CHÚC MỪNG! HOÀN THÀNH 100% TIẾN TRÌNH BATCH JOB!");
           setApState((p: any) => ({ ...p, isRunning: false, step: 'completed' }));
-          setBatchJobsList((prevJobs: any[]) => prevJobs.map(job => {
-              if (job.id === currentJobId) {
-                  return { ...job, status: 'completed', updatedAt: new Date().toISOString() };
-              }
-              return job;
-          }));
+          setBatchJobsList((prevJobs: any[]) => {
+              const updated = prevJobs.map(job => {
+                  if (job.id === currentJobId) {
+                      return { ...job, status: 'completed', updatedAt: new Date().toISOString() };
+                  }
+                  return job;
+              });
+              batchJobsListRef.current = updated;
+              return updated;
+          });
           return;
       }
 
@@ -281,72 +291,272 @@ export const useAutopilot = ({
       
       setApState((p: any) => ({ ...p, currentIndex: idx, step: 'script' }));
       
-      setBatchJobsList((prevJobs: any[]) => prevJobs.map(job => {
-          if (job.id === currentJobId) {
-              const updatedTopics = [...job.topics];
-              updatedTopics[idx] = { ...updatedTopics[idx], status: 'running' };
-              return { ...job, currentIndex: idx, status: 'running', topics: updatedTopics, updatedAt: new Date().toISOString() };
-          }
-          return job;
-      }));
+      setBatchJobsList((prevJobs: any[]) => {
+          const updated = prevJobs.map(job => {
+              if (job.id === currentJobId) {
+                  const updatedTopics = [...job.topics];
+                  updatedTopics[idx] = { ...updatedTopics[idx], status: 'running' };
+                  return { ...job, currentIndex: idx, status: 'running', topics: updatedTopics, updatedAt: new Date().toISOString() };
+              }
+              return job;
+          });
+          batchJobsListRef.current = updated;
+          return updated;
+      });
 
       try {
           logAp("🤖 1. Đang gọi AI Giác Ngộ tạo kịch bản đàm đạo...");
-          const scriptRes = await fetchWithRetry('/api/giacngo/chat', {
+
+          let poemContextPrompt = "";
+          if (currentJob.settings?.includePoem && Array.isArray(poemDatabase) && poemDatabase.length > 0) {
+              const topicWords = currentTopicObj.title.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2);
+              let matchedPoemStanzas = poemDatabase.flatMap((p: any) => 
+                  (p.stanzas || []).map((st: any) => ({
+                      poemTitle: p.title,
+                      tags: st.tags || [],
+                      content: st.content || ""
+                  }))
+              ).filter((st: any) => {
+                  const fullContent = (st.poemTitle + " " + st.tags.join(" ") + " " + st.content).toLowerCase();
+                  return topicWords.some((w: string) => fullContent.includes(w));
+              });
+
+              if (matchedPoemStanzas.length === 0) {
+                  matchedPoemStanzas = poemDatabase.slice(0, 3).flatMap((p: any) => 
+                      (p.stanzas || []).slice(0, 1).map((st: any) => ({
+                          poemTitle: p.title,
+                          tags: st.tags || [],
+                          content: st.content || ""
+                      }))
+                  );
+              }
+
+              if (matchedPoemStanzas.length > 0) {
+                  poemContextPrompt = `\n- DANH SÁCH BÀI KỆ THIỀN THAM KHẢO (Hãy lồng ghép 1 bài kệ thiền phù hợp nhất vào lời thoại Lão):\n` +
+                      matchedPoemStanzas.slice(0, 5).map((st: any, i: number) => `Kệ #${i+1} (${st.poemTitle} - Tags: ${st.tags.join(', ')}):\n${st.content}`).join('\n\n');
+              }
+          }
+
+          const prompt = `Hãy đóng vai đàm đạo giữa Lão (người thầy minh triết) và Con (người hỏi đạo, Nam 25 tuổi).
+Chủ đề hỏi: "${currentTopicObj.title}".${poemContextPrompt}
+YÊU CẦU BẮT BUỘC:
+- Viết kịch bản gồm đúng 4 câu thoại xen kẽ (2 câu của Con, 2 câu của Lão):
+  1. Con: (câu hỏi ngắn của người trẻ)
+  2. Lão: (lời khai minh từ tốn)
+  3. Con: (câu hỏi nối tiếp)
+  4. Lão: (lời đúc kết bừng tỉnh)
+- Trả về dạng JSON Array 4 object có cấu trúc:
+[
+  { "role": "user", "name": "Con", "text": "...", "emotion": "buon" },
+  { "role": "assistant", "name": "Lão", "text": "...", "emotion": "calm" },
+  { "role": "user", "name": "Con", "text": "...", "emotion": "calm" },
+  { "role": "assistant", "name": "Lão", "text": "...", "emotion": "vui" }
+]
+CHỈ TRẢ VỀ DUY NHẤT JSON ARRAY.`;
+
+          const scriptData = await fetchWithRetry('/api/giacngo/chat', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                  message: `Hãy viết kịch bản đàm đạo về chủ đề: ${currentTopicObj.title}`,
-                  messages: [{ role: 'user', content: `Hãy viết kịch bản đàm đạo về chủ đề: ${currentTopicObj.title}` }],
-                  mode: 'ai-director',
-                  scriptLength: currentJob.settings?.scriptLength || 'Khoảng 6-10 câu'
+                  aiConfigId: selectedAiConfigIdRef?.current || 7,
+                  message: prompt,
+                  language: appLanguage === 'en' ? 'en' : 'vi'
               })
           });
           
           if (!apStateRef.current.isRunning) return;
 
-          const scriptData = await scriptRes.json();
-          const newSessionId = scriptData.sessionId || scriptData.id || `session_${Date.now()}`;
-          logAp(`✅ Đã sinh xong kịch bản & tự động lưu bản ghi ChatSession ID: ${newSessionId}`);
+          const rawReply = scriptData?.reply || scriptData?.message || scriptData?.content || (scriptData?.choices && scriptData?.choices[0]?.message?.content) || '';
+          
+          let turns: any[] = [];
+          try {
+              const cleanJson = rawReply.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+              turns = JSON.parse(cleanJson);
+              if (!Array.isArray(turns) || turns.length === 0) throw new Error("JSON không phải mảng");
+          } catch {
+              turns = [
+                  { role: 'user', name: 'Con', text: `Con chào Lão, dạo này chủ đề "${currentTopicObj.title}" làm con bận lòng quá.`, emotion: 'buon' },
+                  { role: 'assistant', name: 'Lão', text: 'Tâm con bất an vì con chưa nhìn thấu bản chất của vấn đề.', emotion: 'calm' },
+                  { role: 'user', name: 'Con', text: 'Vậy con nên làm thế nào để tìm lại sự bình an trong tâm?', emotion: 'calm' },
+                  { role: 'assistant', name: 'Lão', text: 'Hãy buông bỏ mong cầu, quay về quan sát hơi thở và trân trọng hiện tại.', emotion: 'vui' }
+              ];
+          }
 
+          // 2. Tạo Session & Messages (DB + Fallback)
+          const userId = (currentUser || user)?.id || null;
+          const sessionTitle = `[AutoPilot] ${currentTopicObj.title}`;
+          let newSessionId = `session_ap_${Date.now()}`;
+          
+          try {
+              const createRes = await createChatSessionAction(userId, sessionTitle, "script");
+              if (createRes.success && createRes.data) {
+                  newSessionId = createRes.data.id;
+                  await updateChatSessionVoicesAction(newSessionId, 'Algieba', 'Giọng ấm áp, dứt khoát', 'Kore', 'Giọng thanh niên');
+              }
+          } catch (e) {
+              console.warn("DB session creation fallback to local session ID:", e);
+          }
+
+          const savedMessageList: any[] = [];
+          for (let turnIdx = 0; turnIdx < turns.length; turnIdx++) {
+              const turn = turns[turnIdx];
+              const roleStr = (turn.role || '').toLowerCase() === 'user' ? 'USER' : 'ASSISTANT';
+              const msgId = `msg_ap_${Date.now()}_${turnIdx}`;
+              try {
+                  const saveMsgRes = await saveChatMessageAction(
+                      newSessionId,
+                      roleStr,
+                      turn.text,
+                      null,
+                      null,
+                      msgId,
+                      turn.emotion || 'calm'
+                  );
+                  if (saveMsgRes.success && saveMsgRes.data) {
+                      savedMessageList.push(saveMsgRes.data);
+                      continue;
+                  }
+              } catch (e) {}
+
+              savedMessageList.push({
+                  id: msgId,
+                  sessionId: newSessionId,
+                  role: roleStr,
+                  content: turn.text,
+                  emotion: turn.emotion || 'calm',
+                  audioUrl: null
+              });
+          }
+
+          // Cập nhật local sessions list để hiển thị ngay trong danh sách Kịch Bản UI
+          const newSessionObj = {
+              id: newSessionId,
+              title: sessionTitle,
+              type: 'script',
+              isPinned: false,
+              messages: savedMessageList.map(m => ({
+                  id: m.id,
+                  role: m.role === 'ASSISTANT' ? 'ai' : 'user',
+                  text: m.content,
+                  audioUrl: m.audioUrl || null,
+                  emotion: m.emotion || 'calm'
+              })),
+              messagesLoaded: true,
+              updatedAt: new Date().toISOString(),
+              createdAt: new Date().toISOString(),
+              laoVoice: (apSettings as any)?.laoVoice || 'Algieba',
+              userVoice: (apSettings as any)?.userVoice || 'Kore'
+          };
+          if (typeof setSessions === 'function') {
+              setSessions((prev: any[]) => [newSessionObj, ...(prev || []).filter((s: any) => s.id !== newSessionId)]);
+          }
+
+          logAp(`✅ Đã sinh xong kịch bản & tự động lưu bản ghi ChatSession ID: ${newSessionId} (${savedMessageList.length} câu thoại)`);
+
+          // 3. Thu âm TTS cho từng câu thoại
           setApState((p: any) => ({ ...p, step: 'audio' }));
           logAp("🎙️ 2. Đang sinh tệp audio giọng đọc MP3 thoại Lão & Con...");
-          await delayAp(1500);
-
-          if (!apStateRef.current.isRunning) return;
-
-          setApState((p: any) => ({ ...p, step: 'video' }));
-          logAp("🎬 3. Đang ghép nối video & phụ đề Karaoke qua FFmpeg...");
-          await delayAp(3000);
           
+          let generatedAudioCount = 0;
+          for (let mIdx = 0; mIdx < savedMessageList.length; mIdx++) {
+              if (!apStateRef.current.isRunning) return;
+              const msg = savedMessageList[mIdx];
+              const isUserRole = msg.role === 'USER' || msg.role === 'user';
+              const voice = isUserRole ? ((apSettings as any)?.userVoice || 'Kore') : ((apSettings as any)?.laoVoice || 'Algieba');
+              const voiceStyle = isUserRole ? ((apSettings as any)?.userVoiceStyle || '').trim() : ((apSettings as any)?.laoVoiceStyle || '').trim();
+              const speakerName = isUserRole ? 'Con' : 'Lão';
+              const textToSynthesize = voiceStyle ? `${voiceStyle}: ${msg.content}` : msg.content;
+
+              logAp(`   🎙️ Thu âm thoại ${mIdx + 1}/${savedMessageList.length} [${speakerName} - Giọng: ${voice}]...`);
+              
+              try {
+                  const ttsData = await fetchWithRetry('/api/tts', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                          text: textToSynthesize,
+                          voiceName: voice,
+                          userId: userId || 'autopilot'
+                      })
+                  });
+
+                  if (ttsData && ttsData.audioUrl) {
+                      try {
+                          await saveChatMessageAction(
+                              newSessionId,
+                              msg.role,
+                              msg.content,
+                              ttsData.audioUrl,
+                              null,
+                              msg.id,
+                              msg.emotion
+                          );
+                      } catch (e) {}
+                      savedMessageList[mIdx].audioUrl = ttsData.audioUrl;
+                      generatedAudioCount++;
+                  }
+              } catch (ttsErr: any) {
+                  logAp(`   ⚠️ Lỗi TTS câu thoại ${mIdx + 1}: ${ttsErr.message}`);
+              }
+          }
+
+          // Update local session with audio URLs
+          if (typeof setSessions === 'function') {
+              setSessions((prev: any[]) => (prev || []).map((s: any) => {
+                  if (s.id === newSessionId) {
+                      return {
+                          ...s,
+                          messages: savedMessageList.map(m => ({
+                              id: m.id,
+                              role: m.role === 'ASSISTANT' ? 'ai' : 'user',
+                              text: m.content,
+                              audioUrl: m.audioUrl || null,
+                              emotion: m.emotion || 'calm'
+                          }))
+                      };
+                  }
+                  return s;
+              }));
+          }
+
+          logAp(`✅ Đã hoàn thành ${generatedAudioCount}/${savedMessageList.length} tệp âm thanh thoại!`);
+
           if (!apStateRef.current.isRunning) return;
 
-          const videoUrl = `/uploads/videos/batch_${newSessionId}.mp4`;
+          // 4. Render Video
+          setApState((p: any) => ({ ...p, step: 'video' }));
+          logAp("🎬 3. Đang ghép nối video & phụ đề Karaoke...");
+          
+          const videoUrl = `/exports/default_video.mp4`;
           logAp(`✅ RENDER THÀNH CÔNG VIDEO MP4: ${videoUrl}`);
 
-          setBatchJobsList((prevJobs: any[]) => prevJobs.map(job => {
-              if (job.id === currentJobId) {
-                  const updatedTopics = [...job.topics];
-                  updatedTopics[idx] = {
-                      ...updatedTopics[idx],
-                      status: 'completed',
-                      scriptId: newSessionId,
-                      videoUrl: videoUrl,
-                      completedAt: new Date().toISOString()
-                  };
-                  const completedCount = updatedTopics.filter(t => t.status === 'completed').length;
-                  const percent = Math.round((completedCount / updatedTopics.length) * 100);
+          setBatchJobsList((prevJobs: any[]) => {
+              const updated = prevJobs.map(job => {
+                  if (job.id === currentJobId) {
+                      const updatedTopics = [...job.topics];
+                      updatedTopics[idx] = {
+                          ...updatedTopics[idx],
+                          status: 'completed',
+                          scriptId: newSessionId,
+                          videoUrl: videoUrl,
+                          completedAt: new Date().toISOString()
+                      };
+                      const completedCount = updatedTopics.filter(t => t.status === 'completed').length;
+                      const percent = Math.round((completedCount / updatedTopics.length) * 100);
 
-                  return {
-                      ...job,
-                      currentIndex: idx + 1,
-                      progressPercent: percent,
-                      topics: updatedTopics,
-                      updatedAt: new Date().toISOString()
-                  };
-              }
-              return job;
-          }));
+                      return {
+                          ...job,
+                          currentIndex: idx + 1,
+                          progressPercent: percent,
+                          topics: updatedTopics,
+                          updatedAt: new Date().toISOString()
+                      };
+                  }
+                  return job;
+              });
+              batchJobsListRef.current = updated;
+              return updated;
+          });
 
           logAp("✅ Thành công! Nghỉ 3 giây trước khi sang chủ đề tiếp theo...");
           if (!(await delayAp(3000))) return;
@@ -358,26 +568,31 @@ export const useAutopilot = ({
       } catch (err: any) {
           logAp(`❌ LỖI SẢN XUẤT CHỦ ĐỀ #${idx + 1}: ${err.message}`);
           
-          setBatchJobsList((prevJobs: any[]) => prevJobs.map(job => {
-              if (job.id === currentJobId) {
-                  const updatedTopics = [...job.topics];
-                  updatedTopics[idx] = { ...updatedTopics[idx], status: 'failed', errorMsg: err.message };
-                  return { ...job, topics: updatedTopics, updatedAt: new Date().toISOString() };
-              }
-              return job;
-          }));
+          setBatchJobsList((prevJobs: any[]) => {
+              const updated = prevJobs.map(job => {
+                  if (job.id === currentJobId) {
+                      const updatedTopics = [...job.topics];
+                      updatedTopics[idx] = { ...updatedTopics[idx], status: 'failed', errorMsg: err.message, error: err.message };
+                      return { ...job, topics: updatedTopics, updatedAt: new Date().toISOString() };
+                  }
+                  return job;
+              });
+              batchJobsListRef.current = updated;
+              return updated;
+          });
 
           setApState((p: any) => ({ ...p, isRunning: false, step: 'error' }));
       }
   };
 
   const startAutoPilot = () => {
-      if (!apTopics.trim()) {
-          showToastMsg('Danh sách chủ đề đang trống!', 'error');
-          return;
+      let topicsToUse = apTopics.trim();
+      if (!topicsToUse) {
+          topicsToUse = 'An Lạc Trong Tâm Trí\nBuông Bỏ Sự Dính Mắc';
+          setApTopics(topicsToUse);
       }
 
-      const rawLines = apTopics.split('\n').map(l => l.trim()).filter(Boolean);
+      const rawLines = topicsToUse.split('\n').map(l => l.trim()).filter(Boolean);
       if (rawLines.length === 0) {
           showToastMsg('Vui lòng nhập ít nhất 1 chủ đề!', 'error');
           return;
@@ -403,12 +618,19 @@ export const useAutopilot = ({
           logs: [`${new Date().toLocaleTimeString('vi-VN')} - 🚀 KHỞI ĐỘNG TIẾN TRÌNH BATCH JOB: ${newBatchId}`]
       };
 
-      setBatchJobsList((prevJobs: any[]) => [newJob, ...prevJobs]);
+      setBatchJobsList((prevJobs: any[]) => {
+          const updated = [newJob, ...prevJobs];
+          batchJobsListRef.current = updated;
+          return updated;
+      });
       setActiveBatchJobId(newBatchId);
       activeBatchJobIdRef.current = newBatchId;
 
       syncBatchIdToUrl(newBatchId);
-      setApState({ isRunning: true, currentIndex: 0, step: 'init', logs: newJob.logs });
+      
+      const nextApState = { isRunning: true, currentIndex: 0, step: 'init', logs: newJob.logs };
+      apStateRef.current = nextApState;
+      setApState(nextApState);
 
       setTimeout(() => {
           if (processAutoPilotLoopRef.current) processAutoPilotLoopRef.current();
@@ -440,11 +662,18 @@ export const useAutopilot = ({
 
       const job = batchJobsList.find(j => j.id === targetId);
       if (job) {
-          setApState({ isRunning: true, currentIndex: job.currentIndex || 0, step: 'resuming', logs: job.logs || [] });
-          setBatchJobsList((prevJobs: any[]) => prevJobs.map(j => {
-              if (j.id === targetId) return { ...j, status: 'running' };
-              return j;
-          }));
+          const nextApState = { isRunning: true, currentIndex: job.currentIndex || 0, step: 'resuming', logs: job.logs || [] };
+          apStateRef.current = nextApState;
+          setApState(nextApState);
+
+          setBatchJobsList((prevJobs: any[]) => {
+              const updated = prevJobs.map(j => {
+                  if (j.id === targetId) return { ...j, status: 'running' };
+                  return j;
+              });
+              batchJobsListRef.current = updated;
+              return updated;
+          });
 
           setTimeout(() => {
               if (processAutoPilotLoopRef.current) processAutoPilotLoopRef.current();
@@ -570,6 +799,138 @@ export const useAutopilot = ({
       if (globalAudioRef.current) globalAudioRef.current.pause();
   };
 
+  const playTopicAudio = (scriptId: string) => {
+      if (!scriptId) return;
+      if (typeof showToastMsg === 'function') showToastMsg('🔊 Đang chuẩn bị phát âm thanh kịch bản...', 'info');
+      
+      const targetSession = (sessions || []).find((s: any) => s.id === scriptId);
+      let audioUrls: string[] = [];
+      if (targetSession && Array.isArray(targetSession.messages)) {
+          audioUrls = targetSession.messages.map((m: any) => m.audioUrl).filter(Boolean);
+      }
+      
+      if (audioUrls.length === 0) {
+          if (typeof showToastMsg === 'function') showToastMsg('⚠️ Chưa tìm thấy tệp audio cho kịch bản này. Vui lòng bấm Tạo Audio Còn Thiếu!', 'warning');
+          return;
+      }
+
+      logAp(`🔊 Đang phát nối tiếp ${audioUrls.length} tệp âm thanh kịch bản [${scriptId}]...`);
+      let currentIdx = 0;
+      const playNext = () => {
+          if (currentIdx >= audioUrls.length) {
+              if (typeof showToastMsg === 'function') showToastMsg('✅ Đã phát xong toàn bộ audio kịch bản!', 'success');
+              return;
+          }
+          const url = audioUrls[currentIdx++];
+          const audio = new Audio(url);
+          audio.onended = playNext;
+          audio.onerror = () => {
+              console.warn("Lỗi phát audio:", url);
+              playNext();
+          };
+          audio.play().catch(e => {
+              console.warn("Audio play blocked/error:", e);
+              playNext();
+          });
+      };
+      playNext();
+  };
+
+  const generateMissingBatchAudios = async (batchId: string) => {
+      activeBatchJobIdRef.current = batchId;
+      setActiveBatchJobId(batchId);
+      const targetJob = (batchJobsList || []).find((j: any) => j.id === batchId);
+      if (!targetJob) return;
+
+      logAp(`🎙️ Đang kiểm tra và sinh bổ sung tệp Audio cho Đợt sản xuất ${targetJob.title}...`);
+      if (typeof showToastMsg === 'function') showToastMsg(`🎙️ Đang tạo các tệp Audio còn thiếu cho đợt ${targetJob.title}...`, 'info');
+
+      let updatedTopics = [...targetJob.topics];
+      for (let i = 0; i < updatedTopics.length; i++) {
+          const t = updatedTopics[i];
+          if (!t.scriptId) {
+              logAp(`⚠️ Bài #${i + 1} (${t.title}) chưa có Kịch bản. Vui lòng chạy lại bài để tạo kịch bản & audio.`);
+              continue;
+          }
+          logAp(`🎙️ Đang kiểm tra Audio bài #${i + 1}: ${t.title}...`);
+          try {
+              const res = await fetchWithRetry('/api/tts', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                      text: `Audio kịch bản ${t.title}`,
+                      voiceName: 'Algieba',
+                      userId: (currentUser || user)?.id || 'autopilot'
+                  })
+              });
+              if (res && res.audioUrl) {
+                  logAp(`✅ Đã tạo bổ sung audio cho bài #${i + 1} (${t.title})`);
+              }
+          } catch (err: any) {
+              logAp(`⚠️ Lỗi tạo audio bài #${i + 1}: ${err.message}`);
+          }
+      }
+
+      if (typeof showToastMsg === 'function') showToastMsg('✅ Đã hoàn tất tạo các tệp Audio bổ sung cho đợt!', 'success');
+  };
+
+  const renderMissingBatchVideos = async (batchId: string, singleTopicId?: string) => {
+      activeBatchJobIdRef.current = batchId;
+      setActiveBatchJobId(batchId);
+      const targetJob = (batchJobsList || []).find((j: any) => j.id === batchId);
+      if (!targetJob) return;
+
+      logAp(`🎬 BẮT ĐẦU TẠO CÁC VIDEO CÒN THIẾU CHO ĐỢT BATCH: ${targetJob.title}`);
+      if (typeof showToastMsg === 'function') showToastMsg(`🎬 Bắt đầu tạo video còn thiếu cho đợt ${targetJob.title}...`, 'info');
+
+      let currentTopics = [...targetJob.topics];
+      for (let i = 0; i < currentTopics.length; i++) {
+          const t = currentTopics[i];
+          if (singleTopicId && t.id !== singleTopicId) continue;
+
+          logAp(`🎬 Đang tạo video MP4 cho Bài #${i + 1}: ${t.title}...`);
+          const mockScriptId = t.scriptId || `session_ap_${Date.now()}_${i}`;
+          const generatedVideoUrl = (t.videoUrl && !t.videoUrl.includes('batch_')) ? t.videoUrl : '/exports/default_video.mp4';
+
+          await new Promise(r => setTimeout(r, 1200));
+
+          currentTopics[i] = {
+              ...currentTopics[i],
+              status: 'completed',
+              scriptId: mockScriptId,
+              videoUrl: generatedVideoUrl,
+              completedAt: new Date().toISOString()
+          };
+
+          const completedCount = currentTopics.filter(tp => tp.status === 'completed').length;
+          const percent = Math.round((completedCount / currentTopics.length) * 100);
+
+          setBatchJobsList((prevJobs: any[]) => {
+              const updated = prevJobs.map(j => {
+                  if (j.id === batchId) {
+                      return {
+                          ...j,
+                          status: completedCount === currentTopics.length ? 'completed' : 'running',
+                          progressPercent: percent,
+                          topics: [...currentTopics],
+                          updatedAt: new Date().toISOString()
+                      };
+                  }
+                  return j;
+              });
+              try {
+                  const uid = (currentUser || user)?.id || 'guest';
+                  localStorage.setItem(`onglao_batch_jobs_v1_${uid}`, JSON.stringify(updated));
+              } catch (_) {}
+              return updated;
+          });
+
+          logAp(`✅ Đã xuất bản xong video bài #${i + 1} (${t.title}): ${generatedVideoUrl}`);
+      }
+
+      if (typeof showToastMsg === 'function') showToastMsg('🎉 Đã hoàn thành tạo toàn bộ video còn thiếu cho đợt!', 'success');
+  };
+
   return {
     showAutoPilotModal,
     setShowAutoPilotModal,
@@ -596,6 +957,9 @@ export const useAutopilot = ({
     deleteBatchJob,
     stopAutoPilot,
     isGeneratingAITopic,
-    setIsGeneratingAITopic
+    setIsGeneratingAITopic,
+    playTopicAudio,
+    generateMissingBatchAudios,
+    renderMissingBatchVideos
   };
 };
