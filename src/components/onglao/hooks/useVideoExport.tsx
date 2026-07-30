@@ -255,7 +255,15 @@ export const useVideoExport = ({
 
   useEffect(() => {
     fetchRenderHistory();
-  }, [fetchRenderHistory, showVideoExportModal, exportTab]);
+
+    const hasProcessing = renderHistory.some(item => (item.videoUrl === 'PROCESSING' || item.url === 'PROCESSING'));
+    if (hasProcessing) {
+      const timer = setInterval(() => {
+        fetchRenderHistory();
+      }, 3000);
+      return () => clearInterval(timer);
+    }
+  }, [fetchRenderHistory, showVideoExportModal, exportTab, renderHistory]);
 
   const saveRenderHistoryItem = (blob: Blob, url: string, customName?: string) => {
     try {

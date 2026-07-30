@@ -882,9 +882,12 @@ export const useVideoExporterEngine = ({
 
         }
 
+        const currentUserId = p.currentUser?.id || p.user?.id || (typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('onglao_user') || '{}')?.id) : null) || null;
+
         formData.append('metadata', JSON.stringify({
           scenes: scenesList,
           sessionId: currentSessionId || p.currentSessionId || null,
+          userId: currentUserId,
           title: introTitle || 'Video Pháp Bảo',
           bgmVolume: bgmVolume !== undefined ? bgmVolume : 0.15,
           resolution: videoResolution || '1080',

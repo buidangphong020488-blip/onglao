@@ -12,11 +12,23 @@ export async function GET(
       return new NextResponse('File not found', { status: 404 });
     }
 
-    // Sanitize path to prevent directory traversal
     const safePath = pathSegments.map(p => path.basename(p)).join('/');
-    const filePath = path.join(process.cwd(), 'public', 'exports', safePath);
+    const filename = path.basename(safePath);
 
-    if (!fs.existsSync(filePath)) {
+    const candidatePaths = [
+      path.join(process.cwd(), 'public', 'exports', safePath),
+      path.join(process.cwd(), 'exports', safePath),
+      path.join(process.cwd(), 'public', 'exports', filename),
+      path.join(process.cwd(), 'exports', filename),
+      path.join('/www/wwwroot/onglao.giac.ngo/public/exports', safePath),
+      path.join('/www/wwwroot/onglao.giac.ngo/exports', safePath),
+      path.join('/www/wwwroot/onglao.giac.ngo/public/exports', filename),
+      path.join('/www/wwwroot/onglao.giac.ngo/exports', filename),
+    ];
+
+    let filePath = candidatePaths.find(p => fs.existsSync(p));
+
+    if (!filePath || !fs.existsSync(filePath)) {
       return new NextResponse('File not found', { status: 404 });
     }
 
