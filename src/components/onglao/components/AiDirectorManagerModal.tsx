@@ -1421,31 +1421,52 @@ const AiDirectorManagerModal = (props: any) => {
                     if (statusData.success) {
                         const { total, done, hasError, errorMessage } = statusData;
                         const percent = total > 0 ? Math.round((done / total) * 100) : 100;
-                        setScriptAudioProgress(prev => ({ ...prev, [sessionId]: { current: done, total, percent } }));
 
                         if (hasError) {
                             clearInterval(pollInterval);
+                            setScriptAudioProgress(prev => {
+                                const copy = { ...prev };
+                                delete copy[sessionId];
+                                return copy;
+                            });
                             toast(`⚠️ [LỖI AUDIO QUOTA]: ${errorMessage}`, 'error', 12000);
                             return;
                         }
 
-                        if (done >= total || attempts >= maxAttempts) {
+                        if (done >= total && total > 0) {
+                            // Dừng polling ngay lập tức
                             clearInterval(pollInterval);
-                            if (done >= total) {
-                                toast(`🎉 Hoàn tất! Đã tạo xong ${done}/${total} audio cho kịch bản.`, 'success');
-                            }
-                        }
+                            
+                            // Xóa ngay thanh tiến độ 100% để không bị kẹt ở 4/4
+                            setScriptAudioProgress(prev => {
+                                const copy = { ...prev };
+                                delete copy[sessionId];
+                                return copy;
+                            });
 
-                        // Cập nhật lại tin nhắn mới nhất vào React session state
-                        const resFetch = await getChatMessagesAction(sessionId);
-                        if (resFetch.success && resFetch.data) {
-                            const msgs = resFetch.data.map((m: any) => ({
-                                id: m.id,
-                                role: m.role.toLowerCase() === 'user' ? 'user' : 'ai',
-                                text: m.content,
-                                audioUrl: m.audioUrl,
-                            }));
-                            p.setSessions((prev: any[]) => prev.map((x: any) => x.id === sessionId ? { ...x, messages: msgs, messagesLoaded: true } : x));
+                            // Cập nhật lại tin nhắn mới nhất vào React session state lập tức
+                            const resFetch = await getChatMessagesAction(sessionId);
+                            if (resFetch.success && resFetch.data) {
+                                const msgs = resFetch.data.map((m: any) => ({
+                                    id: m.id,
+                                    role: m.role.toLowerCase() === 'user' ? 'user' : 'ai',
+                                    text: m.content,
+                                    audioUrl: m.audioUrl,
+                                }));
+                                p.setSessions((prev: any[]) => prev.map((x: any) => x.id === sessionId ? { ...x, messages: msgs, messagesLoaded: true } : x));
+                            }
+
+                            toast(`🎉 Hoàn tất! Đã tạo xong ${done}/${total} audio cho kịch bản "${script.title || 'Kịch bản'}"!`, 'success', 8000);
+                        } else if (attempts >= maxAttempts) {
+                            clearInterval(pollInterval);
+                            setScriptAudioProgress(prev => {
+                                const copy = { ...prev };
+                                delete copy[sessionId];
+                                return copy;
+                            });
+                        } else {
+                            // Cập nhật tiến độ realtime khi chưa xong
+                            setScriptAudioProgress(prev => ({ ...prev, [sessionId]: { current: done, total, percent } }));
                         }
                     }
                 } catch (e) {
