@@ -93,9 +93,17 @@ async function runFfmpegBackgroundProcess({
           clipSourcePath = sc.url;
         } else {
           const cleanUrl = sc.url.replace(/^\/+/, '');
+          const filename = path.basename(cleanUrl);
           const candidates = [
+            path.join(process.cwd(), 'public', 'uploads', 'canhquay', filename),
+            path.join(process.cwd(), 'uploads', 'canhquay', filename),
+            path.join(process.cwd(), 'public', 'uploads', filename),
+            path.join(process.cwd(), 'uploads', filename),
+            path.join(process.cwd(), 'public', 'canhquay', filename),
             path.join(process.cwd(), 'public', cleanUrl),
-            path.join(process.cwd(), 'public', 'uploads', path.basename(cleanUrl)),
+            path.join('/www/wwwroot/onglao.giac.ngo/public/uploads/canhquay', filename),
+            path.join('/www/wwwroot/onglao.giac.ngo/uploads/canhquay', filename),
+            path.join('/www/wwwroot/onglao.giac.ngo/public/uploads', filename),
             path.join('/www/wwwroot/onglao.giac.ngo/public', cleanUrl),
             path.join('/www/wwwroot/onglao.giac.ngo', cleanUrl),
           ];
