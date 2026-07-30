@@ -1961,7 +1961,15 @@ const VideoCreatorModal = (props?: any) => {
                                </button>
                            </div>
                        </div>
-                    ) : renderedVideoUrl ? (
+                    ) : renderedVideoUrl === 'PROCESSING' ? (
+                        <div className="relative w-full h-full bg-slate-950 flex flex-col items-center justify-center p-8 text-center gap-4">
+                           <Loader2 size={48} className="animate-spin text-amber-400" />
+                           <h4 className="text-base font-bold text-amber-300">⚡ Video đang được tiến hành Render ngầm trên Server...</h4>
+                           <p className="text-xs text-slate-400 max-w-md leading-relaxed">
+                              Hệ thống đang tự động ghép phân cảnh, lồng tiếng và tạo phụ đề Karaoke. Bạn có thể bấm F5 hoặc chuyển trang, video sẽ hiển thị ngay khi hoàn tất.
+                           </p>
+                        </div>
+                     ) : (renderedVideoUrl && !renderedVideoUrl.startsWith('ERROR')) ? (
                        <div className="relative w-full h-full bg-slate-950 flex flex-col items-center justify-center">
                           {/* Thanh điều khiển trên cùng màn hình preview */}
                           <div className="absolute top-3 left-3 right-3 z-50 flex items-center justify-end bg-black/80 backdrop-blur-md p-2 rounded-xl border border-white/10 shadow-2xl">

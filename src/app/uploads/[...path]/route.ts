@@ -23,6 +23,41 @@ export async function GET(
 
     let filePath = candidatePaths.find(p => fs.existsSync(p));
 
+    // Fallback: Nếu không tìm thấy theo đường dẫn chính xác (ví dụ: audio/gn_2/filename.wav), tìm theo tên tệp trong thư mục audio và các thư mục con
+    if (!filePath || !fs.existsSync(filePath)) {
+      const filename = path.basename(safePath);
+      const fallbackCandidates = [
+        path.join(process.cwd(), 'public', 'uploads', 'audio', filename),
+        path.join(process.cwd(), 'uploads', 'audio', filename),
+        path.join(process.cwd(), 'public', 'uploads', filename),
+        path.join(process.cwd(), 'uploads', filename),
+        path.join('/www/wwwroot/onglao.giac.ngo/public/uploads/audio', filename),
+        path.join('/www/wwwroot/onglao.giac.ngo/uploads/audio', filename),
+      ];
+      filePath = fallbackCandidates.find(p => fs.existsSync(p));
+
+      // Tìm kiếm sâu trong các subfolder của public/uploads nếu vẫn chưa thấy
+      if (!filePath) {
+        const audioBaseDir = path.join(process.cwd(), 'public', 'uploads', 'audio');
+        if (fs.existsSync(audioBaseDir)) {
+          try {
+            const subdirs = fs.readdirSync(audioBaseDir, { withFileTypes: true });
+            for (const sub of subdirs) {
+              if (sub.isDirectory()) {
+                const subPath = path.join(audioBaseDir, sub.name, filename);
+                if (fs.existsSync(subPath)) {
+                  filePath = subPath;
+                  break;
+                }
+              }
+            }
+          } catch (e) {
+            console.error('Error searching subdirs:', e);
+          }
+        }
+      }
+    }
+
     if (!filePath || !fs.existsSync(filePath)) {
       return new NextResponse('File not found', { status: 404 });
     }
