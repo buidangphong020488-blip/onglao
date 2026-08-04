@@ -527,7 +527,7 @@ CHỈ TRẢ VỀ DUY NHẤT JSON ARRAY.`;
           setApState((p: any) => ({ ...p, step: 'video' }));
           logAp("🎬 3. Đang ghép nối video & phụ đề Karaoke...");
           
-          const videoUrl = `/exports/default_video.mp4`;
+          const videoUrl = '';
           logAp(`✅ RENDER THÀNH CÔNG VIDEO MP4: ${videoUrl}`);
 
           setBatchJobsList((prevJobs: any[]) => {
@@ -799,15 +799,27 @@ CHỈ TRẢ VỀ DUY NHẤT JSON ARRAY.`;
       if (globalAudioRef.current) globalAudioRef.current.pause();
   };
 
-  const playTopicAudio = (scriptId: string) => {
+  const playTopicAudio = async (scriptId: string) => {
       if (!scriptId) return;
       if (typeof showToastMsg === 'function') showToastMsg('🔊 Đang chuẩn bị phát âm thanh kịch bản...', 'info');
       
       const targetSession = (sessions || []).find((s: any) => s.id === scriptId);
-      let audioUrls: string[] = [];
-      if (targetSession && Array.isArray(targetSession.messages)) {
-          audioUrls = targetSession.messages.map((m: any) => m.audioUrl).filter(Boolean);
+      let messages: any[] = [];
+      if (targetSession && Array.isArray(targetSession.messages) && targetSession.messages.length > 0) {
+          messages = targetSession.messages;
+      } else {
+          try {
+              const res = await fetch(`/api/sessions/${scriptId}/messages`);
+              const json = await res.json();
+              if (json.success && Array.isArray(json.data)) {
+                  messages = json.data;
+              }
+          } catch (err) {
+              console.error('Lỗi khi tải danh sách tin nhắn cho audio:', err);
+          }
       }
+      
+      const audioUrls = (messages || []).map((m: any) => m.audioUrl).filter(Boolean);
       
       if (audioUrls.length === 0) {
           if (typeof showToastMsg === 'function') showToastMsg('⚠️ Chưa tìm thấy tệp audio cho kịch bản này. Vui lòng bấm Tạo Audio Còn Thiếu!', 'warning');
@@ -890,7 +902,7 @@ CHỈ TRẢ VỀ DUY NHẤT JSON ARRAY.`;
 
           logAp(`🎬 Đang tạo video MP4 cho Bài #${i + 1}: ${t.title}...`);
           const mockScriptId = t.scriptId || `session_ap_${Date.now()}_${i}`;
-          const generatedVideoUrl = (t.videoUrl && !t.videoUrl.includes('batch_')) ? t.videoUrl : '/exports/default_video.mp4';
+          const generatedVideoUrl = (t.videoUrl && !t.videoUrl.includes('batch_')) ? t.videoUrl : '';
 
           await new Promise(r => setTimeout(r, 1200));
 

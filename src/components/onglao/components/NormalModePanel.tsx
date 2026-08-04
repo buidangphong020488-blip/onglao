@@ -992,12 +992,11 @@ const NormalModePanel = (props?: { p?: any }) => {
                                                                              </button>
                                                                          </>
                                                                      )}
-                                                                     {topic.videoUrl ? (
+                                                                     {(topic.videoUrl && !topic.videoUrl.includes('batch_') && topic.videoUrl.includes('.mp4')) ? (
                                                                          <button
                                                                              onClick={() => {
-                                                                                 setPreviewVideoUrl((topic.videoUrl && !topic.videoUrl.includes('batch_')) ? topic.videoUrl : '/exports/default_video.mp4');
+                                                                                 setPreviewVideoUrl(topic.videoUrl);
                                                                                  setPreviewVideoTitle(topic.title || 'Video MP4 Xưởng Phim');
-                                                                                 
                                                                              }}
                                                                              className="px-2 py-1 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
                                                                          >
@@ -1008,6 +1007,7 @@ const NormalModePanel = (props?: { p?: any }) => {
                                                                              onClick={() => {
                                                                                  if (p.renderMissingBatchVideos) p.renderMissingBatchVideos(job.id, topic.id);
                                                                                  else if (renderMissingBatchVideos) renderMissingBatchVideos(job.id, topic.id);
+                                                                                 else if (typeof showToastMsg === 'function') showToastMsg('⚠️ Bài này chưa có tệp video MP4. Vui lòng bấm Tạo Video!', 'warning');
                                                                              }}
                                                                              className="px-2 py-1 bg-purple-950/80 hover:bg-purple-900 text-purple-300 border border-purple-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
                                                                              title="Tạo video MP4 riêng cho bài này"
@@ -1341,7 +1341,8 @@ const NormalModePanel = (props?: { p?: any }) => {
                   setVideoDuration((e.target as HTMLVideoElement).duration);
                 }}
                 onError={(e) => {
-                  (e.target as HTMLVideoElement).src = '/exports/default_video.mp4';
+                  console.warn("Lỗi tải tệp video MP4:", previewVideoUrl);
+                  if (typeof showToastMsg === 'function') showToastMsg('⚠️ Tệp video MP4 chưa sẵn sàng hoặc bị lỗi!', 'warning');
                 }}
               />
 
