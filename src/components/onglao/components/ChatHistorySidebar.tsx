@@ -242,9 +242,9 @@ export const ChatHistorySidebar = (props?: { p?: any }) => {
              }
              const sessId = currentSessionId || p.currentSessionId;
              if (sessId) {
-               window.location.href = `/?modal=ai-director&action=update&type=chat&id=${encodeURIComponent(sessId)}`;
+               window.location.href = `/kich-ban?action=update&type=chat&id=${encodeURIComponent(sessId)}`;
              } else {
-               window.location.href = '/?modal=ai-director';
+               window.location.href = '/kich-ban';
              }
           }} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[9px] font-black border border-pink-700 bg-pink-900/40 text-pink-400 hover:text-pink-300 hover:bg-pink-900/60 transition-all shadow-lg">
              <Video size={14} /> Tạo video
