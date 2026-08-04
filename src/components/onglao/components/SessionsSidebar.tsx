@@ -111,7 +111,7 @@ export const SessionsSidebar = (props?: { p?: any }) => {
         <button
           onClick={() => {
             if (typeof setShowSessions === 'function') setShowSessions(false);
-            window.location.href = '/livestream';
+            window.location.href = '/?mode=live';
           }}
           className="w-full py-2.5 rounded-xl bg-emerald-700/80 hover:bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-emerald-500/50 mt-1 cursor-pointer"
         >
@@ -121,7 +121,7 @@ export const SessionsSidebar = (props?: { p?: any }) => {
         <button
           onClick={() => {
             if (typeof setShowSessions === 'function') setShowSessions(false);
-            window.location.href = '/xuong-phim';
+            window.location.href = '/?modal=auto-pilot';
           }}
           className="w-full py-2.5 rounded-xl bg-purple-700/80 hover:bg-purple-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-purple-500/50 mt-1 cursor-pointer"
         >
@@ -141,7 +141,7 @@ export const SessionsSidebar = (props?: { p?: any }) => {
         <button
           onClick={() => {
             if (typeof setShowSessions === 'function') setShowSessions(false);
-            window.location.href = '/ke-phap';
+            window.location.href = '/?modal=poem-vault';
           }}
           className="w-full py-2.5 rounded-xl bg-amber-700/80 hover:bg-amber-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-amber-500/50 mt-1 cursor-pointer"
         >

@@ -1263,7 +1263,7 @@ const VideoCreatorModal = (props?: any) => {
                 const scriptId = url.searchParams.get('scriptid') || url.searchParams.get('id');
                 const type = url.searchParams.get('type') || 'ai';
                 if ((action === 'update' || action === 'insert') && scriptId) {
-                  window.location.href = `/?modal=ai-director?action=${action}&type=${type}&id=${scriptId}`;
+                  window.location.href = `/?modal=ai-director&action=${action}&type=${type}&id=${scriptId}`;
                   return;
                 }
               }

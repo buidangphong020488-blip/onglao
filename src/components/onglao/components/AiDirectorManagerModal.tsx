@@ -1938,7 +1938,7 @@ const AiDirectorManagerModal = (props: any) => {
                                     )}
                                     <button 
                                         onClick={() => {
-                                            window.location.href = '/xuong-phim';
+                                             window.location.href = '/?modal=auto-pilot';
                                         }} 
                                         className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 hover:from-amber-500 hover:to-orange-500 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg border border-amber-400/40 hover:scale-105 cursor-pointer"
                                     >
