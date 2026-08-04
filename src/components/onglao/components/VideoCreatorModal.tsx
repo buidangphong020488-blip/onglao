@@ -1263,11 +1263,11 @@ const VideoCreatorModal = (props?: any) => {
                 const scriptId = url.searchParams.get('scriptid') || url.searchParams.get('id');
                 const type = url.searchParams.get('type') || 'ai';
                 if ((action === 'update' || action === 'insert') && scriptId) {
-                  window.location.href = `/?modal=ai-director&action=${action}&type=${type}&id=${scriptId}`;
+                  window.location.href = `/kich-ban?action=${action}&type=${type}&id=${scriptId}`;
                   return;
                 }
               }
-              window.location.href = '/?modal=ai-director';
+              window.location.href = '/kich-ban';
             }}
             className="px-3.5 py-2 bg-cyan-900/60 hover:bg-cyan-800 border border-cyan-500/30 text-cyan-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
             title="Quay lại Kịch bản"

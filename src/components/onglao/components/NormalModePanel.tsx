@@ -971,9 +971,9 @@ const NormalModePanel = (props?: { p?: any }) => {
                                                                              <button
                                                                                  onClick={() => {
                                                                                      if (topic.scriptId) {
-                                                                                         window.location.href = `/?modal=ai-director&action=update&id=${encodeURIComponent(topic.scriptId)}`;
+                                                                                         window.location.href = `/kich-ban?action=update&id=${encodeURIComponent(topic.scriptId)}`;
                                                                                      } else {
-                                                                                         window.location.href = '/?modal=ai-director';
+                                                                                         window.location.href = '/kich-ban';
                                                                                      }
                                                                                  }}
                                                                                  className="px-2 py-1 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
