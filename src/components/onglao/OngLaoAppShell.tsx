@@ -120,18 +120,9 @@ export default function OngLaoAppShell({
     }
   }, [setCurrentSessionId]);
 
-  // Tự động tải danh sách tin nhắn từ PostgreSQL DB khi currentSessionId thay đổi & sync URL querystring
+  // Tự động tải danh sách tin nhắn từ PostgreSQL DB khi currentSessionId thay đổi
   React.useEffect(() => {
     if (!currentSessionId) return;
-
-    if (typeof window !== 'undefined' && window.history && window.history.pushState) {
-      const url = new URL(window.location.href);
-      const isAiDirectorList = url.searchParams.get('modal') === 'ai-director' && !url.searchParams.has('action');
-      if (!isAiDirectorList && url.searchParams.get('id') !== currentSessionId && url.searchParams.get('session_id') !== currentSessionId) {
-        url.searchParams.set('id', currentSessionId);
-        window.history.pushState({}, '', url.toString());
-      }
-    }
 
     getChatMessagesAction(currentSessionId).then(res => {
       if (res.success && Array.isArray(res.data)) {

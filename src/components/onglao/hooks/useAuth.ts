@@ -343,10 +343,15 @@ export const useAuth = (props: Partial<UseAuthProps> = {}) => {
             });
           });
 
-          if (urlSessionId && dbSessions.some((s: any) => s.id === urlSessionId)) {
-            setCurrentSessionId?.(urlSessionId);
-          } else {
-            setCurrentSessionId?.((prev: any) => prev || dbSessions[0].id);
+          // Không tự set currentSessionId khi đang ở trang /kich-ban
+          // (tránh AppShell push ?id=<chat_session> vào URL khi vào Quản lý Kịch bản)
+          const isKichBanPage = typeof window !== 'undefined' && window.location.pathname.includes('/kich-ban');
+          if (!isKichBanPage) {
+            if (urlSessionId && dbSessions.some((s: any) => s.id === urlSessionId)) {
+              setCurrentSessionId?.(urlSessionId);
+            } else {
+              setCurrentSessionId?.((prev: any) => prev || dbSessions[0].id);
+            }
           }
         } else {
           let defaultSession: any = null;
@@ -373,7 +378,10 @@ export const useAuth = (props: Partial<UseAuthProps> = {}) => {
             };
           }
           setSessions?.([defaultSession]);
-          setCurrentSessionId?.(defaultSession.id);
+          const isKichBanPage = typeof window !== 'undefined' && window.location.pathname.includes('/kich-ban');
+          if (!isKichBanPage) {
+            setCurrentSessionId?.(defaultSession.id);
+          }
         }
       } catch (err) {
         console.error("=== useAuth loadUserSessions ERROR ===", err);

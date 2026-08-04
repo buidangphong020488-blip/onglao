@@ -334,7 +334,7 @@ const AiDirectorManagerModal = (props: any) => {
                     if (!selectedScript) handleCreateAIScript();
                     if (p.setShowScriptModal) p.setShowScriptModal(false);
                 } else if (idParam && idParam !== restoredFromUrlRef.current) {
-                    const script = p.sessions.find((s: any) => s.id === idParam);
+                    const script = p.sessions.find((s: any) => s.id === idParam && (s.type === 'script' || s.type === 'manual'));
                     if (script) {
                         handleStartEdit(script);
                         restoredFromUrlRef.current = idParam;
@@ -1257,19 +1257,16 @@ const AiDirectorManagerModal = (props: any) => {
 
             const success = await p.generateVoice(msg.id, msg.text, targetRole, selectedScript.id, true, null, null, false, targetVoice, targetStyle);
             if (success) {
+                // Chỉ reload audioUrl cho block vừa tạo, KHÔNG ghi đè toàn bộ editingMessages
+                // để tránh mất nội dung user đang gõ trong các textarea uncontrolled
                 const res = await getChatMessagesAction(selectedScript.id);
                 if (res.success && res.data) {
-                    const mapped = res.data.map((m: any) => ({
-                        id: m.id,
-                        role: m.role.toLowerCase() === 'user' ? 'user' : 'ai',
-                        text: m.content,
-                        audioUrl: m.audioUrl,
-                        emotion: m.emotion || 'calm'
-                    }));
-                    setEditingMessages(mapped);
-                    const newlyGeneratedMsg = mapped.find((m: any) => m.id === msg.id || m.content === msg.text);
-                    if (newlyGeneratedMsg?.audioUrl) {
-                        handlePlaySingleBlockAudio(newlyGeneratedMsg.audioUrl, msg.id);
+                    const updatedDbMsg = res.data.find((m: any) => m.id === msg.id);
+                    if (updatedDbMsg?.audioUrl) {
+                        setEditingMessages(prev => prev.map(m =>
+                            m.id === msg.id ? { ...m, audioUrl: updatedDbMsg.audioUrl } : m
+                        ));
+                        handlePlaySingleBlockAudio(updatedDbMsg.audioUrl, msg.id);
                     }
                 }
                 toast(`Đã tạo và phát xong audio thoại câu số ${index + 1}!`, 'success');
@@ -1297,19 +1294,24 @@ const AiDirectorManagerModal = (props: any) => {
                 await handleSaveScript(false);
             }
 
-            // 2. Tải lại danh sách tin nhắn mới nhất
+            // 2. Tải lại danh sách tin nhắn mới nhất từ DB để có id thực + audioUrl cũ
+            // Nhưng chỉ dùng làm nguồn cho việc tạo audio, KHÔNG ghi đè editingMessages
             const resFetch = await getChatMessagesAction(selectedScript.id);
             let currentMsgs = editingMessages;
             if (resFetch.success && resFetch.data) {
                 const mapped = resFetch.data.map((m: any) => ({
                     id: m.id,
-                    role: m.role.toLowerCase() === 'user' ? 'user' : 'ai',
+                    role: m.role === 'USER' ? 'user' : m.role === 'OUTRO' ? 'outro' : 'ai',
                     text: m.content,
                     audioUrl: m.audioUrl,
                     emotion: m.emotion || 'calm'
                 }));
-                setEditingMessages(mapped);
-                currentMsgs = mapped;
+                // Merge: dùng text từ editingMessages (user đang sửa), id+audioUrl từ DB
+                currentMsgs = editingMessages.map((em, idx) => {
+                    const dbMsg = mapped[idx];
+                    return dbMsg ? { ...em, id: dbMsg.id, audioUrl: dbMsg.audioUrl } : em;
+                });
+                setEditingMessages(currentMsgs);
             }
 
             // 3. Lọc ra những thoại cần tạo (forceAll=true thì tạo toàn bộ, false thì chỉ tạo thoại chưa có audio)
@@ -1354,19 +1356,23 @@ const AiDirectorManagerModal = (props: any) => {
                 }
             }
 
-            // 5. Tải lại messages với audioUrl mới
+            // 5. Chỉ merge audioUrl mới vào editingMessages hiện tại, giữ nguyên text user đang sửa
             if (successCount > 0) {
                 const res = await getChatMessagesAction(selectedScript.id);
                 if (res.success && res.data) {
-                    const mapped = res.data.map((m: any) => ({
-                        id: m.id,
-                        role: m.role.toLowerCase() === 'user' ? 'user' : 'ai',
-                        text: m.content,
-                        audioUrl: m.audioUrl,
-                        emotion: m.emotion || 'calm'
+                    const audioMap: Record<string, string> = {};
+                    res.data.forEach((m: any) => { if (m.audioUrl) audioMap[m.id] = m.audioUrl; });
+                    setEditingMessages(prev => prev.map(m =>
+                        audioMap[m.id] ? { ...m, audioUrl: audioMap[m.id] } : m
+                    ));
+                    // Cập nhật sessions để list view hiển thị đúng trạng thái audio
+                    p.setSessions((prev: any[]) => prev.map((x: any) => {
+                        if (x.id !== selectedScript.id) return x;
+                        const updatedMessages = (x.messages || []).map((m: any) =>
+                            audioMap[m.id] ? { ...m, audioUrl: audioMap[m.id] } : m
+                        );
+                        return { ...x, messages: updatedMessages, messagesLoaded: true };
                     }));
-                    setEditingMessages(mapped);
-                    p.setSessions((prev: any[]) => prev.map((x: any) => x.id === selectedScript.id ? { ...x, messages: mapped, messagesLoaded: true } : x));
                 }
                 toast(`Hoàn tất! Đã tạo ${successCount}/${total} audio.`, 'success');
             }
