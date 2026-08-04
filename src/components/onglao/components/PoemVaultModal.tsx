@@ -92,7 +92,7 @@ const PoemVaultModal = ({ isAdminMode = false, inline = false, p: propP }: { isA
   const [audioFilter, setAudioFilter] = React.useState('all');
   const [phrasesPerPage, setPhrasesPerPage] = React.useState(20);
   const [editingPhrase, setEditingPhrase] = React.useState<any>(null);
-  const [phraseForm, setPhraseForm] = React.useState({ text: '', category: '', isActive: true });
+  const [phraseForm, setPhraseForm] = React.useState<{ text: string; category: string; tags?: string; isActive: boolean }>({ text: '', category: '', tags: '', isActive: true });
   const [generatingPhraseId, setGeneratingPhraseId] = React.useState<string|null>(null);
   const [loadingPhrases, setLoadingPhrases] = React.useState(false);
   const [playingId, setPlayingId] = React.useState<string|null>(null);
@@ -138,18 +138,25 @@ const PoemVaultModal = ({ isAdminMode = false, inline = false, p: propP }: { isA
   const handleSavePhrase = async () => {
     if (!phraseForm.text.trim()) { setErrorModalMsg('Nội dung câu không được trống.'); return; }
     const token = localStorage.getItem('onglao_admin_token') || '';
+    const parsedTags = phraseForm.tags ? phraseForm.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [];
+    const payload = {
+      text: phraseForm.text,
+      category: phraseForm.category,
+      tags: parsedTags,
+      isActive: phraseForm.isActive,
+    };
     if (editingPhrase?.id) {
       await fetch(`/api/admin/opening-phrases/${editingPhrase.id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
-        body: JSON.stringify(phraseForm),
+        body: JSON.stringify(payload),
       });
     } else {
       await fetch('/api/admin/opening-phrases', {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
-        body: JSON.stringify(phraseForm),
+        body: JSON.stringify(payload),
       });
     }
-    setEditingPhrase(null); setPhraseForm({ text: '', category: '', isActive: true });
+    setEditingPhrase(null); setPhraseForm({ text: '', category: '', tags: '', isActive: true });
     loadPhrases(phrasesPage, phrasesSearch);
   };
 
@@ -1088,7 +1095,7 @@ const PoemVaultModal = ({ isAdminMode = false, inline = false, p: propP }: { isA
                               />
                           </div>
                           <div className="flex flex-wrap items-center justify-between gap-3">
-                              <div className="flex gap-4 items-center">
+                              <div className="flex gap-4 items-center flex-wrap">
                                   <div>
                                       <label className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Nhóm / Danh mục</label>
                                       <select 
@@ -1101,6 +1108,16 @@ const PoemVaultModal = ({ isAdminMode = false, inline = false, p: propP }: { isA
                                               <option key={key} value={key}>{val}</option>
                                           ))}
                                       </select>
+                                  </div>
+                                  <div>
+                                      <label className="text-[10px] text-amber-400 font-bold uppercase block mb-1">🏷️ Thẻ Tag (Phân cách dấu phẩy)</label>
+                                      <input 
+                                          type="text"
+                                          value={phraseForm.tags}
+                                          onChange={e => setPhraseForm(prev => ({ ...prev, tags: e.target.value }))}
+                                          placeholder="VD: mệt mỏi, hỏi đạo, gõ chữ..."
+                                          className="bg-slate-900 border border-amber-500/30 text-amber-200 rounded-lg px-2.5 py-1.5 text-xs font-bold outline-none focus:border-orange-500 min-w-[200px]"
+                                      />
                                   </div>
                                   <label className="flex items-center gap-2 mt-4 cursor-pointer select-none">
                                       <input 
@@ -1115,7 +1132,7 @@ const PoemVaultModal = ({ isAdminMode = false, inline = false, p: propP }: { isA
                               <div className="flex gap-2">
                                   {editingPhrase && (
                                       <button 
-                                          onClick={() => { setEditingPhrase(null); setPhraseForm({ text: '', category: '', isActive: true }); }} 
+                                          onClick={() => { setEditingPhrase(null); setPhraseForm({ text: '', category: '', tags: '', isActive: true }); }} 
                                           className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition-all"
                                       >
                                           Hủy
@@ -1199,7 +1216,6 @@ const PoemVaultModal = ({ isAdminMode = false, inline = false, p: propP }: { isA
                           */}
                       </div>
                   </div>
-
                   {/* DANH SÁCH CÂU HỎI MÀO ĐẦU */}
                   {loadingPhrases ? (
                       <div className="flex-1 flex justify-center items-center py-20">

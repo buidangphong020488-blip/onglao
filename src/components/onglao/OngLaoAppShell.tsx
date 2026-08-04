@@ -817,7 +817,7 @@ export default function OngLaoAppShell({
       emotion
     ).catch(err => console.warn('Lỗi lưu tin nhắn con:', err));
 
-    // BƯỚC 1: TRÍCH XUẤT MÀO ĐẦU CÓ ÂM THANH THU ÂM SẴN TỪ CSDL (/api/opening-phrases/random?category=...)
+    // BƯỚC 1: TRÍCH XUẤT MÀO ĐẦU CÓ ÂM THANH THU ÂM SẴN TỪ CSDL (ƯU TIÊN LỌC THEO TAG TRƯỚC HẾT)
     const lower = text.toLowerCase();
     let cat = 'mundane_weather';
     if (/(mệt|đau|bệnh|sức khỏe|ốm|thân)/.test(lower)) cat = 'health_daily';
@@ -830,7 +830,8 @@ export default function OngLaoAppShell({
     let greetingAudioUrl: string | null = null;
 
     try {
-      const phraseRes = await fetch(`/api/opening-phrases/random?category=${cat}`);
+      // Ưu tiên quét Tag trong nội dung tin nhắn chat trước, sau đó mới dùng category
+      const phraseRes = await fetch(`/api/opening-phrases/random?text=${encodeURIComponent(text)}&category=${cat}`);
       if (phraseRes.ok) {
         const phraseJson = await phraseRes.json();
         if (phraseJson?.data) {
@@ -840,7 +841,7 @@ export default function OngLaoAppShell({
       }
     } catch (e) {}
 
-    // BƯỚC 2: TRÍCH XUẤT KỆ PHÁP KHỚP NỘI DUNG TỪ DB (ƯU TIÊN BÀI KỆ CÓ THU ÂM SẴN CÓ 0MS LATENCY)
+    // BƯỚC 2: TRÍCH XUẤT KỆ PHÁP KHỚP NỘI DUNG TỪ DB (ƯU TIÊN LỌC THEO TAG ĐƯỢC CHẤM ĐIỂM SÁT NHẤT)
     const poemDatabase = poemDbState.poemDatabase || [];
     let matchedStanza: any = null;
     if (poemDatabase.length > 0) {
@@ -850,12 +851,25 @@ export default function OngLaoAppShell({
         const stanzasWithAudio = allStanzas.filter((st: any) => st.audioUrl && String(st.audioUrl).trim().length > 0);
         const pool = stanzasWithAudio.length > 0 ? stanzasWithAudio : allStanzas;
 
-        matchedStanza = pool.find((st: any) => 
-          st.tags && Array.isArray(st.tags) && st.tags.some((t: string) => lower.includes(String(t).toLowerCase()))
-        );
-        if (!matchedStanza) {
-          matchedStanza = pool[Math.floor(Math.random() * pool.length)];
+        // Tính điểm ưu tiên cho bài kệ khớp nhiều Tag và Tag dài nhất
+        let bestMatch: any = null;
+        let maxScore = 0;
+        for (const st of pool) {
+          if (st.tags && Array.isArray(st.tags)) {
+            let score = 0;
+            for (const t of st.tags) {
+              const cleanT = String(t).toLowerCase().trim();
+              if (cleanT.length > 0 && lower.includes(cleanT)) {
+                score += cleanT.length * 2;
+              }
+            }
+            if (score > maxScore) {
+              maxScore = score;
+              bestMatch = st;
+            }
+          }
         }
+        matchedStanza = bestMatch || pool[Math.floor(Math.random() * pool.length)];
       }
     }
 

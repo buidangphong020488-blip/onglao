@@ -1,18 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
-// GET: Lấy 1 câu mào đầu random có audio khớp với tag hoặc category
+// GET: Lấy 1 câu mào đầu random có audio khớp với tag, text hoặc category
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const category = searchParams.get('category');
     const tag = searchParams.get('tag');
+    const text = searchParams.get('text');
 
     const baseWhere: any = { isActive: true, audioUrl: { not: null } };
     let candidateItems: any[] = [];
 
-    // 1. Ưu tiên tìm theo Tag nếu có
-    if (tag) {
+    // 1. Nếu có text (câu thoại chat của người dùng), tìm các câu mào đầu có Tag nằm trong câu thoại
+    if (text) {
+      const lowerText = text.toLowerCase().trim();
+      const allActiveWithAudio = await prisma.openingPhrase.findMany({ where: baseWhere });
+      candidateItems = allActiveWithAudio.filter((item: any) => {
+        if (!item.tags || !Array.isArray(item.tags) || item.tags.length === 0) return false;
+        return item.tags.some((t: string) => {
+          const cleanT = String(t).toLowerCase().trim();
+          return cleanT.length > 0 && lowerText.includes(cleanT);
+        });
+      });
+    }
+
+    // 2. Ưu tiên tìm theo Tag cụ thể nếu truyền param tag
+    if (candidateItems.length === 0 && tag) {
       const cleanTag = tag.toLowerCase().trim();
       try {
         candidateItems = await prisma.openingPhrase.findMany({
@@ -30,7 +44,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 2. Nếu không tìm thấy theo Tag và có category -> tìm theo category
+    // 3. Nếu không tìm thấy theo Tag và có category -> tìm theo category
     if (candidateItems.length === 0 && category) {
       candidateItems = await prisma.openingPhrase.findMany({
         where: {
@@ -40,7 +54,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 3. Fallback: Lấy danh sách tất cả câu mào đầu có audio
+    // 4. Fallback: Lấy danh sách tất cả câu mào đầu có audio
     if (candidateItems.length === 0) {
       candidateItems = await prisma.openingPhrase.findMany({
         where: baseWhere
