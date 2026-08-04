@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import ffmpegPath from 'ffmpeg-static';
+
+const execAsync = promisify(exec);
 
 export async function GET(
   req: NextRequest,
@@ -27,6 +32,24 @@ export async function GET(
     ];
 
     let filePath = candidatePaths.find(p => fs.existsSync(p));
+
+    // Nếu không tìm thấy tệp default_video.mp4 trên đĩa, tự động tạo tệp MP4 mẫu bằng FFmpeg
+    if ((!filePath || !fs.existsSync(filePath)) && (filename === 'default_video.mp4' || filename.includes('default'))) {
+      const defaultExportDir = path.join(process.cwd(), 'public', 'exports');
+      const defaultVideoPath = path.join(defaultExportDir, 'default_video.mp4');
+      try {
+        if (!fs.existsSync(defaultExportDir)) {
+          fs.mkdirSync(defaultExportDir, { recursive: true });
+        }
+        const ffmpegBin = ffmpegPath || 'ffmpeg';
+        await execAsync(`"${ffmpegBin}" -y -f lavfi -i color=c=black:s=1280x720:d=3 -f lavfi -i anullsrc=r=44100:cl=stereo -t 3 -c:v libx264 -c:a aac "${defaultVideoPath}"`);
+        if (fs.existsSync(defaultVideoPath)) {
+          filePath = defaultVideoPath;
+        }
+      } catch (genErr) {
+        console.error('Lỗi khi tự tạo default_video.mp4:', genErr);
+      }
+    }
 
     if (!filePath || !fs.existsSync(filePath)) {
       return new NextResponse('File not found', { status: 404 });

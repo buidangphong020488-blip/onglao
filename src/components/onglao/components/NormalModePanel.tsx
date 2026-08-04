@@ -997,7 +997,7 @@ const NormalModePanel = (props?: { p?: any }) => {
                                                                              onClick={() => {
                                                                                  setPreviewVideoUrl((topic.videoUrl && !topic.videoUrl.includes('batch_')) ? topic.videoUrl : '/exports/default_video.mp4');
                                                                                  setPreviewVideoTitle(topic.title || 'Video MP4 Xưởng Phim');
-                                                                                 if (setShowAutoPilotModal) setShowAutoPilotModal(false);
+                                                                                 
                                                                              }}
                                                                              className="px-2 py-1 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
                                                                          >
