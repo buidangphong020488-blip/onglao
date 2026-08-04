@@ -24,7 +24,7 @@ import {
   updateChatSessionTitleAction, 
   deleteChatSessionAction,
   updateChatMessageContentAction
-} from '@/actions/chat';
+} from '@/lib/clientActions';
 import {
   EMOTIONS,
   DEFAULT_CAM_PRESETS,

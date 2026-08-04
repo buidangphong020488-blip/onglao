@@ -17,12 +17,12 @@ import {
   createChatSessionAction, 
   saveChatMessageAction, 
   getChatSessionsAction, 
-  getChatMessagesAction, 
   deleteChatSessionAction, 
-  updateChatSessionTitleAction 
-} from "@/actions/chat";
+  updateChatSessionTitleAction,
+  getChatMessagesAction
+} from "@/lib/clientActions";
 import { getActivePromptAction } from "@/actions/prompt";
-import { loginWithGiacNgoAction } from "@/actions/auth";
+import { loginWithGiacNgoAction } from "@/lib/clientActions";
 import AuthModal from "@/components/AuthModal";
 import { RagSection } from './onglao/ui/RagSection';
 import MiniLaoFace from './onglao/components/MiniLaoFace';

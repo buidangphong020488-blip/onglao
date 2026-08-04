@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { LogIn, Eye, EyeOff, Loader2, AlertCircle, Sparkles } from "lucide-react";
-import { loginWithGiacNgoAction } from "@/actions/auth";
+import { loginWithGiacNgoAction } from "@/lib/clientActions";
 
 interface LoginPageProps {
   onLogin?: (user: { id: string; name: string; email: string; avatar: string | null }, token: string) => void;

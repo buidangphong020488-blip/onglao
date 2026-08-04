@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   createChatSessionAction, 
   getChatSessionsAction 
-} from "@/actions/chat";
-import { updateUserProfileAction } from "@/actions/auth";
+} from "@/lib/clientActions";
+import { updateUserProfileAction } from "@/lib/clientActions";
 import { VOICE_STYLES } from '../constants';
 
 interface UseAuthProps {

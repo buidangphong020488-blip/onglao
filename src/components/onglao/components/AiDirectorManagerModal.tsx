@@ -8,8 +8,6 @@ import ScriptModal, { ScriptModalHandle } from './ScriptModal';
 import {
     getChatMessagesAction,
     getScriptSessionsAction,
-} from '@/lib/clientActions';
-import {
     deleteChatSessionAction,
     saveChatMessageAction,
     createChatSessionAction,
@@ -17,7 +15,7 @@ import {
     updateChatSessionVoicesAction,
     deleteChatMessageAction,
     batchSaveScriptAction
-} from '@/actions/chat';
+} from '@/lib/clientActions';
 
 const VOICES_MALE = ['Algieba','Puck','Charon','Fenrir','Orus','Enceladus','Iapetus'];
 const VOICES_FEMALE = ['Aoede','Kore','Leda','Zephyr','Callirrhoe','Autonoe'];

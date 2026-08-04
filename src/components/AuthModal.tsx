@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { LogIn, X, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
-import { loginWithGiacNgoAction } from "@/actions/auth";
+import { loginWithGiacNgoAction } from "@/lib/clientActions";
 
 interface AuthModalProps {
   onClose?: () => void;

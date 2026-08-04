@@ -13,7 +13,7 @@ import { useAuth } from "./hooks/useAuth";
 import { usePoemDb } from "./hooks/usePoemDb";
 import { useVideoExport } from "./hooks/useVideoExport";
 import { useLiveStreaming } from "./hooks/useLiveStreaming";
-import { createChatSessionAction, saveChatMessageAction, getChatMessagesAction, deleteChatSessionAction, togglePinChatSessionAction } from "@/actions/chat";
+import { createChatSessionAction, saveChatMessageAction, deleteChatSessionAction, togglePinChatSessionAction, getChatMessagesAction } from "@/lib/clientActions";
 import { idb } from "./constants";
 import { createManagedBlobUrl, autoReleaseRamMemory as autoReleaseRamMemoryUtil } from "./utils/ramManager";
 import { CheckCircle2, AlertTriangle, Sparkles, Loader2, X } from "lucide-react";

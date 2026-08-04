@@ -17,7 +17,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 
-import { deleteChatSessionAction } from "@/actions/chat";
+import { deleteChatSessionAction } from "@/lib/clientActions";
 
 export const SessionsSidebar = (props?: { p?: any }) => {
   const p = props?.p || {};

@@ -1,6 +1,6 @@
 "use client";
 import React from 'react';
-import { updateChatSessionTypeAction, updateChatMessageContentAction } from '@/actions/chat';
+import { updateChatSessionTypeAction, updateChatMessageContentAction } from '@/lib/clientActions';
 import MiniLaoFace from './MiniLaoFace';
 import { 
   X, MessageSquare, Loader2, Mic, Wand2, Video, Play, Pause, Square,

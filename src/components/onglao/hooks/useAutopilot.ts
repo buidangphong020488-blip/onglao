@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { fetchWithRetry } from '../utils';
-import { createChatSessionAction, saveChatMessageAction, updateChatSessionVoicesAction } from '@/actions/chat';
+import { createChatSessionAction, saveChatMessageAction, updateChatSessionVoicesAction } from '@/lib/clientActions';
 
 const getVideoCategory = (ratio: any) => {
     if (ratio === '9x16' || ratio === '3x4' || ratio === '2x3') return 'doc';

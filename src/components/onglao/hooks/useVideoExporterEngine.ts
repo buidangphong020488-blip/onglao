@@ -32,7 +32,7 @@ import {
 
 } from '../utils/videoExportUtils';
 
-import { saveChatMessageAction } from '@/actions/chat';
+import { saveChatMessageAction } from '@/lib/clientActions';
 
 export const useVideoExporterEngine = ({
   FULLFRAME_PACKS = [],

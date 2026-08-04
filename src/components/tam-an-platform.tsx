@@ -20,10 +20,10 @@ import {
   createChatSessionAction, 
   saveChatMessageAction, 
   getChatSessionsAction, 
-  getChatMessagesAction, 
   deleteChatSessionAction, 
-  updateChatSessionTitleAction 
-} from "@/actions/chat";
+  updateChatSessionTitleAction,
+  getChatMessagesAction
+} from "@/lib/clientActions";
 import {
   getGiacNgoListAction,
   saveGiacNgoAction,
