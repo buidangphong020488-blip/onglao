@@ -680,7 +680,7 @@ const NormalModePanel = (props?: { p?: any }) => {
                 <div className="flex items-center gap-2">
                     {!apState.isRunning && (
                         <button
-                            onClick={() => { window.location.href = '/kich-ban'; }}
+                            onClick={() => { window.location.href = '/?modal=ai-director'; }}
                             className="px-3.5 py-2 bg-indigo-900/60 hover:bg-indigo-800 border border-indigo-500/30 text-indigo-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
                             title="Quay lại Quản lý kịch bản"
                         >
@@ -971,9 +971,9 @@ const NormalModePanel = (props?: { p?: any }) => {
                                                                              <button
                                                                                  onClick={() => {
                                                                                      if (topic.scriptId) {
-                                                                                         window.location.href = `/kich-ban?action=update&id=${encodeURIComponent(topic.scriptId)}`;
+                                                                                         window.location.href = `/?modal=ai-director?action=update&id=${encodeURIComponent(topic.scriptId)}`;
                                                                                      } else {
-                                                                                         window.location.href = '/kich-ban';
+                                                                                         window.location.href = '/?modal=ai-director';
                                                                                      }
                                                                                  }}
                                                                                  className="px-2 py-1 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"

@@ -345,7 +345,7 @@ const ScriptModalInner = (
                     <button 
                         onClick={() => {
                             onClose();
-                            window.location.href = '/kich-ban';
+                            window.location.href = '/?modal=ai-director';
                         }} 
                         className="px-3.5 py-2 bg-indigo-900/60 hover:bg-indigo-800 border border-indigo-500/30 text-indigo-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
                         title="Quay lại Quản lý Kịch bản"

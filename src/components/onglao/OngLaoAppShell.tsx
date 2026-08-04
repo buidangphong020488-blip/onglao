@@ -657,12 +657,6 @@ export default function OngLaoAppShell({
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const modal = params.get('modal');
-      if (modal === 'ai-director' && window.location.pathname === '/') {
-        params.delete('modal');
-        const q = params.toString();
-        window.location.replace(`/kich-ban${q ? '?' + q : ''}`);
-        return;
-      }
       if (modal === 'auto-pilot' || modal === 'ai-director') {
         if (setShowAutoPilotModalFn) setShowAutoPilotModalFn(true);
         if (setHasEnteredFn) setHasEnteredFn(true);

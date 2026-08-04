@@ -131,7 +131,7 @@ export const SessionsSidebar = (props?: { p?: any }) => {
         <button
           onClick={() => {
             if (typeof setShowSessions === 'function') setShowSessions(false);
-            window.location.href = '/kich-ban';
+            window.location.href = '/?modal=ai-director';
           }}
           className="w-full py-2.5 rounded-xl bg-cyan-700/80 hover:bg-cyan-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg border border-cyan-500/50 mt-1 cursor-pointer"
         >
