@@ -4,7 +4,8 @@ import React from "react";
 import { X, Film, Check, CheckCircle2, Save, Search, ChevronLeft, ChevronRight, Sliders, Maximize, Minimize, RefreshCw, Loader2, Play, Pause, ChevronDown, Sparkles, FileText, Volume2, Plus, Info, Upload, PlayCircle, Eye, EyeOff, Music, Video, Archive, Share as ShareIcon, Copy, ChevronUp, Trash2, Palette, Music4, Wand2, XCircle, Undo2, Redo2, LayoutTemplate, Image as ImageIcon, Pencil, Mic, Edit3, CheckSquare, Home, FolderPlus } from "lucide-react";
 import { useOngLaoContext } from "../context/OngLaoContext";
 import { idb } from "../constants";
-import { updateChatMessageContentAction, getChatMessagesAction } from "@/actions/chat";
+import { updateChatMessageContentAction } from "@/actions/chat";
+import { getChatMessagesAction } from "@/lib/clientActions"; // fetch thay server action
 // HÀNG CHỜ FIFO TỐI ƯU HOÁ CHỤP POSTER THUMBNAIL (GIẢI PHÓNG BỘ NHỚ VRAM TỰ ĐỘNG, MAX 1 VIDEO/LẦN)
 const posterQueue: (() => Promise<void>)[] = [];
 let isProcessingPosterQueue = false;

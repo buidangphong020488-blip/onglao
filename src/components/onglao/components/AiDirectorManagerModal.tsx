@@ -3,9 +3,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, X, Pencil, Trash2, Plus, Play, Pause, Music, Loader2, Save, RefreshCw, ChevronLeft, ChevronRight, ArrowRight, Volume2, Film, Mic, Info, Video, Layers, CheckCircle2, Home, Copy, Check, Calendar } from 'lucide-react';
 import AiDirectorModal from './AiDirectorModal';
 import ScriptModal, { ScriptModalHandle } from './ScriptModal';
+// getChatMessagesAction & getScriptSessionsAction dùng fetch thay server action
+// để tránh UnrecognizedActionError do Next.js Turbopack build inconsistency
 import {
     getChatMessagesAction,
     getScriptSessionsAction,
+} from '@/lib/clientActions';
+import {
     deleteChatSessionAction,
     saveChatMessageAction,
     createChatSessionAction,
@@ -157,6 +161,7 @@ const AiDirectorManagerModal = (props: any) => {
     const [editingMessages, setEditingMessages] = useState<any[]>([]);
     const [editingRawText, setEditingRawText] = useState<string>("");
     const scriptModalRef = useRef<ScriptModalHandle>(null); // Ref để gọi getLatestText() trước khi save
+    const manualTextareaRef = useRef<HTMLTextAreaElement>(null); // Ref đọc trực tiếp DOM tránh stale closure
     const [saving, setSaving] = useState(false);
     const [downloadingAudio, setDownloadingAudio] = useState(false);
     const [generatingAudio, setGeneratingAudio] = useState(false);
@@ -172,17 +177,26 @@ const AiDirectorManagerModal = (props: any) => {
 
     useEffect(() => {
         if (!isVisible) return;
+        let timer: ReturnType<typeof setTimeout> | null = null;
+
         const fetchHistory = () => {
             fetch('/api/render-history')
                 .then(r => r.json())
                 .then(d => {
-                    if (d.success && d.data) setRenderHistoryList(d.data);
+                    if (d.success && d.data) {
+                        setRenderHistoryList(d.data);
+                        // Chỉ tiếp tục poll nếu còn video đang PROCESSING
+                        const hasProcessing = d.data.some((item: any) => item.status === 'PROCESSING' || item.status === 'processing');
+                        const interval = hasProcessing ? 5000 : 30000; // 5s nếu đang xử lý, 30s nếu rảnh
+                        timer = setTimeout(fetchHistory, interval);
+                    }
                 })
-                .catch(() => {});
+                .catch(() => {
+                    timer = setTimeout(fetchHistory, 30000); // Lỗi → thử lại sau 30s
+                });
         };
         fetchHistory();
-        const timer = setInterval(fetchHistory, 3000);
-        return () => clearInterval(timer);
+        return () => { if (timer) clearTimeout(timer); };
     }, [isVisible]);
 
     const handleCloseModal = () => {
@@ -571,6 +585,8 @@ const AiDirectorManagerModal = (props: any) => {
 
     // Load messages when editing
     const handleStartEdit = async (script: any) => {
+        // Đánh dấu đã restore ID này để tránh restore useEffect kích hoạt lại
+        restoredFromUrlRef.current = script.id;
         setSelectedScript(script);
         setEditingTitle(script.title.replace(/^(\[AI\]|\[Thủ công\])?\s*/i, '').trim());
         setEditingLaoVoice(script.laoVoice || p.laoVoice || '');
@@ -616,6 +632,15 @@ const AiDirectorManagerModal = (props: any) => {
                 setEditingRawText(raw);
 
                 setView('edit');
+
+                // Cập nhật URL để phản ánh kịch bản đang edit (phục vụ refresh/bookmark)
+                // restoredFromUrlRef đã được set = script.id ở đầu hàm → restore useEffect sẽ không kích hoạt lại
+                if (typeof window !== 'undefined') {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('id', script.id);
+                    url.searchParams.delete('action'); // sẽ được set là 'update' sau khi save
+                    window.history.replaceState(null, '', url.toString());
+                }
             } else {
                 toast('Không thể tải chi tiết kịch bản: ' + (res.error || 'Lỗi không xác định'), 'error');
             }
@@ -892,7 +917,10 @@ const AiDirectorManagerModal = (props: any) => {
         if (saving) return;
         const shouldTransition = transitionToList === true;
 
-        const latestText = scriptModalRef.current?.getLatestText() ?? editingRawText;
+        // Đọc trực tiếp từ DOM (manualTextareaRef) trước, tránh stale closure của editingRawText
+        const latestText = scriptModalRef.current?.getLatestText()
+            ?? manualTextareaRef.current?.value
+            ?? editingRawText;
 
         setSaving(true);
         try {
@@ -999,6 +1027,8 @@ const AiDirectorManagerModal = (props: any) => {
                     laoVoiceStyle: editingLaoVoiceStyle,
                     userVoice: editingUserVoice,
                     userVoiceStyle: editingUserVoiceStyle,
+                    messages: finalMsgs,        // Đồng bộ messages để tránh stale state khi restore
+                    messagesLoaded: true,
                 } : s));
 
                 // Also update the selectedScript local reference
@@ -1024,6 +1054,8 @@ const AiDirectorManagerModal = (props: any) => {
                     url.searchParams.set('action', 'update');
                     url.searchParams.set('type', finalTitle.toLowerCase().includes('[thủ công]') ? 'manual' : 'ai');
                     url.searchParams.set('id', realSessionId);
+                    // Đánh dấu trước để restore useEffect không kích hoạt lại sau khi URL thay đổi
+                    restoredFromUrlRef.current = realSessionId;
                     window.history.replaceState(null, '', url.toString());
                 }
             }
@@ -1235,7 +1267,9 @@ const AiDirectorManagerModal = (props: any) => {
         setGeneratingAudio(true);
         setAudioProgress({ current: 1, total: 1, percent: 100 });
         try {
-            if (editingRawText.trim().length > 0) {
+            // Đọc từ DOM ref trước để tránh stale editingRawText (user chưa blur)
+            const _latestRaw = manualTextareaRef.current?.value ?? editingRawText;
+            if (_latestRaw.trim().length > 0) {
                 await handleSaveScript(false);
             }
             toast(`🎙️ Đang tạo audio thoại câu số ${index + 1}...`, 'loading');
@@ -1289,8 +1323,9 @@ const AiDirectorManagerModal = (props: any) => {
         setGeneratingAudio(true);
         setAudioProgress({ current: 0, total: 0, percent: 0 });
         try {
-            // 1. Tự động lưu kịch bản trước
-            if (editingRawText.trim().length > 0) {
+            // 1. Tự động lưu kịch bản trước (đọc từ DOM ref tránh stale editingRawText)
+            const _latestRawBatch = manualTextareaRef.current?.value ?? editingRawText;
+            if (_latestRawBatch.trim().length > 0) {
                 await handleSaveScript(false);
             }
 
@@ -2791,6 +2826,7 @@ const AiDirectorManagerModal = (props: any) => {
                                             </div>
                                             <textarea
                                                 key={`raw-${selectedScript?.id}`}
+                                                ref={manualTextareaRef}
                                                 defaultValue={editingRawText}
                                                 onBlur={(e) => setEditingRawText(e.target.value)}
                                                 placeholder={`Dán hoặc gõ kịch bản thủ công tại đây...\nVí dụ:\n${p.customLaoName || 'Lão'}: [vui] Nghe ${p.customLaoName || 'Lão'} nói đây, mọi khổ đau đều từ chấp thủ mà ra...\n${p.customUserName || 'Con'}: [buồn] ${p.customUserName || 'Con'} cảm ơn ${p.customLaoName || 'Lão'} đã khai thị...\nOutro: [kết thúc] Sư Cha Tam Vô đã hướng dẫn...`}
