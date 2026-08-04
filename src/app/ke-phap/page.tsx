@@ -1,12 +1,5 @@
-"use client";
-
-import React from "react";
-import dynamic from "next/dynamic";
-
-const OngLaoAppShell = dynamic(() => import("@/components/onglao/OngLaoAppShell"), {
-  ssr: false
-});
+import OngLaoAppClient from "@/components/onglao/OngLaoAppClient";
 
 export default function KePhapRoute() {
-  return <OngLaoAppShell pageRoute="ke-phap" />;
+  return <OngLaoAppClient pageRoute="ke-phap" />;
 }
