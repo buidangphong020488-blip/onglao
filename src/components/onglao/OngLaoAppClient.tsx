@@ -11,7 +11,7 @@ export default function OngLaoAppClient({
   pageRoute
 }: {
   initialPoems?: any[];
-  pageRoute?: 'home' | 'livestream' | 'ke-phap' | 'xuong-phim' | 'kich-ban' | 'tao-video';
+  pageRoute?: 'home';
 }) {
   return <OngLaoAppShell initialPoems={initialPoems} pageRoute={pageRoute} />;
 }

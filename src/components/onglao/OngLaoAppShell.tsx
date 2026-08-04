@@ -32,7 +32,7 @@ export default function OngLaoAppShell({
   pageRoute
 }: {
   initialPoems?: any[];
-  pageRoute?: 'home' | 'livestream' | 'ke-phap' | 'xuong-phim' | 'kich-ban' | 'tao-video';
+  pageRoute?: 'home';
 }) {
   // Global Sessions & Sidebar UI States
   const [sessions, setSessions] = React.useState<any[]>([]);
@@ -1265,21 +1265,10 @@ YÊU CẦU: Lão đã cất lời mào đầu và đọc bài kệ trên cho ng�
         <LoginPage onLogin={passProps.handleLogin} />
       ) : (
         <>
-          {pageRoute === 'livestream' ? (
-            <LiveModePanel p={{ ...passProps, isLiveMode: true }} />
-          ) : pageRoute === 'ke-phap' ? (
-            <PoemVaultModal p={{ ...passProps, showPoemModal: true }} inline={true} />
-          ) : pageRoute === 'xuong-phim' ? (
-            <NormalModePanel p={{ ...passProps, showAutoPilotModal: true }} />
-          ) : pageRoute === 'kich-ban' ? (
-            <AiDirectorManagerModal p={{ ...passProps, show: true, onClose: () => { window.location.href = '/'; } }} />
-          ) : pageRoute === 'tao-video' ? (
-            <VideoCreatorModal p={{ ...passProps, showVideoExportModal: true }} />
-          ) : (
-            <>
-              {(showAiManager || passProps.showAITopicModal) && (
-                <AiDirectorManagerModal p={{ ...passProps, show: true, onClose: () => { setShowAiManager(false); if (passProps.setShowAITopicModal) passProps.setShowAITopicModal(false); } }} />
-              )}
+          <>
+            {(showAiManager || passProps.showAITopicModal) && (
+              <AiDirectorManagerModal p={{ ...passProps, show: true, onClose: () => { setShowAiManager(false); if (passProps.setShowAITopicModal) passProps.setShowAITopicModal(false); } }} />
+            )}
 
               {!passProps.hasEntered && !passProps.showAutoPilotModal && !showAiManager && !passProps.showAITopicModal ? (
                 <WelcomeScreen p={passProps} />
@@ -1295,7 +1284,6 @@ YÊU CẦU: Lão đã cất lời mào đầu và đọc bài kệ trên cho ng�
                 <LiveModePanel p={passProps} />
               )}
             </>
-          )}
         </>
       )}
     </main>
