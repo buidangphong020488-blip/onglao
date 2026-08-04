@@ -146,10 +146,17 @@ const AiDirectorManagerModal = (props: any) => {
             if (path === '/kich-ban/tao' || (path.startsWith('/kich-ban/') && path !== '/kich-ban')) {
                 return 'edit';
             }
-            const modal = url.searchParams.get('modal');
-            const id = url.searchParams.get('id');
-            const action = url.searchParams.get('action');
-            if (modal === 'ai-director' && id && (action === 'update' || action === 'edit' || action === 'insert')) {
+            let search = window.location.search;
+            if (search.indexOf('?') !== search.lastIndexOf('?')) {
+                const firstQ = search.indexOf('?');
+                search = search.substring(0, firstQ + 1) + search.substring(firstQ + 1).replace(/\?/g, '&');
+            }
+            const params = new URLSearchParams(search);
+            const rawModal = params.get('modal');
+            const modal = rawModal ? rawModal.split('?')[0] : null;
+            const id = params.get('id');
+            const action = params.get('action');
+            if (modal === 'ai-director' && (id || action === 'update' || action === 'edit' || action === 'insert')) {
                 return 'edit';
             }
         }
@@ -337,20 +344,39 @@ const AiDirectorManagerModal = (props: any) => {
     const restoredFromUrlRef = useRef<string | null>(null);
     useEffect(() => {
         if (typeof window !== 'undefined' && p.show) {
-            const url = new URL(window.location.href);
-            const actionParam = url.searchParams.get('action');
-            const idParam = url.searchParams.get('id');
+            let search = window.location.search;
+            if (search.indexOf('?') !== search.lastIndexOf('?')) {
+                const firstQ = search.indexOf('?');
+                search = search.substring(0, firstQ + 1) + search.substring(firstQ + 1).replace(/\?/g, '&');
+            }
+            const params = new URLSearchParams(search);
+            const actionParam = params.get('action');
+            const idParam = params.get('id');
 
-            if (p.sessions && p.sessions.length > 0) {
-                if (actionParam === 'insert') {
-                    if (!selectedScript) handleCreateAIScript();
-                    if (p.setShowScriptModal) p.setShowScriptModal(false);
-                } else if (idParam && idParam !== restoredFromUrlRef.current) {
-                    const script = p.sessions.find((s: any) => s.id === idParam && (s.type === 'script' || s.type === 'manual'));
-                    if (script) {
-                        handleStartEdit(script);
-                        restoredFromUrlRef.current = idParam;
-                    }
+            if (actionParam === 'insert') {
+                if (!selectedScript) handleCreateAIScript();
+                if (p.setShowScriptModal) p.setShowScriptModal(false);
+            } else if (idParam && idParam !== restoredFromUrlRef.current) {
+                const script = (p.sessions || []).find((s: any) => s.id === idParam);
+                if (script) {
+                    handleStartEdit(script);
+                    restoredFromUrlRef.current = idParam;
+                } else {
+                    fetch(`/api/sessions/${idParam}/messages`)
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                const fetchedScript = {
+                                    id: idParam,
+                                    title: data.session?.title || 'Kịch bản AI',
+                                    messages: data.data || [],
+                                    type: data.session?.type || 'script',
+                                };
+                                handleStartEdit(fetchedScript);
+                                restoredFromUrlRef.current = idParam;
+                            }
+                        })
+                        .catch(err => console.error('Lỗi tải kịch bản từ URL id:', err));
                 }
             }
         }

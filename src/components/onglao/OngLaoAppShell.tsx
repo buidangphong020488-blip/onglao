@@ -710,11 +710,17 @@ export default function OngLaoAppShell({
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
     const syncModalsFromUrl = () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const modalParam = urlParams.get('modal');
+      let search = window.location.search;
+      if (search.indexOf('?') !== search.lastIndexOf('?')) {
+        const firstQ = search.indexOf('?');
+        search = search.substring(0, firstQ + 1) + search.substring(firstQ + 1).replace(/\?/g, '&');
+      }
+      const urlParams = new URLSearchParams(search);
+      const rawModal = urlParams.get('modal');
+      const modalParam = rawModal ? rawModal.split('?')[0] : null;
       const modeParam = urlParams.get('mode');
       const isAutoPilot = modalParam === 'auto-pilot';
-      const isAiDirector = modalParam === 'ai-director' || urlParams.get('showAITopicModal') === 'true';
+      const isAiDirector = modalParam === 'ai-director' || urlParams.get('showAITopicModal') === 'true' || Boolean(search && search.includes('modal=ai-director'));
       setShowAiManager(!isAutoPilot && isAiDirector);
       setShowPoemModal(modalParam === 'poem-vault' || urlParams.get('poem') === 'vault');
       setShowAutoPilotModal(isAutoPilot);
