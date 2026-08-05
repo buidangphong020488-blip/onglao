@@ -365,6 +365,7 @@ export default function OngLaoAppShell({
             audio.play().catch(() => {});
             window.removeEventListener('click', retryOnClick);
           };
+          finishOnce();
         });
       }
     } catch (err) {
@@ -898,21 +899,21 @@ export default function OngLaoAppShell({
     const normGreetingAudio = normalizeAudioUrl(greetingAudioUrl);
     if (normGreetingAudio) {
       enqueueAudio(normGreetingAudio, aiMsgId);
-    } else {
-      generateVoice(aiMsgId + '_greeting', greetingText, 'ai', activeSessionId, true);
+    } else if (greetingText) {
+      await generateVoice(aiMsgId + '_greeting', greetingText, 'ai', activeSessionId, true);
     }
 
-    // ⚡ BƯỚC 2 & 3: PHÁT ÂM THANH "HÃY NGHE KỆ ĐÂY:" VÀ BÀI KỆ THIỀN (NỐI TIẾP)
+    // ⚡ BƯỚC 2 & 3: PHÁT ÂM THANH "HÃY NGHE KỆ ĐÂY:" VÀ BÀI KỆ THIỀN (NỐI TIẾP TUẦN TỰ)
     if (stanzaText) {
-      // 2. Phát câu chuyển "Hãy nghe kệ đây:" từ tệp thu sẵn trên ổ cứng (/uploads/audio/transition_hay_nghe_ke_day.wav)
-      enqueueAudio('/uploads/audio/transition_hay_nghe_ke_day.wav', aiMsgId);
+      // 2. Phát câu chuyển "Hãy nghe kệ đây:" qua TTS tự động
+      await generateVoice(aiMsgId + '_transition', 'Hãy nghe kệ đây:', 'ai', activeSessionId, true);
 
       // 3. Phát Bài Kệ (Ưu tiên tệp thu âm sẵn trên đĩa -> Nếu chưa có gọi Gemini TTS)
       const normStanzaAudio = normalizeAudioUrl(matchedStanza?.audioUrl);
       if (normStanzaAudio) {
         enqueueAudio(normStanzaAudio, aiMsgId);
       } else {
-        generateVoice(aiMsgId + '_stanza', stanzaText, 'ai', activeSessionId, true);
+        await generateVoice(aiMsgId + '_stanza', stanzaText, 'ai', activeSessionId, true);
       }
     }
 
