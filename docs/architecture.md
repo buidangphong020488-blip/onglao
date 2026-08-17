@@ -34,21 +34,40 @@ Tài liệu này lưu trữ các cấu trúc hệ thống và các vấn đề k
 - Khi thêm video từ máy hoặc YouTube, object sẽ được map và đẩy vào `setLiveIdleVideos`.
 - **Lưu ý test:** Videos render bằng thẻ div lặp với class chứa `span.text-slate-300.truncate`.
 
-## 4. Prisma Schema Desync
-- Lỗi `Unknown argument laoPresetId`: State client (thông qua `updateUserProfileAction`) đang cố gắng lưu trường `laoPresetId` vào database (bảng `User`), nhưng Schema DB không tồn tại field này.
-- **Cách xử lý:** Đã đồng bộ Schema và migrate cơ sở dữ liệu mới. `laoPresetId` và `voiceStyle` đã được định nghĩa là trường tùy chọn (`String?`) trong model `User`.
+## 4. Cơ Sở Dữ Liệu Prisma Schema & Cột `isPinned`
+- Cột `isPinned` đã được thêm vào model `ChatSession` thông qua migration:
+  `prisma/migrations/20260817084500_add_chat_session_is_pinned/migration.sql`
+- Hàm `togglePinChatSessionAction` trong `src/lib/clientActions.ts` gọi `PATCH /api/sessions/[id]` để lưu trạng thái ghim trực tiếp vào database.
 
-## 5. Tương tác API GiacNgo & Cơ chế Hàng đợi Âm thanh (Audio Queue)
-- **Tương tác API GiacNgo:** 
-  Khi gọi API `/api/giacngo/chat`, Client chỉ cần gửi đúng:
-  * `spaceId` (Số ID của không gian).
-  * `aiConfigId` (ID cấu hình Agent/Lão).
-  * `message` (Nội dung câu hỏi của người dùng, không bao gồm systemPrompt).
-  * **Authorization Header**: Yêu cầu truyền Bearer token của tài khoản người dùng lấy từ `localStorage` để phân quyền chính xác.
+## 5. Xác Thực GiacNgo SSO, `authFetch` & Phân Quyền Sở Hữu Dữ Liệu
+- **Client Fetch Wrapper (`src/lib/authFetch.ts`):**
+  - Tự động lấy Bearer Token từ `localStorage.getItem('onglao_token')` và đính kèm vào header `Authorization`.
+  - Khi server trả `401 Unauthorized`, tự động thu hồi token hết hạn và phát sự kiện `onglao_auth_unauthorized` để điều hướng mở Modal Đăng nhập.
+- **Xác Thực Server & Cache Token (`src/lib/authz.ts`):**
+  - Hàm `authenticateUser(req)` giải mã Bearer Token qua API SSO Giác Ngộ (`/auth/me`), lưu cache in-memory 60s để tối ưu hiệu năng.
+  - User ID chuẩn hóa theo format `canonicalUserId(rawId)`: `gn_<id>`.
+- **Kiểm Soát Quyền Sở Hữu (Fail-Closed Data Isolation):**
+  - Hàm `isResourceOwner(user, resourceUserId)`: Chỉ cho phép truy cập nếu `user.isAdmin === true` hoặc `user.id === canonicalUserId(resourceUserId)`.
+  - Mặc định từ chối (Fail-closed) nếu tài nguyên không có chủ sở hữu hoặc chưa đăng nhập.
 
-- **Chiến lược phát âm thanh (Audio Queuing Strategy):**
-  * **Có Audio Có Sẵn:** Phát ngay câu mào đầu / kệ tại thời điểm 0ms. Khi API GiacNgo phản hồi, chỉ sinh TTS cho câu trả lời và dùng cờ `appendOnly = true` để đẩy tiếp phần âm thanh này vào cuối hàng đợi phát.
-  * **Không Có Audio Có Sẵn:** Đợi API chat phản hồi xong, gộp chung toàn bộ nội dung (mào đầu + kệ + câu trả lời) để sinh một audio TTS tổng duy nhất nhằm đảm bảo chất lượng đọc tốt nhất và tối ưu chi phí API.
+## 6. Bảo Vệ Proxy & Chống Tấn Công SSRF (`src/app/api/proxy/route.ts`)
+- **Giao Thức Bắt Buộc:** Chỉ chấp nhận `https://`.
+- **Chặn Mạng Nội Bộ (Private CIDRs):**
+  - Loopback / Localhost: `127.0.0.0/8`, `::1`
+  - Private IP: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`
+  - IPv6 Unique Local / Link Local: `fc00::/7`, `fe80::/10`
+- **Domain Whitelist:** Chỉ cho phép tải tài nguyên từ các domain được phê duyệt (`giacngo.vn`, `giacngo.ngo`, `googleapis.com`, etc.).
+- **HTTP Status Minh Bạch:** Trả đúng mã lỗi HTTP thực tế (400, 403, 404, 502) khi fetch thất bại, không trả fallback HTTP 200.
+
+## 7. Cơ chế Hàng đợi Âm thanh (Audio Queue) & Khẩu Hình Lão
+- **Chiến lược phát âm thanh:**
+  1. Mào Đầu: Phát ngay câu mào đầu từ file thu sẵn (`/uploads/audio/phrase_xxx.wav`).
+  2. Kệ Pháp: Phát tiếp bài kệ thiền (`matchedStanza.audioUrl`).
+  3. AI Đúc Kết: Sau khi Gemini hoàn tất câu trả lời, sinh TTS và đẩy vào cuối AudioQueue (`appendOnly = true`).
+- **Khẩu hình Lip-Sync (`MiniLaoFace.tsx`):**
+  - Khẩu hình cử động `talkSrc` chỉ khi có âm thanh thực sự phát ra loa (`isLaoSpeakingSession = Boolean(currentlyPlayingId)`).
+  - Trở về `idleSrc` ngậm miệng tĩnh khi không có âm thanh.
+  - Tự động dọn dẹp RAM qua `autoReleaseRamMemory()` khi vượt quá 5 Blob URL.
 
 ---
-**SKILL CHECK:** Tất cả agent khi tham gia sửa lỗi tự động hoá hoặc phát triển tính năng cần đọc file này đầu tiên để chọn phương pháp tương tác DOM/React và API phù hợp.
+**SKILL CHECK:** Tất cả agent khi tham gia sửa lỗi tự động hoá hoặc phát triển tính năng cần đọc file này đầu tiên để nắm rõ kiến trúc bảo mật và quy tắc hàng đợi âm thanh.
