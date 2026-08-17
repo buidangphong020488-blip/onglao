@@ -1,16 +1,30 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import prisma from "@/lib/prisma";
 import { MessageRole } from "@prisma/client";
+import { authenticateUser, isResourceOwner } from '@/lib/authz';
 
-// GET /api/sessions/[id]/messages (thay thế getChatMessagesAction)
+// GET /api/sessions/[id]/messages
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authenticateUser(request);
+    if (!auth.authenticated || !auth.user) {
+      return auth.errorResponse!;
+    }
+
     const { id: sessionId } = await params;
     if (!sessionId) {
       return NextResponse.json({ success: false, error: 'Missing session id' }, { status: 400 });
+    }
+
+    const sessionExists = await prisma.chatSession.findUnique({ where: { id: sessionId } });
+    if (sessionExists && !isResourceOwner(auth.user.id, sessionExists.userId)) {
+      return NextResponse.json(
+        { success: false, message: 'Bạn không có quyền truy cập phiên hội thoại này (403 Forbidden).' },
+        { status: 403 }
+      );
     }
 
     const messages = await prisma.chatMessage.findMany({

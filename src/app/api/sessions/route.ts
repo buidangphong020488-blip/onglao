@@ -1,19 +1,24 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import prisma from "@/lib/prisma";
+import { authenticateUser } from '@/lib/authz';
 
 // GET /api/sessions
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
-  const type = searchParams.get('type'); // 'script' → thay getScriptSessionsAction
-  const includeMessages = searchParams.get('includeMessages') === 'true';
-
+export async function GET(request: NextRequest) {
   try {
-    // Khi type=script: lọc kịch bản, include messages (thay thế getScriptSessionsAction)
+    const auth = await authenticateUser(request);
+    if (!auth.authenticated || !auth.user) {
+      return auth.errorResponse!;
+    }
+
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get('type');
+    const includeMessages = searchParams.get('includeMessages') === 'true';
+    const userId = String(auth.user.id);
+
     if (type === 'script') {
       const sessions = await prisma.chatSession.findMany({
         where: {
-          userId: userId && userId !== 'guest_user' ? userId : null,
+          userId,
           type: { in: ['script', 'chat|script'] },
         },
         include: {
@@ -29,22 +34,14 @@ export async function GET(request: Request) {
             orderBy: { createdAt: 'asc' },
           },
         },
-        orderBy: { updatedAt: 'desc' },
+        orderBy: [{ isPinned: 'desc' }, { updatedAt: 'desc' }],
       });
       return NextResponse.json({ success: true, data: sessions });
     }
 
-    // Default: lấy tất cả sessions (giữ nguyên logic cũ)
     const sessions = await prisma.chatSession.findMany({
-      where: userId && userId !== 'guest_user'
-        ? {
-            OR: [
-              { userId: userId },
-              { userId: null }
-            ]
-          }
-        : {},
-      orderBy: { updatedAt: "desc" },
+      where: { userId },
+      orderBy: [{ isPinned: 'desc' }, { updatedAt: "desc" }],
       include: includeMessages
         ? {
             messages: {
@@ -63,23 +60,23 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/sessions (thay thế createChatSessionAction)
-export async function POST(request: Request) {
+// POST /api/sessions
+export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { userId, title = "Hội thoại mới", type = "chat", createdAt } = body || {};
-
-    let validUserId: string | null = null;
-    if (userId && userId !== 'guest_user') {
-      const dbUser = await prisma.user.findUnique({ where: { id: userId } });
-      if (dbUser) validUserId = userId;
+    const auth = await authenticateUser(request);
+    if (!auth.authenticated || !auth.user) {
+      return auth.errorResponse!;
     }
+
+    const body = await request.json();
+    const { title = "Hội thoại mới", type = "chat", createdAt } = body || {};
+    const userId = String(auth.user.id);
 
     const session = await prisma.chatSession.create({
       data: {
-        userId: validUserId,
-        title: title,
-        type: type,
+        userId,
+        title,
+        type,
         ...(createdAt ? { createdAt: new Date(createdAt), updatedAt: new Date(createdAt) } : {}),
       },
     });

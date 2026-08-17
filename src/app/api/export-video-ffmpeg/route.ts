@@ -325,8 +325,24 @@ async function runFfmpegBackgroundProcess({
   }
 }
 
+import { authenticateUser } from '@/lib/authz';
+import { checkRateLimit } from '@/lib/rateLimiter';
+
 export async function POST(req: NextRequest) {
   try {
+    const auth = await authenticateUser(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.errorResponse!;
+    }
+
+    const rateCheck = checkRateLimit(`ffmpeg:${auth.user.id}`, 5, 60 * 1000);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { success: false, message: 'Bạn đang tạo quá nhiều video trong thời gian ngắn (tối đa 5 lượt/phút). Vui lòng chờ video hiện tại hoàn tất.' },
+        { status: 429 }
+      );
+    }
+
     const formData = await req.formData();
     const metadataStr = formData.get('metadata') as string;
     if (!metadataStr) {
@@ -334,11 +350,15 @@ export async function POST(req: NextRequest) {
     }
 
     const metadata = JSON.parse(metadataStr);
-    const { scenes, bgmVolume = 0.15, resolution = '1080', aspectRatio = '16x9', format = 'mp4', userId, title, sessionId } = metadata;
-    const userFolder = userId ? String(userId).replace(/[^a-zA-Z0-9_-]/g, '') : 'guest';
+    const { scenes, bgmVolume = 0.15, resolution = '1080', aspectRatio = '16x9', format = 'mp4', title, sessionId } = metadata;
+    const userId = auth.user.id;
+    const userFolder = String(userId).replace(/[^a-zA-Z0-9_-]/g, '');
 
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
       return NextResponse.json({ message: 'Danh sách cảnh quay rỗng' }, { status: 400 });
+    }
+    if (scenes.length > 50) {
+      return NextResponse.json({ message: 'Số lượng cảnh quay vượt quá giới hạn tối đa (50 cảnh).' }, { status: 400 });
     }
 
     const taskId = `vid_${Date.now()}`;

@@ -3,7 +3,10 @@ import { PrismaPg } from '@prisma/adapter-pg'
 import { Pool } from 'pg'
 
 const prismaClientSingleton = () => {
-  const dbUrl = process.env.DATABASE_URL || 'postgresql://onglao:MweeAz3SEyR4yymc@103.165.145.137:5432/onglao';
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    throw new Error('Biến môi trường DATABASE_URL chưa được cấu hình.');
+  }
   const pool = new Pool({ connectionString: dbUrl });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });

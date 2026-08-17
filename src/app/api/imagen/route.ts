@@ -1,12 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSystemSettingsAsync, getApiKeyList, getRotatedApiKey } from '@/lib/settings';
+import { authenticateUser } from '@/lib/authz';
+import { checkRateLimit } from '@/lib/rateLimiter';
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await authenticateUser(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.errorResponse!;
+    }
+
+    const rateCheck = checkRateLimit(`imagen:${auth.user.id}`, 10, 60 * 1000);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { success: false, message: 'Bạn đã vượt quá giới hạn tạo ảnh AI (10 ảnh/phút). Vui lòng thử lại sau.' },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const { prompt } = body;
-    if (!prompt) {
+    if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
       return NextResponse.json({ message: 'Thiếu trường prompt.' }, { status: 400 });
+    }
+    if (prompt.length > 2000) {
+      return NextResponse.json({ message: 'Prompt vượt quá độ dài tối đa 2000 ký tự.' }, { status: 400 });
     }
 
     const settings = await getSystemSettingsAsync();

@@ -53,6 +53,58 @@ function returnFallbackResponse(url: string) {
   });
 }
 
+function isValidProxyUrl(urlString: string): { valid: boolean; reason?: string; urlObj?: URL } {
+  try {
+    const parsed = new URL(urlString);
+    if (parsed.protocol !== 'https:') {
+      return { valid: false, reason: 'Chỉ chấp nhận giao thức https:' };
+    }
+    if (parsed.username || parsed.password) {
+      return { valid: false, reason: 'Không chấp nhận URL chứa thông tin xác thực' };
+    }
+    const hostname = parsed.hostname.toLowerCase();
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('169.254.') ||
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname)
+    ) {
+      return { valid: false, reason: 'Không cho phép truy cập địa chỉ IP nội bộ (SSRF Blocked)' };
+    }
+
+    const defaultAllowlist = [
+      'drive.google.com',
+      'docs.google.com',
+      'googleusercontent.com',
+      'lh3.googleusercontent.com',
+      'res.cloudinary.com',
+      'storage.googleapis.com',
+      'giac.ngo',
+      'onglao.giac.ngo',
+      '18.139.27.179',
+      '103.165.145.137'
+    ];
+    const customAllowed = (process.env.ALLOWED_PROXY_HOSTNAMES || '')
+      .split(',')
+      .map(h => h.trim().toLowerCase())
+      .filter(Boolean);
+
+    const allowedHosts = [...defaultAllowlist, ...customAllowed];
+    const isAllowedHost = allowedHosts.some(allowed => hostname === allowed || hostname.endsWith('.' + allowed));
+
+    if (!isAllowedHost) {
+      return { valid: false, reason: `Tên miền ${hostname} không nằm trong danh sách được phép proxy` };
+    }
+
+    return { valid: true, urlObj: parsed };
+  } catch (e: any) {
+    return { valid: false, reason: 'Cấu trúc URL không hợp lệ' };
+  }
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   let targetUrl = searchParams.get("url");
@@ -61,11 +113,16 @@ export async function GET(request: NextRequest) {
     return new NextResponse("Missing url parameter", { status: 400 });
   }
 
+  const ssrfCheck = isValidProxyUrl(targetUrl);
+  if (!ssrfCheck.valid) {
+    return new NextResponse(`SSRF Protection: ${ssrfCheck.reason}`, { status: 403 });
+  }
+
   // Bỏ qua tài khoản Cloudinary bị disabled
   const isCloudinaryDisabled = targetUrl.includes("res.cloudinary.com/dmpy1yv4c");
   if (isCloudinaryDisabled) {
     console.warn("Skipping disabled Cloudinary account dmpy1yv4c for URL:", targetUrl);
-    return returnFallbackResponse(targetUrl);
+    return new NextResponse("Tài nguyên Cloudinary bị vô hiệu hóa", { status: 410 });
   }
 
   try {

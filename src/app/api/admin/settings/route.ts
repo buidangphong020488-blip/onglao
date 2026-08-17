@@ -1,16 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSystemSettingsAsync, saveSystemSettingsAsync, maskApiKey } from '@/lib/settings';
+import { requireAdmin } from '@/lib/authz';
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin@123';
-
-function checkAuth(req: NextRequest): boolean {
-  const token = req.headers.get('x-admin-token');
-  return token === ADMIN_PASSWORD;
+async function checkAdminAuth(req: NextRequest) {
+  const adminPassword = process.env.ADMIN_PASSWORD || process.env.ADMIN_TOKEN;
+  const token = req.headers.get('x-admin-token') || req.headers.get('authorization')?.replace('Bearer ', '');
+  if (adminPassword && token === adminPassword) {
+    return { authenticated: true, errorResponse: null };
+  }
+  return requireAdmin(req);
 }
 
 export async function GET(req: NextRequest) {
-  if (!checkAuth(req)) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  const auth = await checkAdminAuth(req);
+  if (!auth.authenticated) {
+    return auth.errorResponse || NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
   const settings = await getSystemSettingsAsync();
   return NextResponse.json({
@@ -20,8 +24,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!checkAuth(req)) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  const auth = await checkAdminAuth(req);
+  if (!auth.authenticated) {
+    return auth.errorResponse || NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
   try {
     const body = await req.json();

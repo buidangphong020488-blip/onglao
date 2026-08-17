@@ -37,7 +37,7 @@ export default async function Home() {
   // 2. Lấy Kệ Pháp từ GiacNgo Documents API và gộp vào (tránh trùng tiêu đề)
   try {
     const spaceId = process.env.GIACNGO_SPACE_ID || '1';
-    const apiToken = process.env.GIACNGO_SERVICE_TOKEN || 'ebf1215cba2eceaadd1a6baccbbe0c82381ca1e033e120de';
+    const apiToken = process.env.GIACNGO_SERVICE_TOKEN || '';
     const apiUrl = `${process.env.GIACNGO_API_URL || 'https://giac.ngo'}/api/v1/documents?spaceId=${spaceId}&limit=10`;
 
     const docRes = await fetch(apiUrl, {

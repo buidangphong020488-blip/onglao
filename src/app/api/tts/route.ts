@@ -14,6 +14,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { getSystemSettingsAsync, getApiKeyList, getRotatedApiKey } from '@/lib/settings';
+import { authenticateUser } from '@/lib/authz';
+import { checkRateLimit } from '@/lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,8 +24,29 @@ const GEMINI_BASE   = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await authenticateUser(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.errorResponse!;
+    }
+
+    const rateCheck = checkRateLimit(`tts:${auth.user.id}`, 30, 60 * 1000);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { success: false, message: 'Bạn đã vượt quá giới hạn tạo giọng đọc TTS (30 lượt/phút). Vui lòng thử lại sau.' },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
-    const { text, voiceName, model, userId } = body;
+    const { text, voiceName, model } = body;
+    const userId = auth.user.id;
+
+    if (!text || typeof text !== 'string' || !text.trim()) {
+      return NextResponse.json({ message: 'Thiếu trường bắt buộc: text.' }, { status: 400 });
+    }
+    if (text.length > 5000) {
+      return NextResponse.json({ message: 'Văn bản vượt quá độ dài tối đa 5000 ký tự.' }, { status: 400 });
+    }
 
     const systemSettings = await getSystemSettingsAsync();
     const apiKeyList = getApiKeyList(systemSettings.apiKey);
