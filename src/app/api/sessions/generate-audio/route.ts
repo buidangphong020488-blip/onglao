@@ -172,11 +172,26 @@ async function runServerBackgroundAudioGeneration(sessionId: string, forceAll: b
   }
 }
 
+import { authenticateUser, isResourceOwner } from '@/lib/authz';
+
 export async function POST(req: NextRequest) {
   try {
+    const auth = await authenticateUser(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.errorResponse!;
+    }
+
     const { sessionId, forceAll, laoVoice, userVoice } = await req.json();
     if (!sessionId) {
       return NextResponse.json({ success: false, error: 'Missing sessionId' }, { status: 400 });
+    }
+
+    const session = await prisma.chatSession.findUnique({ where: { id: sessionId } });
+    if (session && !isResourceOwner(auth.user, session.userId)) {
+      return NextResponse.json(
+        { success: false, message: 'Bạn không có quyền tạo âm thanh cho kịch bản này (403 Forbidden).' },
+        { status: 403 }
+      );
     }
 
     // Trigger async background process on server
@@ -196,10 +211,23 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await authenticateUser(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.errorResponse!;
+    }
+
     const { searchParams } = new URL(req.url);
     const sessionId = searchParams.get('sessionId');
     if (!sessionId) {
       return NextResponse.json({ success: false, error: 'Missing sessionId' }, { status: 400 });
+    }
+
+    const session = await prisma.chatSession.findUnique({ where: { id: sessionId } });
+    if (session && !isResourceOwner(auth.user, session.userId)) {
+      return NextResponse.json(
+        { success: false, message: 'Bạn không có quyền xem trạng thái kịch bản này (403 Forbidden).' },
+        { status: 403 }
+      );
     }
 
     const messages = await prisma.chatMessage.findMany({

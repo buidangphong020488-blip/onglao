@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { LAO_GREETINGS_DB } from '@/components/onglao/constants';
-
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin@123';
-function checkAuth(req: NextRequest): boolean {
-  return req.headers.get('x-admin-token') === ADMIN_PASSWORD;
-}
+import { requireAdmin } from '@/lib/authz';
 
 export async function POST(req: NextRequest) {
-  if (!checkAuth(req)) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  const auth = await requireAdmin(req);
+  if (!auth.authenticated) {
+    return auth.errorResponse || NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
 
   try {
     // Flatten tất cả categories thành 1 mảng câu

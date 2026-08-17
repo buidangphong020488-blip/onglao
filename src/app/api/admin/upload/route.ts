@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin@123';
-function checkAuth(req: NextRequest) {
-  return req.headers.get('x-admin-token') === ADMIN_PASSWORD;
-}
+import { requireAdmin } from '@/lib/authz';
 
 function getUploadDirectories() {
   const dirs = [
@@ -28,8 +24,9 @@ function getUploadDirectories() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!checkAuth(req)) {
-    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+  const auth = await requireAdmin(req);
+  if (!auth.authenticated) {
+    return auth.errorResponse || NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
 
   try {

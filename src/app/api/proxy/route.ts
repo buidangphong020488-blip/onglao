@@ -2,12 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 // Chuyển đổi Google Drive share link sang direct download URL
 function convertGoogleDriveUrl(url: string): string | null {
-  // Dạng: https://drive.google.com/file/d/FILE_ID/view
   const fileMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
   if (fileMatch) {
     return `https://drive.google.com/uc?export=download&id=${fileMatch[1]}`;
   }
-  // Dạng: https://drive.google.com/open?id=FILE_ID
   const openMatch = url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
   if (openMatch) {
     return `https://drive.google.com/uc?export=download&id=${openMatch[1]}`;
@@ -19,39 +17,6 @@ const FETCH_HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
   "Accept": "*/*",
 };
-
-function returnFallbackResponse(url: string) {
-  const lowercaseUrl = url.toLowerCase();
-  
-  // If it's an image, return 1x1 transparent PNG
-  if (lowercaseUrl.includes(".png") || lowercaseUrl.includes(".jpg") || lowercaseUrl.includes(".jpeg") || lowercaseUrl.includes("/image/upload")) {
-    const transparentPngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
-    const buffer = Buffer.from(transparentPngBase64, 'base64');
-    return new NextResponse(buffer, {
-      headers: {
-        "Content-Type": "image/png",
-        "Cache-Control": "public, max-age=86400",
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
-  }
-  
-  // If it's a video or audio, return an empty 200 response with correct content type
-  let contentType = "application/octet-stream";
-  if (lowercaseUrl.includes(".mp4")) contentType = "video/mp4";
-  else if (lowercaseUrl.includes(".webm")) contentType = "video/webm";
-  else if (lowercaseUrl.includes(".mov")) contentType = "video/quicktime";
-  else if (lowercaseUrl.includes(".mp3")) contentType = "audio/mpeg";
-  else if (lowercaseUrl.includes(".wav")) contentType = "audio/wav";
-  
-  return new NextResponse(new ArrayBuffer(0), {
-    headers: {
-      "Content-Type": contentType,
-      "Cache-Control": "public, max-age=86400",
-      "Access-Control-Allow-Origin": "*",
-    },
-  });
-}
 
 function isValidProxyUrl(urlString: string): { valid: boolean; reason?: string; urlObj?: URL } {
   try {
@@ -133,15 +98,19 @@ export async function GET(request: NextRequest) {
       if (converted) targetUrl = converted;
     }
 
-    // Lần fetch đầu — có thể trả về trang HTML confirm (virus scan) với file lớn
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
     const res = await fetch(targetUrl, {
       headers: FETCH_HEADERS,
       redirect: "follow",
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
 
     if (!res.ok) {
-      console.warn(`Fetch failed for URL ${targetUrl} (Status ${res.status}): ${res.statusText}. Returning fallback.`);
-      return returnFallbackResponse(targetUrl);
+      console.warn(`Fetch failed for URL ${targetUrl} (Status ${res.status}): ${res.statusText}`);
+      return new NextResponse(`Không thể tải tài nguyên từ nguồn (HTTP ${res.status})`, { status: res.status });
     }
 
     const contentType = res.headers.get("content-type") || "application/octet-stream";
@@ -149,7 +118,6 @@ export async function GET(request: NextRequest) {
     // Nếu GDrive trả về HTML => có thể là trang virus-scan confirm
     if (isGDrive && contentType.includes("text/html")) {
       const html = await res.text();
-      // Tìm confirm token trong HTML
       const confirmMatch = html.match(/confirm=([a-zA-Z0-9_-]+)/);
       if (confirmMatch) {
         const fileIdMatch = targetUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
@@ -160,7 +128,7 @@ export async function GET(request: NextRequest) {
             redirect: "follow",
           });
           if (!retryRes.ok) {
-            return returnFallbackResponse(targetUrl);
+            return new NextResponse(`Không thể tải file Google Drive (HTTP ${retryRes.status})`, { status: retryRes.status });
           }
           const buffer = await retryRes.arrayBuffer();
           const ct = retryRes.headers.get("content-type") || "video/mp4";
@@ -173,7 +141,6 @@ export async function GET(request: NextRequest) {
           });
         }
       }
-      // Không tìm được confirm token => báo lỗi rõ ràng
       return new NextResponse("Google Drive yêu cầu đăng nhập hoặc file không công khai", { status: 403 });
     }
 
@@ -186,8 +153,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error("Proxy error, returning fallback:", error);
-    return returnFallbackResponse(targetUrl);
+    console.error("Proxy error:", error?.message || error);
+    return new NextResponse(`Lỗi kết nối proxy: ${error?.message || 'Không thể tải tệp'}`, { status: 502 });
   }
 }
-

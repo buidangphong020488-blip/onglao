@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { requireAdmin } from '@/lib/authz';
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin@123';
-function checkAuth(req: NextRequest) {
-  return req.headers.get('x-admin-token') === ADMIN_PASSWORD;
-}
-
-// GET — public (cần để load khi tạo video)
+// GET — public clips (load khi tạo video)
 export async function GET() {
   try {
-    const list = await prisma.canhQuay.findMany({ orderBy: { createdAt: 'asc' } });
+    const list = await prisma.canhQuay.findMany({
+      where: { isPublic: true },
+      orderBy: { createdAt: 'asc' }
+    });
     return NextResponse.json(list);
   } catch {
     return NextResponse.json([]);
@@ -18,7 +17,11 @@ export async function GET() {
 
 // POST — upsert full list (admin)
 export async function POST(req: NextRequest) {
-  if (!checkAuth(req)) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  const auth = await requireAdmin(req);
+  if (!auth.authenticated) {
+    return auth.errorResponse || NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const list: any[] = await req.json();
 

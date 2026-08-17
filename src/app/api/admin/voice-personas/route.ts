@@ -1,21 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin@123';
-function checkAuth(req: NextRequest) {
-  return req.headers.get('x-admin-token') === ADMIN_PASSWORD;
-}
+import { requireAdmin } from '@/lib/authz';
 
 // GET — list all (admin)
 export async function GET(req: NextRequest) {
-  if (!checkAuth(req)) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  const auth = await requireAdmin(req);
+  if (!auth.authenticated) {
+    return auth.errorResponse || NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
   const list = await prisma.voicePersona.findMany({ orderBy: { createdAt: 'asc' } });
   return NextResponse.json(list);
 }
 
-// POST — save full list (replace strategy: delete removed, create/update existing)
+// POST — save full list (admin)
 export async function POST(req: NextRequest) {
-  if (!checkAuth(req)) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  const auth = await requireAdmin(req);
+  if (!auth.authenticated) {
+    return auth.errorResponse || NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const list: any[] = await req.json();
     if (!Array.isArray(list)) return NextResponse.json({ message: 'Expected array' }, { status: 400 });

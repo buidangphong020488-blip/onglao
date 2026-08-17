@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   createChatSessionAction, 
-  getChatSessionsAction 
+  getChatSessionsAction,
+  updateUserProfileAction
 } from "@/lib/clientActions";
-import { updateUserProfileAction } from "@/lib/clientActions";
+import { authFetch } from "@/lib/authFetch";
 import { VOICE_STYLES } from '../constants';
 
 interface UseAuthProps {
@@ -306,6 +307,22 @@ export const useAuth = (props: Partial<UseAuthProps> = {}) => {
     }
   }, []);
 
+  // Lắng nghe sự kiện 401 Unauthorized từ authFetch để yêu cầu đăng nhập lại
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setIsLoggedIn(false);
+      setCurrentUser(null);
+      currentUserRef.current = null;
+      setShowAuthModal(true);
+      showToastMsg?.('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.', 'error', 6000);
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('onglao_auth_unauthorized', handleUnauthorized);
+      return () => window.removeEventListener('onglao_auth_unauthorized', handleUnauthorized);
+    }
+  }, [showToastMsg]);
+
   // Tải danh sách đàm đạo từ PostgreSQL DB khi user mở trang hoặc đổi trạng thái đăng nhập
   const isFetchingSessionsRef = useRef<string | null>(null);
   
@@ -314,7 +331,7 @@ export const useAuth = (props: Partial<UseAuthProps> = {}) => {
     
     const loadUserSessions = async () => {
       try {
-        const fetchRes = await fetch(`/api/sessions?userId=${encodeURIComponent(targetUserId)}`);
+        const fetchRes = await authFetch(`/api/sessions?userId=${encodeURIComponent(targetUserId)}`);
         const res = await fetchRes.json().catch(() => ({ success: false }));
       
         if (res.success && res.data && res.data.length > 0) {

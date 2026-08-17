@@ -20,7 +20,7 @@ export async function GET(
     }
 
     const sessionExists = await prisma.chatSession.findUnique({ where: { id: sessionId } });
-    if (sessionExists && !isResourceOwner(auth.user.id, sessionExists.userId)) {
+    if (sessionExists && !isResourceOwner(auth.user, sessionExists.userId)) {
       return NextResponse.json(
         { success: false, message: 'Bạn không có quyền truy cập phiên hội thoại này (403 Forbidden).' },
         { status: 403 }
@@ -39,12 +39,17 @@ export async function GET(
   }
 }
 
-// POST /api/sessions/[id]/messages (thay thế saveChatMessageAction)
+// POST /api/sessions/[id]/messages
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authenticateUser(request);
+    if (!auth.authenticated || !auth.user) {
+      return auth.errorResponse!;
+    }
+
     const { id: sessionId } = await params;
     if (!sessionId) {
       return NextResponse.json({ success: false, error: 'Missing session id' }, { status: 400 });
@@ -60,16 +65,22 @@ export async function POST(
     else if (rUpper === 'OUTRO') prismaRole = MessageRole.OUTRO;
     else if (rUpper === 'SYSTEM') prismaRole = MessageRole.SYSTEM;
 
-    // Đảm bảo ChatSession tồn tại
-    const sessionExists = await prisma.chatSession.findUnique({ where: { id: sessionId } });
+    // Đảm bảo ChatSession tồn tại và kiểm tra quyền sở hữu
+    let sessionExists = await prisma.chatSession.findUnique({ where: { id: sessionId } });
     if (!sessionExists) {
-      await prisma.chatSession.create({
+      sessionExists = await prisma.chatSession.create({
         data: {
           id: sessionId,
+          userId: auth.user.id,
           title: "Hội thoại mới",
           type: "chat"
         }
       });
+    } else if (!isResourceOwner(auth.user, sessionExists.userId)) {
+      return NextResponse.json(
+        { success: false, message: 'Bạn không có quyền ghi vào phiên hội thoại này (403 Forbidden).' },
+        { status: 403 }
+      );
     }
 
     const message = await prisma.chatMessage.upsert({
@@ -102,12 +113,17 @@ export async function POST(
   }
 }
 
-// PATCH /api/sessions/[id]/messages (thay thế updateChatMessageContentAction)
+// PATCH /api/sessions/[id]/messages
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authenticateUser(request);
+    if (!auth.authenticated || !auth.user) {
+      return auth.errorResponse!;
+    }
+
     const { id: sessionId } = await params;
     const body = await request.json();
     const { messageId, content, role } = body || {};
@@ -116,8 +132,19 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: 'Missing messageId' }, { status: 400 });
     }
 
-    const existing = await prisma.chatMessage.findUnique({ where: { id: messageId } });
+    const existing = await prisma.chatMessage.findUnique({
+      where: { id: messageId },
+      include: { session: true }
+    });
+
     if (existing) {
+      if (existing.session && !isResourceOwner(auth.user, existing.session.userId)) {
+        return NextResponse.json(
+          { success: false, message: 'Bạn không có quyền sửa tin nhắn này (403 Forbidden).' },
+          { status: 403 }
+        );
+      }
+
       const msg = await prisma.chatMessage.update({
         where: { id: messageId },
         data: { content },
@@ -126,15 +153,21 @@ export async function PATCH(
     }
 
     if (sessionId) {
-      const sessionExists = await prisma.chatSession.findUnique({ where: { id: sessionId } });
+      let sessionExists = await prisma.chatSession.findUnique({ where: { id: sessionId } });
       if (!sessionExists) {
-        await prisma.chatSession.create({
+        sessionExists = await prisma.chatSession.create({
           data: {
             id: sessionId,
+            userId: auth.user.id,
             title: "Hội thoại mới",
             type: "chat"
           }
         });
+      } else if (!isResourceOwner(auth.user, sessionExists.userId)) {
+        return NextResponse.json(
+          { success: false, message: 'Bạn không có quyền sửa tin nhắn của phiên này (403 Forbidden).' },
+          { status: 403 }
+        );
       }
 
       let prismaRole: MessageRole = MessageRole.USER;
@@ -159,16 +192,35 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/sessions/[id]/messages (thay thế deleteChatMessageAction)
+// DELETE /api/sessions/[id]/messages
 export async function DELETE(
-  request: Request
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authenticateUser(request);
+    if (!auth.authenticated || !auth.user) {
+      return auth.errorResponse!;
+    }
+
+    const { id: sessionId } = await params;
     const { searchParams } = new URL(request.url);
     const messageId = searchParams.get('messageId');
 
     if (!messageId) {
       return NextResponse.json({ success: false, error: 'Missing messageId' }, { status: 400 });
+    }
+
+    const msg = await prisma.chatMessage.findUnique({
+      where: { id: messageId },
+      include: { session: true }
+    });
+
+    if (msg?.session && !isResourceOwner(auth.user, msg.session.userId)) {
+      return NextResponse.json(
+        { success: false, message: 'Bạn không có quyền xóa tin nhắn này (403 Forbidden).' },
+        { status: 403 }
+      );
     }
 
     await prisma.chatMessage.delete({

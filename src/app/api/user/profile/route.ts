@@ -1,17 +1,21 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import prisma from "@/lib/prisma";
+import { authenticateUser } from '@/lib/authz';
 
 // POST /api/user/profile (thay thế updateUserProfileAction server action)
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { userId, profileData } = await request.json();
-    if (!userId) {
-      return NextResponse.json({ success: false, error: 'Missing userId' }, { status: 400 });
+    const auth = await authenticateUser(request);
+    if (!auth.authenticated || !auth.user) {
+      return auth.errorResponse!;
     }
+
+    const { profileData } = await request.json();
+    const userId = auth.user.id;
 
     const dataToSet = {
       profileCompleted: true,
-      name: profileData?.userName || undefined,
+      name: profileData?.userName || auth.user.name || undefined,
       userGender: profileData?.userGender || null,
       userAge: profileData?.userAge ? Number(profileData.userAge) : null,
       appLanguage: profileData?.appLanguage || null,
@@ -32,7 +36,7 @@ export async function POST(request: Request) {
       update: dataToSet,
       create: {
         id: userId,
-        email: profileData?.email || `${userId}@giac.ngo`,
+        email: profileData?.email || auth.user.email || `${userId}@giac.ngo`,
         ...dataToSet,
       },
     });

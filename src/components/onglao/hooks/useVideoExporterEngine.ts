@@ -1,6 +1,6 @@
 // @ts-nocheck
-
 import { useState, useEffect, useRef } from 'react';
+import { authFetch } from '@/lib/authFetch';
 
 import { 
 
@@ -923,7 +923,7 @@ export const useVideoExporterEngine = ({
         // Gọi FFmpeg API — server tự khởi chạy background task ngầm và trả về taskId trong 0.05s
         console.log('[Render] scenesList:', JSON.stringify(scenesList.map((s: any) => ({ url: s.url, duration: s.duration, role: s.role })), null, 2));
         console.log('[Render] hasAnyBlobClips:', hasAnyBlobClips, '| hasAnyServerUrlClips:', hasAnyServerUrlClips);
-        const res = await fetch('/api/export-video-ffmpeg', {
+        const res = await authFetch('/api/export-video-ffmpeg', {
           method: 'POST',
           body: formData
         });

@@ -1,16 +1,30 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import prisma from "@/lib/prisma";
 import { MessageRole } from "@prisma/client";
+import { authenticateUser, isResourceOwner } from '@/lib/authz';
 
 // POST /api/sessions/[id]/batch-save (thay thế batchSaveScriptAction)
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authenticateUser(request);
+    if (!auth.authenticated || !auth.user) {
+      return auth.errorResponse!;
+    }
+
     const { id: sessionId } = await params;
     if (!sessionId) {
       return NextResponse.json({ success: false, error: 'Missing session id' }, { status: 400 });
+    }
+
+    const existing = await prisma.chatSession.findUnique({ where: { id: sessionId } });
+    if (existing && !isResourceOwner(auth.user, existing.userId)) {
+      return NextResponse.json(
+        { success: false, message: 'Bạn không có quyền sửa kịch bản này (403 Forbidden).' },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -28,6 +42,7 @@ export async function POST(
         await tx.chatMessage.deleteMany({
           where: {
             id: { in: deleteMessageIds },
+            sessionId: sessionId,
           },
         });
       }
@@ -78,9 +93,16 @@ export async function POST(
         if (voices.userVoiceStyle !== undefined) sessionData.userVoiceStyle = voices.userVoiceStyle;
       }
 
-      const updatedSession = await tx.chatSession.update({
+      const updatedSession = await tx.chatSession.upsert({
         where: { id: sessionId },
-        data: sessionData,
+        update: sessionData,
+        create: {
+          id: sessionId,
+          userId: auth.user!.id,
+          title: title || "Kịch bản mới",
+          type: "script",
+          ...sessionData
+        }
       });
 
       return { session: updatedSession, messages: savedMessages };

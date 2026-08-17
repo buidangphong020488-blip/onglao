@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin@123';
-
-function checkAuth(req: NextRequest): boolean {
-  const token = req.headers.get('x-admin-token');
-  return token === ADMIN_PASSWORD;
-}
+import { requireAdmin } from '@/lib/authz';
 
 // PUT: Cập nhật câu mào đầu
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!checkAuth(req)) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  const auth = await requireAdmin(req);
+  if (!auth.authenticated) {
+    return auth.errorResponse || NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const { id } = await params;
     const body = await req.json();
@@ -33,7 +30,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
 // DELETE: Xóa câu mào đầu
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!checkAuth(req)) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  const auth = await requireAdmin(req);
+  if (!auth.authenticated) {
+    return auth.errorResponse || NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const { id } = await params;
     await prisma.openingPhrase.delete({ where: { id } });

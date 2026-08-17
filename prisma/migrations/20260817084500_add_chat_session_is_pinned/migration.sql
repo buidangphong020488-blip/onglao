@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "ChatSession" ADD COLUMN IF NOT EXISTS "isPinned" BOOLEAN NOT NULL DEFAULT false;

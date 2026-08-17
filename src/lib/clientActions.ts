@@ -1,12 +1,14 @@
 /**
  * clientActions.ts
- * Thay thế 100% server actions từ @/actions/chat bằng REST API fetch thông thường.
- * Triệt tiêu hoàn toàn UnrecognizedActionError (404 Next-Action ID mismatch) trên VPS deployment.
+ * Thay thế 100% server actions từ @/actions/chat bằng REST API client qua authFetch.
+ * Tự động đính kèm Bearer token cho 100% các cuộc gọi API.
  */
+
+import { authFetch } from './authFetch';
 
 export async function getChatMessagesAction(sessionId: string) {
     try {
-        const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/messages`, {
+        const res = await authFetch(`/api/sessions/${encodeURIComponent(sessionId)}/messages`, {
             cache: 'no-store',
         });
         return await res.json();
@@ -21,7 +23,7 @@ export async function getScriptSessionsAction(userId?: string | null) {
         const params = new URLSearchParams();
         if (userId) params.set('userId', userId);
         params.set('type', 'script');
-        const res = await fetch(`/api/sessions?${params.toString()}`, {
+        const res = await authFetch(`/api/sessions?${params.toString()}`, {
             cache: 'no-store',
         });
         return await res.json();
@@ -35,7 +37,7 @@ export async function getChatSessionsAction(userId?: string | null) {
     try {
         const params = new URLSearchParams();
         if (userId) params.set('userId', userId);
-        const res = await fetch(`/api/sessions?${params.toString()}`, {
+        const res = await authFetch(`/api/sessions?${params.toString()}`, {
             cache: 'no-store',
         });
         return await res.json();
@@ -47,7 +49,7 @@ export async function getChatSessionsAction(userId?: string | null) {
 
 export async function createChatSessionAction(userId?: string, title: string = "Hội thoại mới", type: string = "chat", createdAt?: Date) {
     try {
-        const res = await fetch('/api/sessions', {
+        const res = await authFetch('/api/sessions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, title, type, createdAt }),
@@ -61,7 +63,7 @@ export async function createChatSessionAction(userId?: string, title: string = "
 
 export async function deleteChatSessionAction(sessionId: string) {
     try {
-        const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`, {
+        const res = await authFetch(`/api/sessions/${encodeURIComponent(sessionId)}`, {
             method: 'DELETE',
         });
         return await res.json();
@@ -73,7 +75,7 @@ export async function deleteChatSessionAction(sessionId: string) {
 
 export async function saveChatMessageAction(
     sessionId: string,
-    role: "USER" | "ASSISTANT" | "SYSTEM",
+    role: "USER" | "ASSISTANT" | "SYSTEM" | "OUTRO",
     content: string,
     audioUrl?: string | null,
     voiceStyleId?: number | null,
@@ -81,7 +83,7 @@ export async function saveChatMessageAction(
     emotion?: string | null
 ) {
     try {
-        const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/messages`, {
+        const res = await authFetch(`/api/sessions/${encodeURIComponent(sessionId)}/messages`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ role, content, audioUrl, voiceStyleId, messageId, emotion }),
@@ -96,7 +98,7 @@ export async function saveChatMessageAction(
 export async function updateChatMessageContentAction(messageId: string, content: string, sessionId?: string | null, role?: string | null) {
     try {
         const sId = sessionId || 'default';
-        const res = await fetch(`/api/sessions/${encodeURIComponent(sId)}/messages`, {
+        const res = await authFetch(`/api/sessions/${encodeURIComponent(sId)}/messages`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ messageId, content, role }),
@@ -110,7 +112,7 @@ export async function updateChatMessageContentAction(messageId: string, content:
 
 export async function updateChatSessionTitleAction(sessionId: string, title: string, updatedAt?: Date) {
     try {
-        const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`, {
+        const res = await authFetch(`/api/sessions/${encodeURIComponent(sessionId)}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title, updatedAt }),
@@ -124,7 +126,7 @@ export async function updateChatSessionTitleAction(sessionId: string, title: str
 
 export async function updateChatSessionVoicesAction(sessionId: string, laoVoice?: string, laoVoiceStyle?: string, userVoice?: string, userVoiceStyle?: string) {
     try {
-        const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`, {
+        const res = await authFetch(`/api/sessions/${encodeURIComponent(sessionId)}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ laoVoice, laoVoiceStyle, userVoice, userVoiceStyle }),
@@ -138,7 +140,7 @@ export async function updateChatSessionVoicesAction(sessionId: string, laoVoice?
 
 export async function updateChatSessionTypeAction(sessionId: string, type: string, title?: string) {
     try {
-        const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`, {
+        const res = await authFetch(`/api/sessions/${encodeURIComponent(sessionId)}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type, title }),
@@ -150,9 +152,10 @@ export async function updateChatSessionTypeAction(sessionId: string, type: strin
     }
 }
 
-export async function deleteChatMessageAction(messageId: string) {
+export async function deleteChatMessageAction(messageId: string, sessionId?: string) {
     try {
-        const res = await fetch(`/api/sessions/default/messages?messageId=${encodeURIComponent(messageId)}`, {
+        const sId = sessionId || 'default';
+        const res = await authFetch(`/api/sessions/${encodeURIComponent(sId)}/messages?messageId=${encodeURIComponent(messageId)}`, {
             method: 'DELETE',
         });
         return await res.json();
@@ -183,7 +186,7 @@ export async function batchSaveScriptAction(
     }
 ) {
     try {
-        const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/batch-save`, {
+        const res = await authFetch(`/api/sessions/${encodeURIComponent(sessionId)}/batch-save`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ messages, deleteMessageIds, title, updatedAt, voices }),
@@ -196,7 +199,17 @@ export async function batchSaveScriptAction(
 }
 
 export async function togglePinChatSessionAction(sessionId: string, isPinned: boolean) {
-    return { success: true, isPinned };
+    try {
+        const res = await authFetch(`/api/sessions/${encodeURIComponent(sessionId)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ isPinned }),
+        });
+        return await res.json();
+    } catch (error: any) {
+        console.error('[togglePinChatSessionAction fetch] Error:', error?.message);
+        return { success: false, error: error.message };
+    }
 }
 
 export async function loginWithGiacNgoAction(email: string, password: string) {
@@ -215,10 +228,10 @@ export async function loginWithGiacNgoAction(email: string, password: string) {
 
 export async function updateUserProfileAction(userId: string, profileData: any) {
     try {
-        const res = await fetch('/api/user/profile', {
+        const res = await authFetch('/api/user/profile', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, profileData }),
+            body: JSON.stringify({ profileData }),
         });
         return await res.json();
     } catch (error: any) {
@@ -226,4 +239,3 @@ export async function updateUserProfileAction(userId: string, profileData: any) 
         return { success: false, error: error.message };
     }
 }
-

@@ -1,16 +1,19 @@
 /**
  * src/lib/authz.ts
- * Module phân quyền & xác thực server-side tập trung cho AI Thiền Đường (Lựa chọn B - Bắt buộc Đăng nhập)
+ * Module phân quyền & xác thực server-side tập trung (Lựa chọn B - Bắt buộc Đăng nhập)
+ * Chuẩn hóa User ID dạng gn_<giacNgoId> và kiểm tra quyền sở hữu Fail-closed.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { giacNgoAuth, GiacNgoApiError } from '@/lib/giacngo';
 
 export interface AuthenticatedUser {
-  id: string | number;
+  id: string; // Luôn chuẩn hóa dạng gn_<id>
+  rawId?: string | number;
   name?: string;
   email?: string;
   role?: string;
+  isAdmin?: boolean;
   [key: string]: any;
 }
 
@@ -30,6 +33,16 @@ function cleanExpiredCache() {
       tokenCache.delete(token);
     }
   }
+}
+
+/**
+ * Chuẩn hóa User ID dạng gn_<id> thống nhất toàn hệ thống
+ */
+export function canonicalUserId(rawId: string | number | null | undefined): string | null {
+  if (rawId === null || rawId === undefined) return null;
+  const str = String(rawId).trim();
+  if (!str || str === 'guest_user') return null;
+  return str.startsWith('gn_') ? str : `gn_${str}`;
 }
 
 /**
@@ -88,11 +101,16 @@ export async function authenticateUser(req: NextRequest): Promise<AuthResult> {
       };
     }
 
+    const cId = canonicalUserId(userMe.id)!;
+    const isRoleAdmin = (userMe as any).role === 'admin' || (userMe as any).isAdmin === true;
+
     const authUser: AuthenticatedUser = {
-      id: userMe.id,
+      id: cId,
+      rawId: userMe.id,
       name: userMe.name || '',
       email: userMe.email || '',
-      role: (userMe as any).role || 'user'
+      role: (userMe as any).role || 'user',
+      isAdmin: isRoleAdmin
     };
 
     tokenCache.set(token, {
@@ -133,12 +151,13 @@ export async function authenticateUser(req: NextRequest): Promise<AuthResult> {
  */
 export async function requireAdmin(req: NextRequest): Promise<AuthResult> {
   const adminSecret = process.env.ADMIN_SECRET_KEY || process.env.ADMIN_TOKEN;
+  const adminPassword = process.env.ADMIN_PASSWORD;
   const reqAdminHeader = req.headers.get('x-admin-token') || req.headers.get('authorization')?.replace('Bearer ', '');
 
-  if (adminSecret && reqAdminHeader === adminSecret) {
+  if ((adminSecret && reqAdminHeader === adminSecret) || (adminPassword && reqAdminHeader === adminPassword)) {
     return {
       authenticated: true,
-      user: { id: 'admin_sys', name: 'System Admin', role: 'admin' },
+      user: { id: 'admin_sys', name: 'System Admin', role: 'admin', isAdmin: true },
       errorResponse: null
     };
   }
@@ -148,8 +167,7 @@ export async function requireAdmin(req: NextRequest): Promise<AuthResult> {
     return auth;
   }
 
-  const isRoleAdmin = auth.user.role === 'admin' || (auth.user as any).isAdmin === true;
-  if (!isRoleAdmin) {
+  if (!auth.user.isAdmin) {
     return {
       authenticated: false,
       user: auth.user,
@@ -164,9 +182,25 @@ export async function requireAdmin(req: NextRequest): Promise<AuthResult> {
 }
 
 /**
- * Kiểm tra quyền sở hữu resource của User (Resource Ownership Check)
+ * Kiểm tra quyền sở hữu resource của User (Fail-closed)
  */
-export function isResourceOwner(principalUserId: string | number, resourceUserId: string | number | null | undefined): boolean {
-  if (!resourceUserId) return true;
-  return String(principalUserId) === String(resourceUserId);
+export function isResourceOwner(
+  principalUser: AuthenticatedUser | string | number,
+  resourceUserId: string | number | null | undefined
+): boolean {
+  if (!resourceUserId) {
+    // Fail-closed: Resource không có owner bị từ chối mặc định đối với user thường
+    if (typeof principalUser === 'object' && principalUser?.isAdmin) return true;
+    return false;
+  }
+
+  const pId = typeof principalUser === 'object' ? principalUser.id : canonicalUserId(principalUser);
+  const rId = canonicalUserId(resourceUserId);
+
+  if (!pId || !rId) return false;
+  if (pId === rId) return true;
+
+  if (typeof principalUser === 'object' && principalUser?.isAdmin) return true;
+
+  return false;
 }

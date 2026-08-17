@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { authenticateUser, isResourceOwner } from '@/lib/authz';
 
 export const dynamic = 'force-dynamic';
 
 // GET — Fetch scenes from PostgreSQL DB
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
-  const isPublicParam = searchParams.get('isPublic');
-
   try {
+    const auth = await authenticateUser(request);
+    const userId = auth.authenticated && auth.user ? auth.user.id : null;
+
+    const { searchParams } = new URL(request.url);
+    const isPublicParam = searchParams.get('isPublic');
+
     let whereCondition: any;
     if (isPublicParam !== null) {
       const isPub = isPublicParam === 'true';
@@ -28,29 +31,26 @@ export async function GET(request: NextRequest) {
       } : { isPublic: true };
     }
 
-    try {
-      const list = await prisma.canhQuay.findMany({
-        where: whereCondition,
-        orderBy: { createdAt: 'desc' },
-      });
-      return NextResponse.json(list);
-    } catch (dbErr: any) {
-      // Fallback query if isPublic column is not queryable
-      const fallbackList = await prisma.canhQuay.findMany({
-        where: userId ? { userId } : {},
-        orderBy: { createdAt: 'desc' },
-      });
-      return NextResponse.json(fallbackList);
-    }
+    const list = await prisma.canhQuay.findMany({
+      where: whereCondition,
+      orderBy: { createdAt: 'desc' },
+    });
+    return NextResponse.json(list);
   } catch (error: any) {
     console.error('[/api/user/canh-quay] DB Error:', error?.message || error);
     return NextResponse.json([], { status: 200 });
   }
 }
 
-// POST — Upsert single clip or array of clips in PostgreSQL DB
+// POST — Upsert single clip or array of clips in PostgreSQL DB (Auth required)
 export async function POST(req: NextRequest) {
   try {
+    const auth = await authenticateUser(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.errorResponse!;
+    }
+    const userId = auth.user.id;
+
     const data = await req.json();
 
     // 1. Nếu nhận single clip
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
         } as any,
         create: {
           id: String(data.id),
-          userId: data.userId ? String(data.userId) : undefined,
+          userId: userId,
           phanMucId: data.phanMucId ? String(data.phanMucId) : undefined,
           name: String(data.name),
           category: data.category ? String(data.category) : 'lao',
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Nếu nhận danh sách clips
-    const { userId, canhQuay } = data;
+    const { canhQuay } = data;
     if (Array.isArray(canhQuay)) {
       const results = await Promise.all(canhQuay.map((item: any) => {
         const idStr = String(item.id || `cq_${Date.now()}_${Math.random()}`);
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
           },
           create: {
             id: idStr,
-            userId: userId ? String(userId) : undefined,
+            userId: userId,
             phanMucId: item.phanMucId ? String(item.phanMucId) : undefined,
             name: item.name || 'Cảnh quay',
             category: item.category || item.role || 'lao',
@@ -132,50 +132,41 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE — Delete single clip, array of clip IDs, or entire category in PostgreSQL DB (Phân quyền chính chủ)
+// DELETE — Delete single clip, array of clip IDs (Phân quyền chính chủ)
 export async function DELETE(req: NextRequest) {
   try {
+    const auth = await authenticateUser(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.errorResponse!;
+    }
+    const userId = auth.user.id;
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
-    const category = searchParams.get('category');
-    const userId = searchParams.get('userId');
     
-    // Đọc body nếu có batch IDs
     let bodyIds: string[] = [];
-    let bodyUserId = userId;
     try {
       const body = await req.json();
       if (Array.isArray(body?.ids)) bodyIds = body.ids;
-      if (body?.userId) bodyUserId = body.userId;
-    } catch {
-      // no body
-    }
+    } catch {}
 
     if (id) {
-      // Nếu có userId -> chỉ cho xóa bài của chính mình hoặc bài chưa gán userId
-      const whereCondition: any = { id };
-      if (bodyUserId) {
-        whereCondition.OR = [{ userId: bodyUserId }, { userId: null }];
+      const existing = await prisma.canhQuay.findUnique({ where: { id } });
+      if (existing && !isResourceOwner(auth.user, existing.userId)) {
+        return NextResponse.json({ success: false, message: 'Bạn không có quyền xóa clip này (403 Forbidden)' }, { status: 403 });
       }
-      const res = await prisma.canhQuay.deleteMany({ where: whereCondition });
+      const res = await prisma.canhQuay.deleteMany({ where: { id, userId: auth.user.isAdmin ? undefined : userId } });
       return NextResponse.json({ success: true, count: res.count, message: `Đã xóa clip ${id}` });
     }
 
     if (bodyIds.length > 0) {
-      const whereCondition: any = { id: { in: bodyIds } };
-      if (bodyUserId) {
-        whereCondition.OR = [{ userId: bodyUserId }, { userId: null }];
-      }
-      const res = await prisma.canhQuay.deleteMany({ where: whereCondition });
+      const res = await prisma.canhQuay.deleteMany({
+        where: { id: { in: bodyIds }, userId: auth.user.isAdmin ? undefined : userId }
+      });
       return NextResponse.json({ success: true, count: res.count, message: `Đã xóa ${res.count} clip` });
     }
 
-    if (category) {
-      await prisma.canhQuay.deleteMany({ where: { category } });
-      return NextResponse.json({ success: true, message: `Đã xóa phân mục ${category}` });
-    }
-
-    return NextResponse.json({ success: false, message: 'Thiếu tham số xóa (id, ids hoặc category)' }, { status: 400 });
+    return NextResponse.json({ success: false, message: 'Thiếu tham số xóa (id hoặc ids)' }, { status: 400 });
   } catch (err: any) {
     console.error("Lỗi xóa PostgreSQL CanhQuay:", err);
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });

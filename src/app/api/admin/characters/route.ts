@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { requireAdmin } from '@/lib/authz';
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin@123';
 const CHARACTERS_FILE = path.join(process.cwd(), 'src/data/characters.json');
 
 const DEFAULT_CHARACTERS = [
@@ -208,11 +208,6 @@ const DEFAULT_CHARACTERS = [
   }
 ];
 
-function checkAuth(req: NextRequest): boolean {
-  const token = req.headers.get('x-admin-token');
-  return token === ADMIN_PASSWORD;
-}
-
 function loadCharacters() {
   if (!fs.existsSync(CHARACTERS_FILE)) {
     const dir = path.dirname(CHARACTERS_FILE);
@@ -231,16 +226,18 @@ function loadCharacters() {
 }
 
 export async function GET(req: NextRequest) {
-  if (!checkAuth(req)) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  const auth = await requireAdmin(req);
+  if (!auth.authenticated) {
+    return auth.errorResponse || NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
   const chars = loadCharacters();
   return NextResponse.json(chars);
 }
 
 export async function POST(req: NextRequest) {
-  if (!checkAuth(req)) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  const auth = await requireAdmin(req);
+  if (!auth.authenticated) {
+    return auth.errorResponse || NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
   try {
     const body = await req.json();

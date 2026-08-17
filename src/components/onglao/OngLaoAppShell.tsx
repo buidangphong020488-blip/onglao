@@ -14,6 +14,7 @@ import { usePoemDb } from "./hooks/usePoemDb";
 import { useVideoExport } from "./hooks/useVideoExport";
 import { useLiveStreaming } from "./hooks/useLiveStreaming";
 import { createChatSessionAction, saveChatMessageAction, deleteChatSessionAction, togglePinChatSessionAction, getChatMessagesAction } from "@/lib/clientActions";
+import { authFetch } from "@/lib/authFetch";
 import { idb } from "./constants";
 import { createManagedBlobUrl, autoReleaseRamMemory as autoReleaseRamMemoryUtil } from "./utils/ramManager";
 import { CheckCircle2, AlertTriangle, Sparkles, Loader2, X } from "lucide-react";
@@ -499,11 +500,10 @@ export default function OngLaoAppShell({
 
       const effectiveVoiceName = customVoiceName || (role === 'user' ? (authState.userVoice || publicSettings?.userVoiceName || 'Kore') : (authState.laoVoice || publicSettings?.laoVoiceName || 'Algieba'));
 
-      const res = await fetch('/api/tts', {
+      const res = await authFetch('/api/tts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
           text: voiceStylePrefix ? `${voiceStylePrefix} ${cleanText}` : cleanText,
@@ -919,7 +919,6 @@ export default function OngLaoAppShell({
 
     // BƯỚC 3: AI GIẢI ĐÁP & SINH GIỌNG ĐỌC TTS NỐI TIẾP
     try {
-      let token = typeof window !== 'undefined' ? localStorage.getItem('onglao_token') : null;
       const currentAiId = authState.selectedAiConfigId || 7;
 
       const promptToAI = `TÌNH HUỐNG:
@@ -929,29 +928,16 @@ BÀI KỆ THAM KHẢO TỪ HỆ THỐNG:
 
 YÊU CẦU: Lão đã cất lời mào đầu và đọc bài kệ trên cho người hỏi nghe rồi. Bây giờ CHỈ CẦN viết phần đúc kết giải đáp và 1 câu hỏi tự vấn cuối cùng (bằng Tiếng Việt). KHÔNG chép lại bài kệ.`;
 
-      let res = await fetch('/api/giacngo/chat', {
+      const res = await authFetch('/api/giacngo/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
           message: promptToAI,
           aiConfigId: currentAiId
         })
       });
-
-      if (res.status === 401 && token) {
-        localStorage.removeItem('onglao_token');
-        res = await fetch('/api/giacngo/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: promptToAI,
-            aiConfigId: currentAiId
-          })
-        });
-      }
 
       const data = await res.json();
       const aiReply = (data?.message || data?.reply || data?.content || 'An lạc vốn dĩ ở trong tâm con...').replace(/^\[.*?\]/, '').trim();

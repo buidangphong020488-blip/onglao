@@ -16,6 +16,7 @@ import {
     deleteChatMessageAction,
     batchSaveScriptAction
 } from '@/lib/clientActions';
+import { authFetch } from '@/lib/authFetch';
 
 const VOICES_MALE = ['Algieba','Puck','Charon','Fenrir','Orus','Enceladus','Iapetus'];
 const VOICES_FEMALE = ['Aoede','Kore','Leda','Zephyr','Callirrhoe','Autonoe'];
@@ -185,7 +186,7 @@ const AiDirectorManagerModal = (props: any) => {
         let timer: ReturnType<typeof setTimeout> | null = null;
 
         const fetchHistory = () => {
-            fetch('/api/render-history')
+            authFetch('/api/render-history')
                 .then(r => r.json())
                 .then(d => {
                     if (d.success && d.data) {
@@ -1460,7 +1461,7 @@ const AiDirectorManagerModal = (props: any) => {
                 return;
             }
 
-            const resServer = await fetch('/api/sessions/generate-audio', {
+            const resServer = await authFetch('/api/sessions/generate-audio', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ sessionId, forceAll, laoVoice, userVoice })

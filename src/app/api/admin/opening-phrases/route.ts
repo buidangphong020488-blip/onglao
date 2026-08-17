@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin@123';
-
-function checkAuth(req: NextRequest): boolean {
-  const token = req.headers.get('x-admin-token');
-  return token === ADMIN_PASSWORD;
-}
+import { requireAdmin } from '@/lib/authz';
 
 // GET: Danh sách câu mào đầu (phân trang + tìm kiếm)
 export async function GET(req: NextRequest) {
-  if (!checkAuth(req)) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  const auth = await requireAdmin(req);
+  if (!auth.authenticated) {
+    return auth.errorResponse || NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
   try {
     const { searchParams } = new URL(req.url);
@@ -50,8 +45,9 @@ export async function GET(req: NextRequest) {
 
 // POST: Thêm câu mào đầu mới
 export async function POST(req: NextRequest) {
-  if (!checkAuth(req)) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  const auth = await requireAdmin(req);
+  if (!auth.authenticated) {
+    return auth.errorResponse || NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
   try {
     const body = await req.json();
