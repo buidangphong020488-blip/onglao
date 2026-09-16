@@ -29,9 +29,9 @@ model User {
   userVoice        String?
   userVoiceStyle   String?
   laoPresetId      String?
+  canhQuays        CanhQuay[]
   chatSessions     ChatSession[]
   favorites        UserFavorite[]
-  canhQuays        CanhQuay[]
 }
 
 model KnowledgeBase {
@@ -82,7 +82,6 @@ model ChatSession {
   id             String        @id @default(uuid())
   userId         String?
   title          String        @default("Hội thoại mới")
-  isPinned       Boolean       @default(false)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   laoVoice       String?
@@ -102,10 +101,10 @@ model ChatMessage {
   sessionId    String
   role         MessageRole
   content      String
-  emotion      String?     @default("calm")
   audioUrl     String?
   voiceStyleId Int?
   createdAt    DateTime    @default(now())
+  emotion      String?     @default("calm")
   session      ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, createdAt])
@@ -146,32 +145,35 @@ model VoicePersona {
 }
 
 model PhanMucCanhQuay {
-  id          String     @id @default(uuid())
+  id          String     @id
   name        String     @unique
   description String?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+  frameType   String
+  isPublic    Boolean    @default(true)
+  userId      String?
   canhQuays   CanhQuay[]
 }
 
 model CanhQuay {
   id          String           @id @default(uuid())
-  userId      String?  
-  phanMucId   String?
   name        String
-  category    String?          @default("lao")
-  role        String?          @default("lao")
-  emotion     String?          @default("calm")
-  url         String?
-  poster      String?
   assetsNgang Json?
   assetsDoc   Json?
   linkedIds   Json?
-  isPublic    Boolean          @default(true)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
+  userId      String?
+  category    String?          @default("lao")
+  emotion     String?          @default("calm")
+  role        String?          @default("lao")
+  url         String?
+  poster      String?
+  phanMucId   String?
+  isPublic    Boolean          @default(true)
+  phanMuc     PhanMucCanhQuay? @relation(fields: [phanMucId], references: [id])
   user        User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  phanMuc     PhanMucCanhQuay? @relation(fields: [phanMucId], references: [id], onDelete: SetNull)
 
   @@index([isPublic, userId])
 }
@@ -181,10 +183,10 @@ model OpeningPhrase {
   text      String
   audioUrl  String?
   category  String?
-  tags      String[] @default([])
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  tags      String[] @default([])
 }
 
 model RenderHistory {
@@ -194,18 +196,18 @@ model RenderHistory {
   thumbnailUrl String?
   duration     Float?
   aspectRatio  String?  @default("16:9")
-  sessionId    String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  sessionId    String?
 }
 
 model GoiCanhQuay {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  aspect      String?  @default("ngang")
-  scenesData  Json
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(uuid())
+  name       String   @unique
+  aspect     String?  @default("ngang")
+  scenesData Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 enum Role {
