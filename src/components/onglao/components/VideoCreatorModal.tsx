@@ -1158,17 +1158,41 @@ const VideoCreatorModal = (props?: any) => {
                 const clipName = file.name.replace(/\.[^/.]+$/, "");
                 const clipNameLower = clipName.toLowerCase().trim();
                 
+                const normalizeImportCategoryName = (rawName: string): string => {
+                    if (!rawName) return 'Folder Video';
+                    const name = rawName.normalize('NFC').trim();
+                    if (/^(dọc|doc|ngang)\s*-\s*/i.test(name)) {
+                        return name.replace(/^(dọc|doc|ngang)\s*-\s*(.*)$/i, (_, prefix, rest) => {
+                            const normPrefix = prefix.toLowerCase().startsWith('d') ? 'Dọc' : 'Ngang';
+                            const capRest = rest.trim().split(/\s+/).map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                            return `${normPrefix} - ${capRest}`;
+                        });
+                    }
+                    if (/^ngang[\s_]+/i.test(name)) {
+                        const rest = name.replace(/^ngang[\s_]+/i, '').trim();
+                        const capRest = rest.split(/\s+/).map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                        return `Ngang - ${capRest}`;
+                    }
+                    if (/^(dọc|doc)[\s_]+/i.test(name)) {
+                        const rest = name.replace(/^(dọc|doc)[\s_]+/i, '').trim();
+                        const capRest = rest.split(/\s+/).map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                        return `Dọc - ${capRest}`;
+                    }
+                    return name;
+                };
+
                 // Trích xuất tên Folder chuẩn xác từ webkitRelativePath
                 const relPath = file.webkitRelativePath || file.name;
                 const pathParts = relPath.split(/[\/\\]/).filter(Boolean);
-                let categoryName = 'Folder Video';
+                let rawCategoryName = 'Folder Video';
 
                 if (pathParts.length >= 3) {
-                    categoryName = pathParts[pathParts.length - 2];
+                    rawCategoryName = pathParts[pathParts.length - 2];
                 } else if (pathParts.length === 2) {
-                    categoryName = pathParts[0];
+                    rawCategoryName = pathParts[0];
                 }
 
+                const categoryName = normalizeImportCategoryName(rawCategoryName);
                 const catNameLower = categoryName.toLowerCase().trim();
 
                 // KHỬ TRÙNG CLIP: Chỉ bỏ qua nếu clip CÙNG TÊN & CÙNG CHUYÊN MỤC đã tồn tại
