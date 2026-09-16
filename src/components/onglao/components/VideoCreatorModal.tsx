@@ -687,6 +687,62 @@ const VideoCreatorModal = (props?: any) => {
     const [folderUploadProgress, setFolderUploadProgress] = React.useState<{current: number; total: number; filename: string} | null>(null);
     const [pendingFolderFiles, setPendingFolderFiles] = React.useState<File[]>([]);
 
+    // PHÁT THỬ NHẠC NỀN (BGM AUDIO PREVIEW)
+    const [previewingBgmId, setPreviewingBgmId] = React.useState<string | null>(null);
+    const previewBgmAudioRef = React.useRef<HTMLAudioElement | null>(null);
+
+    const togglePlayBgmPreview = React.useCallback((item: { id?: string; name: string; url: string }) => {
+        const id = item.id || item.name;
+        if (previewingBgmId === id) {
+            if (previewBgmAudioRef.current) {
+                previewBgmAudioRef.current.pause();
+            }
+            setPreviewingBgmId(null);
+            return;
+        }
+
+        if (previewBgmAudioRef.current) {
+            previewBgmAudioRef.current.pause();
+            previewBgmAudioRef.current = null;
+        }
+
+        try {
+            const audio = new Audio(item.url);
+            audio.volume = Math.max(0.01, Math.min(1, bgmVolume ?? 0.5));
+            audio.onended = () => setPreviewingBgmId(null);
+            audio.onerror = (e) => {
+                console.warn('Lỗi phát thử nhạc nền:', e);
+                setPreviewingBgmId(null);
+            };
+            audio.play().catch(err => {
+                console.warn('Không thể tự động phát nhạc:', err);
+                setPreviewingBgmId(null);
+            });
+            previewBgmAudioRef.current = audio;
+            setPreviewingBgmId(id);
+        } catch (e) {
+            console.warn(e);
+            setPreviewingBgmId(null);
+        }
+    }, [previewingBgmId, bgmVolume]);
+
+    // Dừng nhạc nghe thử khi unmount
+    React.useEffect(() => {
+        return () => {
+            if (previewBgmAudioRef.current) {
+                previewBgmAudioRef.current.pause();
+                previewBgmAudioRef.current = null;
+            }
+        };
+    }, []);
+
+    // Cập nhật âm lượng khi slider thay đổi
+    React.useEffect(() => {
+        if (previewBgmAudioRef.current) {
+            previewBgmAudioRef.current.volume = Math.max(0.01, Math.min(1, bgmVolume ?? 0.5));
+        }
+    }, [bgmVolume]);
+
     // TÂM AN THÊM: STATE CHO PHÂN TRANG VÀ TÌM KIẾM TRONG KHO CẢNH QUAY
     const [librarySearchTerm, setLibrarySearchTerm] = React.useState('');
     const [showAddCatModal, setShowAddCatModal] = React.useState(false);
@@ -1792,18 +1848,33 @@ const VideoCreatorModal = (props?: any) => {
                                               <button onClick={() => fetchBgmAlbum()} className="text-[10px] text-slate-400 hover:text-white" title="Tải lại danh sách">↻</button>
                                           </div>
                                           <div className="flex flex-col gap-1 max-h-[120px] overflow-y-auto pr-1">
-                                              {bgmAlbum.map((item: any) => (
-                                                  <div key={item.id} className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer transition-all group ${bgmAudioData?.name === item.name ? 'bg-emerald-700/40 border border-emerald-500/40' : 'bg-slate-800/60 hover:bg-slate-700/60'}`}
-                                                      onClick={() => loadBgmFromAlbum(item)}>
-                                                      <span className="text-[10px] text-emerald-400">♪</span>
-                                                      <span className="flex-1 text-[11px] text-slate-200 font-medium truncate">{item.name}</span>
-                                                      {bgmAudioData?.name === item.name && <span className="text-[9px] text-emerald-400 font-bold">▶</span>}
-                                                      <button onClick={(e) => { e.stopPropagation(); removeFromBgmAlbum(item.id); }}
-                                                          className="opacity-0 group-hover:opacity-100 text-rose-400 hover:text-rose-300 p-0.5 rounded transition-all" title="Xóa khỏi album">
-                                                          <X size={11} />
-                                                      </button>
-                                                  </div>
-                                              ))}
+                                               {bgmAlbum.map((item: any) => {
+                                                   const isCurrent = bgmAudioData?.name === item.name;
+                                                   const isPlaying = previewingBgmId === (item.id || item.name);
+                                                   return (
+                                                       <div key={item.id} className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer transition-all group ${isCurrent ? 'bg-emerald-700/40 border border-emerald-500/40' : 'bg-slate-800/60 hover:bg-slate-700/60'}`}
+                                                           onClick={() => loadBgmFromAlbum(item)}>
+                                                           <span className="text-[10px] text-emerald-400">♪</span>
+                                                           <span className="flex-1 text-[11px] text-slate-200 font-medium truncate">{item.name}</span>
+                                                           <button
+                                                               type="button"
+                                                               onClick={(e) => {
+                                                                   e.stopPropagation();
+                                                                   togglePlayBgmPreview(item);
+                                                                   if (!isCurrent) loadBgmFromAlbum(item);
+                                                               }}
+                                                               className={`w-6 h-6 rounded-full flex items-center justify-center transition-all cursor-pointer shrink-0 ${isPlaying ? 'bg-emerald-500 text-slate-950 font-bold shadow' : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-slate-950'}`}
+                                                               title={isPlaying ? "Dừng nghe thử" : "Bấm nghe thử nhạc này"}
+                                                           >
+                                                               {isPlaying ? <Pause size={11} className="fill-current" /> : <Play size={11} className="fill-current ml-0.5" />}
+                                                           </button>
+                                                           <button onClick={(e) => { e.stopPropagation(); removeFromBgmAlbum(item.id); }}
+                                                               className="opacity-0 group-hover:opacity-100 text-rose-400 hover:text-rose-300 p-0.5 rounded transition-all shrink-0 cursor-pointer" title="Xóa khỏi album">
+                                                               <X size={11} />
+                                                           </button>
+                                                       </div>
+                                                   );
+                                               })}
                                           </div>
                                       </div>
                                   )}
@@ -1836,8 +1907,35 @@ const VideoCreatorModal = (props?: any) => {
                                   )}
                                   {bgmAudioData && !tempAiBgmData && (
                                      <div className="flex items-center justify-between w-full bg-emerald-900/30 border border-emerald-500/30 rounded-lg p-2.5 mt-1">
-                                       <span className="text-xs text-emerald-400 font-bold truncate pr-2 max-w-[200px]">{bgmAudioData.name}</span>
-                                       <button onClick={removeBgm} disabled={isExportingVideo || isPreparingVideoData} className="text-rose-400 hover:text-rose-300 bg-rose-500/10 p-1.5 rounded"><X size={14}/></button>
+                                       <span className="text-xs text-emerald-400 font-bold truncate pr-2 max-w-[190px]">{bgmAudioData.name}</span>
+                                       <div className="flex items-center gap-1.5">
+                                           <button 
+                                               type="button"
+                                               onClick={() => togglePlayBgmPreview(bgmAudioData)}
+                                               className={`px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer ${previewingBgmId === (bgmAudioData.id || bgmAudioData.name) ? 'bg-emerald-500 text-slate-950 shadow-sm' : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-slate-950'}`}
+                                               title={previewingBgmId === (bgmAudioData.id || bgmAudioData.name) ? "Dừng phát" : "Nghe thử nhạc này"}
+                                           >
+                                               {previewingBgmId === (bgmAudioData.id || bgmAudioData.name) ? (
+                                                   <><Pause size={11} className="fill-current" /> Dừng</>
+                                               ) : (
+                                                   <><Play size={11} className="fill-current ml-0.5" /> Nghe thử</>
+                                               )}
+                                           </button>
+                                           <button 
+                                               onClick={() => {
+                                                   if (previewingBgmId) {
+                                                       previewBgmAudioRef.current?.pause();
+                                                       setPreviewingBgmId(null);
+                                                   }
+                                                   removeBgm();
+                                               }} 
+                                               disabled={isExportingVideo || isPreparingVideoData} 
+                                               className="text-rose-400 hover:text-rose-300 bg-rose-500/10 p-1.5 rounded cursor-pointer" 
+                                               title="Gỡ nhạc nền"
+                                           >
+                                               <X size={14}/>
+                                           </button>
+                                       </div>
                                      </div>
                                   )}
                                    <div className={`w-full flex flex-col gap-1.5 ${!bgmAudioData && !tempAiBgmData ? 'opacity-30' : ''}`}>
@@ -2094,6 +2192,10 @@ const VideoCreatorModal = (props?: any) => {
                              src={renderedVideoUrl} 
                              className="w-full h-full object-contain bg-slate-950 pt-12"
                              onPlay={() => {
+                               if (previewBgmAudioRef.current) {
+                                   previewBgmAudioRef.current.pause();
+                                   setPreviewingBgmId(null);
+                               }
                                if (p.globalAudioRef?.current && !p.globalAudioRef.current.paused) {
                                  p.globalAudioRef.current.pause();
                                  p.setIsGlobalPlaying?.(false);
