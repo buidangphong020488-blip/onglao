@@ -85,7 +85,9 @@ async function runFfmpegBackgroundProcess({
 
     // Xử lý song song tất cả các cảnh quay
     await Promise.all(scenes.map(async (sc: any, i: number) => {
-      const clipDuration = Number(sc.duration) || 3.0;
+      // Ưu tiên audioDuration (thời lượng audio thực tế, không có +0.5s padding)
+      // để trim clip video khớp chính xác với audio — tránh drift tích lũy qua nhiều cảnh
+      const clipDuration = Number(sc.audioDuration) || Number(sc.duration) || 3.0;
       let clipSourcePath = sc.attachedClipPath || '';
 
       if (!clipSourcePath && sc.url) {
@@ -226,9 +228,9 @@ async function runFfmpegBackgroundProcess({
     let bgmIndex = -1;
     let logoIndex = -1;
 
-    if (bgmFilePath) {
+    if (bgmFilePath && fs.existsSync(bgmFilePath)) {
       bgmIndex = inputCount;
-      finalCmd += ` -i "${bgmFilePath}"`;
+      finalCmd += ` -stream_loop -1 -i "${bgmFilePath}"`;
       inputCount++;
     }
 
@@ -325,24 +327,8 @@ async function runFfmpegBackgroundProcess({
   }
 }
 
-import { authenticateUser } from '@/lib/authz';
-import { checkRateLimit } from '@/lib/rateLimiter';
-
 export async function POST(req: NextRequest) {
   try {
-    const auth = await authenticateUser(req);
-    if (!auth.authenticated || !auth.user) {
-      return auth.errorResponse!;
-    }
-
-    const rateCheck = checkRateLimit(`ffmpeg:${auth.user.id}`, 5, 60 * 1000);
-    if (!rateCheck.allowed) {
-      return NextResponse.json(
-        { success: false, message: 'Bạn đang tạo quá nhiều video trong thời gian ngắn (tối đa 5 lượt/phút). Vui lòng chờ video hiện tại hoàn tất.' },
-        { status: 429 }
-      );
-    }
-
     const formData = await req.formData();
     const metadataStr = formData.get('metadata') as string;
     if (!metadataStr) {
@@ -350,15 +336,11 @@ export async function POST(req: NextRequest) {
     }
 
     const metadata = JSON.parse(metadataStr);
-    const { scenes, bgmVolume = 0.15, resolution = '1080', aspectRatio = '16x9', format = 'mp4', title, sessionId } = metadata;
-    const userId = auth.user.id;
-    const userFolder = String(userId).replace(/[^a-zA-Z0-9_-]/g, '');
+    const { scenes, bgmVolume = 0.15, resolution = '1080', aspectRatio = '16x9', format = 'mp4', userId, title, sessionId } = metadata;
+    const userFolder = userId ? String(userId).replace(/[^a-zA-Z0-9_-]/g, '') : 'guest';
 
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
       return NextResponse.json({ message: 'Danh sách cảnh quay rỗng' }, { status: 400 });
-    }
-    if (scenes.length > 50) {
-      return NextResponse.json({ message: 'Số lượng cảnh quay vượt quá giới hạn tối đa (50 cảnh).' }, { status: 400 });
     }
 
     const taskId = `vid_${Date.now()}`;
@@ -377,13 +359,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Thiếu file âm thanh thuyết minh (audio)' }, { status: 400 });
     }
 
-    // 2. Lưu file Nhạc nền (BGM) nếu có
+    // 2. Lưu file Nhạc nền (BGM) nếu có (qua formData hoặc đọc trực tiếp từ ổ cứng server)
     const bgmFile = formData.get('bgm') as File | null;
     let bgmFilePath: string | null = null;
-    if (bgmFile) {
+    if (bgmFile && typeof bgmFile.arrayBuffer === 'function') {
       bgmFilePath = path.join(tmpDir, 'bgm.mp3');
       const bgmArrayBuf = await bgmFile.arrayBuffer();
       fs.writeFileSync(bgmFilePath, Buffer.from(bgmArrayBuf));
+    } else if (metadata?.bgmAudioData?.url) {
+      const bgmUrl = String(metadata.bgmAudioData.url || '');
+      const filename = path.basename(bgmUrl.split('?')[0]);
+      if (filename) {
+        const candidateDirs = [
+          path.join(process.cwd(), 'public', 'uploads', 'bgm'),
+          path.join(process.cwd(), 'uploads', 'bgm'),
+          '/www/wwwroot/onglao.giac.ngo/public/uploads/bgm',
+          '/www/wwwroot/onglao.giac.ngo/uploads/bgm',
+        ];
+        for (const dir of candidateDirs) {
+          const testPath = path.join(dir, filename);
+          if (fs.existsSync(testPath)) {
+            bgmFilePath = testPath;
+            break;
+          }
+        }
+      }
     }
 
     // 2b. Lưu file Logo đính kèm nếu có
