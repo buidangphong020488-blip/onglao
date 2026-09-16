@@ -597,9 +597,59 @@ const VideoCreatorModal = (props?: any) => {
     showVideoExportModal, setShowVideoExportModal, videoAspectRatio, setVideoAspectRatio, videoTransition, setVideoTransition, videoTransitionDuration, setVideoTransitionDuration, chatLaoTransform, setChatLaoTransform, showChatLaoControls, setShowChatLaoControls, videoResolution, setVideoResolution, subtitleSentenceCount, setSubtitleSentenceCount, subtitleColor, setSubtitleColor, subtitleYPos, setSubtitleYPos, subtitleScale, setSubtitleScale, isExportingVideo, setIsExportingVideo, isPreparingVideoData, setIsPreparingVideoData, renderedVideoBlob, setRenderedVideoBlob, renderedVideoUrl, setRenderedVideoUrl, isVideoFullscreen, setIsVideoFullscreen, isPreviewFullscreen, setIsPreviewFullscreen, videoExt, setVideoExt, exportTab, setExportTab, hoveredElement, setHoveredElement, enableIntro, setEnableIntro, introTitle, setIntroTitle, introSubtitle, setIntroSubtitle, enableOutroText, setEnableOutroText, outroText, setOutroText, isFullFrameMode, setIsFullFrameMode, EMOTIONS, FULLFRAME_PACKS, ffScenes, setFfScenes, ffSaveData, setFfSaveData, showFfSaveModal, setShowFfSaveModal, logoData, setLogoData, logoSettings, setLogoSettings, bgmAudioData, setBgmAudioData, bgmVolume, setBgmVolume, aiBgmPrompt, setAiBgmPrompt, isGeneratingBgm, setIsGeneratingBgm, tempAiBgmData, setTempAiBgmData, showPresetModal, setShowPresetModal, presetFormData, setPresetFormData, showDownloadMenu, setShowDownloadMenu, showShareMenu, setShowShareMenu, localFfPacks, setLocalFfPacks, localFfClips, setLocalFfClips, showSavePackModal, setShowSavePackModal, savePackData, setSavePackData, diagnosticReport, setShowDiagnostics, ffScenesRef, exportCanvasRef, logoFileInputRef, bgmFileInputRef, exportMediaRecorderRef, exportAudioCtxRef, laoExportVidRefs, userExportVidRefs, chatLaoDragInfo, handleChatLaoPointerDown, handleChatLaoPointerMove, handleChatLaoPointerUp, handleChatLaoWheel, handleLoadPack, handleDeleteFfPack, showUploadGuide, handleUploadFolder, handleCopyFfScenesCode, executeSaveFfPack, moveFfScene, handleSelectFfClipV2, handleDeleteFfClipV2, handleUploadLogo, removeLogo, handleGenerateAiBgm, removeBgm, handleUploadBgm, handleClearCache, handleSaveVideoConfig, startVideoExport, cancelVideoExport, resetVideoExport, toggleFullscreen, handleDownloadVideo, handleShareVideoSocial, showDiagnostics, handleDeletePreset, isGlobalPlaying, setIsGlobalPlaying, globalAudioRef, stopLipSync, emotion, setEmotion, spellCheckControllersRef, spellCheckTimeoutsRef, latestAutoPlayaiMsgIdRef, showAutoPilotModal, setShowAutoPilotModal, apTopics, setApTopics, apSettings, setApSettings, apState, setApState, handleFetchTrendingTopics, handleGenerateAITopic, handleImportScript, startAutoPilot, stopAutoPilot, isGeneratingAITopic, setIsGeneratingAITopic, customBgs, setCustomBgs, presetBackgrounds, activeBgId, setActiveBgId, DEFAULT_BGM_LIST, playingMsg, isLaoSpeakingSession, messages, handleConfirmPreset, handleUndoPosition, handleRedoPosition, handleCanvasPointerDown, handleCanvasPointerMove, handleCanvasPointerUp, handleCanvasPointerLeave, handleCanvasWheel, executeSaveFfClip, pastOffsets, futureOffsets, showSaveCharModal, setShowSaveCharModal, saveCharData, setSaveCharData, handleSaveCharacterToLocal, executeSaveCharacter, customCategories, handleAddCustomCategory, handleDeleteCustomCategory, handleDeleteLibraryClip, handleBatchDeleteLibraryClips,
     exportProgressPercent, exportProgressStatus,
     allCharacters, currentLaoPresetId, setCurrentLaoPresetId, currentUserPresetId, setCurrentUserPresetId,
-    renderHistory, setRenderHistory, deleteRenderHistoryItem
-  } = p;
+    renderHistory, setRenderHistory, deleteRenderHistoryItem,
+    // FIX #5: BGM Album DB
+    bgmAlbum, bgmAlbumLoading, fetchBgmAlbum, loadBgmFromAlbum, removeFromBgmAlbum,
+  } = p;    
 
+    const [selectedLibraryCategory, setSelectedLibraryCategory] = React.useState<string>('ALL');
+    const [stagedClips, setStagedClips] = React.useState<any[]>([]);
+    const [previewVideoUrl, setPreviewVideoUrl] = React.useState<string | null>(null);
+
+    // FIX #7: Hàm parse tên category theo format doc_*/ngang_* hoặc Dọc - */Ngang - * để filter theo khung hình
+    const parseCatFrameType = React.useCallback((catName: string): 'doc' | 'ngang' | null => {
+        if (!catName) return null;
+        const lower = catName.toLowerCase().trim();
+        if (
+            lower.startsWith('doc_') || 
+            lower.startsWith('dọc') || 
+            lower.includes(' dọc') || 
+            lower.includes('- dọc') || 
+            lower.includes('_doc') || 
+            lower.includes('9x16') || 
+            lower.includes('portrait')
+        ) return 'doc';
+        if (
+            lower.startsWith('ngang_') || 
+            lower.startsWith('ngang') || 
+            lower.includes(' ngang') || 
+            lower.includes('- ngang') || 
+            lower.includes('_ngang') || 
+            lower.includes('16x9') || 
+            lower.includes('landscape')
+        ) return 'ngang';
+        return null; // category không theo format → hiển thị luôn
+    }, []);
+
+    // FIX #7: Auto-reset selectedLibraryCategory khi videoAspectRatio thay đổi
+    React.useEffect(() => {
+        if (selectedLibraryCategory && selectedLibraryCategory !== 'ALL') {
+            const frameType = parseCatFrameType(selectedLibraryCategory);
+            if (frameType) {
+                const currentFrame = p.videoAspectRatio === '9x16' ? 'doc' : 'ngang';
+                if (frameType !== currentFrame) {
+                    setSelectedLibraryCategory('ALL');
+                }
+            }
+        }
+    }, [p.videoAspectRatio]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // FIX #5: Tự động fetch album nhạc từ server khi mở tab nhạc
+    React.useEffect(() => {
+        if (videoSubTab === 'logo_music' && fetchBgmAlbum) {
+            fetchBgmAlbum();
+        }
+    }, [videoSubTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const [showLibraryModal, setShowLibraryModal] = React.useState(false);
     const [showSaveSuccessModal, setShowSaveSuccessModal] = React.useState(false);
@@ -607,9 +657,7 @@ const VideoCreatorModal = (props?: any) => {
     
     const [saveErrorModal, setSaveErrorModal] = React.useState<string | null>(null);
     const [targetPickerSceneId, setTargetPickerSceneId] = React.useState<string | null>(null);
-    const [selectedLibraryCategory, setSelectedLibraryCategory] = React.useState<string>('ALL');
-    const [stagedClips, setStagedClips] = React.useState<any[]>([]);
-    const [previewVideoUrl, setPreviewVideoUrl] = React.useState<string | null>(null);
+    
         const getSceneVideoDisplayName = (scene: any) => {
         if (scene.name && !scene.name.startsWith('clip_') && !scene.name.startsWith('ff_clip_')) {
             return scene.name;
@@ -636,6 +684,7 @@ const VideoCreatorModal = (props?: any) => {
     const libraryFolderInputRef = React.useRef<HTMLInputElement>(null);
     const [showFolderScopeModal, setShowFolderScopeModal] = React.useState(false);
     const [folderTargetScope, setFolderTargetScope] = React.useState<'public' | 'private'>('public');
+    const [folderUploadProgress, setFolderUploadProgress] = React.useState<{current: number; total: number; filename: string} | null>(null);
     const [pendingFolderFiles, setPendingFolderFiles] = React.useState<File[]>([]);
 
     // TÂM AN THÊM: STATE CHO PHÂN TRANG VÀ TÌM KIẾM TRONG KHO CẢNH QUAY
@@ -1093,8 +1142,8 @@ const VideoCreatorModal = (props?: any) => {
                     const catKey = (c.category || '').toLowerCase().trim();
                     const nameKey = (c.name || '').toLowerCase().trim();
                     if (nameKey) {
+                        // Chỉ lưu key theo CẶP category::name để tránh bỏ nhầm clip cùng tên ở folder khác
                         existingSignatures.add(`${catKey}::${nameKey}`);
-                        existingSignatures.add(nameKey);
                     }
                 });
             }
@@ -1122,13 +1171,14 @@ const VideoCreatorModal = (props?: any) => {
 
                 const catNameLower = categoryName.toLowerCase().trim();
 
-                // KHỬ TRÙNG CLIP: Nếu clip cùng tên đã tồn tại trong Chuyên mục này -> Bỏ qua
-                if (existingSignatures.has(`${catNameLower}::${clipNameLower}`) || existingSignatures.has(clipNameLower)) {
+                // KHỬ TRÙNG CLIP: Chỉ bỏ qua nếu clip CÙNG TÊN & CÙNG CHUYÊN MỤC đã tồn tại
+                if (existingSignatures.has(`${catNameLower}::${clipNameLower}`)) {
                     skippedCount++;
                     continue;
                 }
 
-                if (p.showToastMsg) p.showToastMsg(`Đang tải file video [${addedCount + 1}/${files.length}] lên ổ cứng VPS: "${file.name}"...`, 'loading', 0);
+                setFolderUploadProgress({ current: i + 1, total: files.length, filename: file.name });
+                if (p.showToastMsg) p.showToastMsg(`⏳ Đang upload [${i + 1}/${files.length}]: "${file.name}" (folder: ${categoryName})`, 'loading', 0);
 
                 // Tự động gộp Chuyên mục mới vào CSDL PostgreSQL nếu chưa tồn tại
                 if (!createdCategories.has(categoryName)) {
@@ -1213,10 +1263,12 @@ const VideoCreatorModal = (props?: any) => {
             }
 
             setPendingFolderFiles([]);
+            setFolderUploadProgress(null);
             const msg = `🎉 Nạp thành công ${addedCount} clip mới vào Kho ${isPublic ? 'Chung' : 'Riêng'} trên VPS!` + (skippedCount > 0 ? ` (Đã bỏ qua ${skippedCount} clip trùng)` : '');
-            if (p.showToastMsg) p.showToastMsg(msg, 'success', 6000);
+            if (p.showToastMsg) p.showToastMsg(msg, 'success', 8000);
         } catch (err: any) {
             console.error('Lỗi nạp folder clip:', err);
+            setFolderUploadProgress(null);
             if (p.showToastMsg) p.showToastMsg('Có lỗi khi nạp các video từ thư mục!', 'error');
         }
     };
@@ -1684,7 +1736,7 @@ const VideoCreatorModal = (props?: any) => {
                                <div className="flex flex-col gap-3 bg-slate-950 p-3 rounded-xl border border-white/10">
                                   <div className="flex gap-2 w-full">
                                      <input type="file" ref={bgmFileInputRef} className="hidden" accept="audio/*" onChange={handleUploadBgm} />
-                                     <button onClick={() => bgmFileInputRef.current?.click()} disabled={isExportingVideo || isPreparingVideoData || isGeneratingBgm} className="flex-1 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-bold py-2 px-3 rounded-lg border border-white/10 flex justify-center items-center gap-1.5 transition-all">
+                                     <button onClick={() => { bgmFileInputRef.current?.click(); }} disabled={isExportingVideo || isPreparingVideoData || isGeneratingBgm} className="flex-1 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-bold py-2 px-3 rounded-lg border border-white/10 flex justify-center items-center gap-1.5 transition-all">
                                        <Upload size={14} /> Tải MP3
                                      </button>
                                      <select 
@@ -1705,6 +1757,36 @@ const VideoCreatorModal = (props?: any) => {
                                         ))}
                                      </select>
                                   </div>
+
+                                  {/* FIX #5: Album nhạc đã tải lên server */}
+                                  {Array.isArray(bgmAlbum) && bgmAlbum.length > 0 && (
+                                      <div className="flex flex-col gap-1">
+                                          <div className="flex items-center justify-between">
+                                              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1">
+                                                  <Music4 size={10} /> Album Đã Lưu ({bgmAlbum.length})
+                                              </span>
+                                              <button onClick={() => fetchBgmAlbum()} className="text-[10px] text-slate-400 hover:text-white" title="Tải lại danh sách">↻</button>
+                                          </div>
+                                          <div className="flex flex-col gap-1 max-h-[120px] overflow-y-auto pr-1">
+                                              {bgmAlbum.map((item: any) => (
+                                                  <div key={item.id} className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer transition-all group ${bgmAudioData?.name === item.name ? 'bg-emerald-700/40 border border-emerald-500/40' : 'bg-slate-800/60 hover:bg-slate-700/60'}`}
+                                                      onClick={() => loadBgmFromAlbum(item)}>
+                                                      <span className="text-[10px] text-emerald-400">♪</span>
+                                                      <span className="flex-1 text-[11px] text-slate-200 font-medium truncate">{item.name}</span>
+                                                      {bgmAudioData?.name === item.name && <span className="text-[9px] text-emerald-400 font-bold">▶</span>}
+                                                      <button onClick={(e) => { e.stopPropagation(); removeFromBgmAlbum(item.id); }}
+                                                          className="opacity-0 group-hover:opacity-100 text-rose-400 hover:text-rose-300 p-0.5 rounded transition-all" title="Xóa khỏi album">
+                                                          <X size={11} />
+                                                      </button>
+                                                  </div>
+                                              ))}
+                                          </div>
+                                      </div>
+                                  )}
+                                  {bgmAlbumLoading && (
+                                      <span className="text-[10px] text-slate-500 flex items-center gap-1">⏳ Đang tải album...</span>
+                                  )}
+
                                   <div className="flex w-full relative mt-1">
                                      <input type="text" value={aiBgmPrompt} onChange={(e: any) => setAiBgmPrompt(e.target.value)} disabled={isExportingVideo || isPreparingVideoData || isGeneratingBgm} placeholder="AI tự tạo nhạc thiền 30s, tiếng nước chảy..." className="w-full bg-slate-800 border border-white/10 text-xs px-3 py-2 rounded-l-lg outline-none text-white placeholder:text-slate-500 focus:border-emerald-500" />
                                      <button onClick={handleGenerateAiBgm} disabled={isExportingVideo || isPreparingVideoData || isGeneratingBgm || !aiBgmPrompt.trim()} className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 px-4 rounded-r-lg disabled:opacity-50 flex items-center justify-center gap-1.5 transition-all whitespace-nowrap">
@@ -2559,7 +2641,16 @@ const VideoCreatorModal = (props?: any) => {
                                         </button>
                                     </div>
 
-                                    {Array.isArray(p.customCategories) && p.customCategories.filter((cat: any) => cat.isPublic !== false && !(typeof cat === 'object' && cat.userId)).map((cat: any) => {
+                                    {Array.isArray(p.customCategories) && p.customCategories
+                                        .filter((cat: any) => cat.isPublic !== false && !(typeof cat === 'object' && cat.userId))
+                                        .filter((cat: any) => {
+                                            // FIX #7: Chỉ hiện category đúng khung hình hiện tại
+                                            const cn = typeof cat === 'string' ? cat : (cat.name || cat.id || '');
+                                            const ft = parseCatFrameType(cn);
+                                            if (!ft) return true;
+                                            return ft === (p.videoAspectRatio === '9x16' ? 'doc' : 'ngang');
+                                        })
+                                        .map((cat: any) => {
                                         const catName = typeof cat === 'string' ? cat : (cat.name || cat.id);
                                         const catId = typeof cat === 'string' ? cat : (cat.id || cat.name);
                                         const isSelected = selectedLibraryCategory === catName || selectedLibraryCategory === catId;
@@ -2895,6 +2986,10 @@ const VideoCreatorModal = (props?: any) => {
                                 Đã phát hiện tổng cộng <strong className="text-emerald-400 font-bold">{pendingFolderFiles.length} video clips</strong> từ các thư mục. Mỗi thư mục con sẽ tự động làm 1 <strong>Chuyên Mục</strong> tương ứng.
                             </p>
 
+                            <div className="bg-emerald-950/40 border border-emerald-500/20 rounded-xl p-2.5 text-[11px] text-emerald-200 leading-relaxed">
+                                💡 <strong>Chuẩn Xưởng Phim:</strong> Thư mục nên đặt tên <code className="text-emerald-300 font-bold">Dọc - [Nhân vật]</code> hoặc <code className="text-indigo-300 font-bold">Ngang - [Bối cảnh]</code>; các file bên trong đặt tên <code className="text-amber-300">con_buon</code>, <code className="text-emerald-300">con_vui</code>, <code className="text-slate-300">con_binhthuong</code>, <code className="text-orange-300">lao_vui</code>, <code className="text-purple-300">outro</code> để tự động ghép kịch bản 100%.
+                            </div>
+
                             {/* HIỂN THỊ DANH SÁCH CÁC SUBFOLDER PHÁT HIỆN ĐƯỢC */}
                             {(() => {
                                 const folderMap = new Map<string, number>();
@@ -3015,8 +3110,53 @@ const VideoCreatorModal = (props?: any) => {
                                 <X size={18} />
                             </button>
                         </div>
+
+                        {/* HƯỚNG DẪN ĐẶT TÊN CHUẨN XƯỞNG PHIM */}
+                        <div className="bg-slate-950/80 border border-emerald-500/25 rounded-xl p-3.5 flex flex-col gap-2 text-xs">
+                            <div className="font-bold text-amber-300 flex items-center gap-1.5 text-xs">
+                                💡 Hướng dẫn đặt tên đúng Format Xưởng Phim:
+                            </div>
+                            <div className="flex flex-col gap-1.5 text-[11px] leading-relaxed text-slate-300">
+                                <div className="flex items-start gap-1.5">
+                                    <span className="text-emerald-400 font-bold shrink-0">• Video Dọc (9:16):</span>
+                                    <span>Đặt tên bắt đầu bằng <strong className="text-emerald-300 font-mono">Dọc - [Tên nhân vật / Bối cảnh]</strong> (VD: <em>Dọc - Ông Cụ 85t</em>, <em>Dọc - Trai 40t</em>, <em>Dọc - Gái Công Sở 30t</em>).</span>
+                                </div>
+                                <div className="flex items-start gap-1.5">
+                                    <span className="text-indigo-400 font-bold shrink-0">• Video Ngang (16:9):</span>
+                                    <span>Đặt tên bắt đầu bằng <strong className="text-indigo-300 font-mono">Ngang - [Tên nhân vật / Bối cảnh]</strong> (VD: <em>Ngang - Thiền Đường</em>, <em>Ngang - Chùa Cổ</em>).</span>
+                                </div>
+                                <div className="mt-1 pt-1.5 border-t border-white/5 flex flex-col gap-1 text-slate-400 text-[10px]">
+                                    <span className="font-semibold text-amber-300/90">🎬 Quy ước 5 file clip chuẩn khi nạp vào thư mục:</span>
+                                    <span className="font-mono text-slate-300">
+                                        <span className="text-rose-400 font-bold">con_buon</span> • <span className="text-emerald-400 font-bold">con_vui</span> • <span className="text-slate-300 font-bold">con_binhthuong</span> • <span className="text-amber-400 font-bold">lao_vui</span> • <span className="text-purple-400 font-bold">outro</span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="flex flex-col gap-2">
-                            <label className="text-xs text-slate-400 font-semibold">Tên chuyên mục mới:</label>
+                            <div className="flex justify-between items-center">
+                                <label className="text-xs text-slate-400 font-semibold">Tên chuyên mục mới:</label>
+                                {/* CÁC NÚT CHỌN NHANH TIỀN TỐ */}
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => setNewCatName('Dọc - ' + (newCatName.replace(/^(Dọc|Ngang)\s*-\s*/i, '')))}
+                                        className="px-2 py-0.5 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 rounded text-[10px] font-bold transition-all"
+                                        title="Chèn tiền tố Dọc - (9:16)"
+                                    >
+                                        📱 Dọc -
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setNewCatName('Ngang - ' + (newCatName.replace(/^(Dọc|Ngang)\s*-\s*/i, '')))}
+                                        className="px-2 py-0.5 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-500/40 text-indigo-300 rounded text-[10px] font-bold transition-all"
+                                        title="Chèn tiền tố Ngang - (16:9)"
+                                    >
+                                        🖥️ Ngang -
+                                    </button>
+                                </div>
+                            </div>
                             <input
                                 type="text"
                                 value={newCatName}
@@ -3024,7 +3164,7 @@ const VideoCreatorModal = (props?: any) => {
                                 onKeyDown={e => {
                                     if (e.key === 'Enter') handleConfirmAddCategory();
                                 }}
-                                placeholder="VD: Bà lão 90 tuổi, Chú bé 6 tuổi..."
+                                placeholder="VD: Dọc - Ông Cụ 85t, Dọc - Trai 40t..."
                                 autoFocus
                                 className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-emerald-500 font-medium"
                             />
